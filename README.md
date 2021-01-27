@@ -1,11 +1,6 @@
-## My Project
+## AWS Container Blogs -- Maelstrom project
 
-TODO: Fill this README out!
-
-Be sure to:
-
-* Change the title in this README
-* Edit your repository description on GitHub
+This repository is an accompaniment to blog posts  published on the [AWS Containers Blog](https://aws.amazon.com/blogs/containers/).
 
 ## Security
 
