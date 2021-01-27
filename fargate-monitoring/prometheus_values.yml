@@ -764,9 +764,7 @@ server:
   ## Node labels for Prometheus server pod assignment
   ## Ref: https://kubernetes.io/docs/user-guide/node-selection/
   ##
-  nodeSelector: {
-      node: "monitoring"
-    }
+  nodeSelector: {}
 
   ## Pod affinity
   ##
