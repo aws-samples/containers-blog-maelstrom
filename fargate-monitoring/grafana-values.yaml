@@ -200,11 +200,11 @@
   ##
   persistence:
     type: pvc
-    enabled: false
+    enabled: true
     storageClassName: prometheus
     accessModes:
       - ReadWriteOnce
-    size: 10Gi
+    size: 5Gi
     # annotations: {}
     finalizers:
       - kubernetes.io/pvc-protection
@@ -238,7 +238,7 @@
 
   # Administrator credentials when not using an existing secret (see below)
   adminUser: admin
-  adminPassword: jaisai
+  adminPassword: SuperSecretPassw@rd99
 
   # Use an existing secret for the admin user.
   admin:
