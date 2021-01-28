@@ -113,15 +113,12 @@
   service:
     type: LoadBalancer
     ports:
-    port: 443
+    port: 80
     targetPort: 3000
-      # targetPort: 4181 To be used with a proxy extraContainer
     annotations:
-       #Working set
-      #service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:682651395775:certificate/2bf2988f-7d08-43f4-99d8-51069b2d22f9
       service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
       service.beta.kubernetes.io/aws-load-balancer-ssl-ports: '*'
-       ########
+
     labels: {}
     portName: service
 
