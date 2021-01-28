@@ -308,17 +308,11 @@
     datasources.yaml:
       apiVersion: 1
       datasources:
-      - name: source1
+      - name: prometheus
         type: prometheus
-        url: http://aa13d804052a211eab1ab0238712e05b-2100820305.us-west-2.elb.amazonaws.com
+        url: http://prometheus-server
         access: proxy
         isDefault: true
-        editable: true
-      - name: source2
-        type: prometheus
-        url: http://a40f968b3505a11eaaccc02bd7b6ccc7-80680278.us-west-2.elb.amazonaws.com
-        access: proxy
-        #isDefault: true
         editable: true
 
   ## Configure notifiers
@@ -451,7 +445,7 @@
   smtp:
     # `existingSecret` is a reference to an existing secret containing the smtp configuration
     # for Grafana.
-    # enabled: true
+    enabled: true
     # host: "smtp.gmail.com:587"
     # user: "templast121@gmail.com"
     # password: "temp@121"
