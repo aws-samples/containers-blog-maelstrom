@@ -132,13 +132,13 @@ printf "Downloading the IAM policy document..."
 curl -Ss https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v2_ga/docs/install/iam_policy.json -o iam-policy.json
 printf "done\n"
 
-print "Creating IAM policy..."
+printf "Creating IAM policy..."
 aws iam create-policy \
   --policy-name AWSLoadBalancerControllerIAMPolicy \
   --policy-document file://iam-policy.json
-print "done\n"
+printf "done\n"
 
-print "Creating service account..."
+printf "Creating service account..."
 eksctl create iamserviceaccount \
   --attach-policy-arn=arn:aws:iam::$JOF_ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy \
   --cluster=$JOF_EKS_CLUSTER \
@@ -147,9 +147,9 @@ eksctl create iamserviceaccount \
   --override-existing-serviceaccounts \
   --region $JOF_REGION \
   --approve
-print "done\n"
+printf "done\n"
 
-print "Installing AWS Load Balancer Controller"
+printf "Installing AWS Load Balancer Controller"
 helm repo add eks https://aws.github.io/eks-charts
 helm repo update &>/dev/null
 
