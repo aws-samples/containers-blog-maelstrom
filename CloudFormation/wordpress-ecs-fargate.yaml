@@ -6,7 +6,7 @@
     VPCName:
       Description: The name of the VPC being created.
       Type: String
-      Default: "Base infrastructure for running Wordpress on Fargate"
+      Default: "Wordpress on Fargate base infrastructure"
 
   Mappings:
     SubnetConfig:
