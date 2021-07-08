@@ -129,7 +129,7 @@ eksctl utils associate-iam-oidc-provider \
 printf "done\n"
 
 printf "Downloading the IAM policy document..."
-curl -Ss https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v2_ga/docs/install/iam_policy.json -o iam-policy.json
+curl -Ss https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.0/docs/install/iam_policy.json -o iam-policy.json
 printf "done\n"
 
 printf "Creating IAM policy..."
