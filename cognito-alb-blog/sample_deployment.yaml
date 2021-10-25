@@ -35,9 +35,9 @@ spec:
     spec:
       containers:
         - name: sample-ui
-          image: 000474600478.dkr.ecr.us-east-1.amazonaws.com/sample-ui:latest
+          image: IMAGE_URI
           env:
-            - name: AWS_REGION
+            - name: COK_AWS_REGION
               value: "us-east-1"          
           ports:
             - containerPort: 80
