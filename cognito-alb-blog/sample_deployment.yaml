@@ -7,7 +7,7 @@ metadata:
     app: sample-ui
     tier: frontend
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   ports:
     - port: 80
       protocol: TCP
@@ -38,7 +38,6 @@ spec:
           image: IMAGE_URI
           env:
             - name: AWS_REGION
-              value: "COK_AWS_REGION"          
+              value: "COK_AWS_REGION"       
           ports:
             - containerPort: 80
----
