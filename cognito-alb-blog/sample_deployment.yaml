@@ -37,8 +37,7 @@ spec:
         - name: sample-ui
           image: IMAGE_URI
           env:
-            - name: COK_AWS_REGION
-              value: "us-east-1"          
+            - name: AWS_REGION
+              value: "COK_AWS_REGION"       
           ports:
             - containerPort: 80
----
