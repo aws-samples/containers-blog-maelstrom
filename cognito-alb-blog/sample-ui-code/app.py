@@ -24,7 +24,7 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 def index():
     response = ""
     region = os.environ.get('AWS_REGION')
-    response +='<body text="blue" bgcolor="yellow"><head> <title>Yelb Sample Application </title> </head>'
+    response +='<body text="blue" bgcolor="white"><head> <title>Yelb Sample Application </title> </head>'
     response += "<h2>User Identity Data from ALB / Cognito Integrated Authentication </h2> <hr/>"
     
     try:
@@ -53,11 +53,10 @@ def index():
       payload = jwt.decode(encoded_jwt, pub_key, algorithms=['ES256'])
       sub = payload['sub']
       email = payload['email']
-      phone_number=payload['phone_number']
       response += '<p style="color:green;"><b>'
       response += "sub={}  <br />".format(sub)
       response += "email={} <br />".format(email)
-      response += "phone_number={} </b></p>".format(phone_number)
+
       
       
     except Exception as e:
