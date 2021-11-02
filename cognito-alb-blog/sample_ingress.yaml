@@ -15,8 +15,8 @@ metadata:
     alb.ingress.kubernetes.io/auth-session-timeout: '3600'
     alb.ingress.kubernetes.io/auth-session-cookie: AWSELBAuthSessionCookie
     alb.ingress.kubernetes.io/auth-on-unauthenticated-request: authenticate
-    alb.ingress.kubernetes.io/auth-idp-cognito: '{"UserPoolArn": "arn:aws:cognito-idp:us-east-1:000474600478:userpool/us-east-1_pdX1apYmo","UserPoolClientId":"2npsi27vlg51fq3en7ceepp6dm","UserPoolDomain":"sampleec2-user.auth.us-east-1.amazoncognito.com"}'
-    alb.ingress.kubernetes.io/certificate-arn:    arn:aws:acm:us-east-1:000474600478:certificate/389e0106-e451-4c45-a3e9-48218b618475
+    alb.ingress.kubernetes.io/auth-idp-cognito: '{"UserPoolArn": "arn:aws:cognito-idp:us-east-1:000XXXXXXXXXXX:userpool/us-east-1_pdX1apYmo","UserPoolClientId":"2npsi27vlg51fq3en7ceepp6dm","UserPoolDomain":"sampleec2-user.auth.us-east-1.amazoncognito.com"}'
+    alb.ingress.kubernetes.io/certificate-arn:    arn:aws:acm:us-east-1:000XXXXXXXXXXXX:certificate/389e0106-e451-4c45-a3e9-48218b618475
 spec:
   rules:
     - host: sample.cloudtechconsulting.in
