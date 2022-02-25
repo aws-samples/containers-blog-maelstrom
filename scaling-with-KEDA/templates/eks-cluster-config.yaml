@@ -1,0 +1,25 @@
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: {{CW_KEDA_CLUSTER}}
+  region: {{CW_AWS_REGION}}
+  version: '1.21'
+iam:
+  withOIDC: true
+  serviceAccounts:
+  - metadata:
+      name: keda-operator
+      namespace: keda
+      labels: {aws-usage: "application"}
+    attachPolicyARNs:
+    - "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
+managedNodeGroups:
+- name: default-ng
+  minSize: 1
+  maxSize: 3
+  desiredCapacity: 2
+  iam:
+    withAddonPolicies:
+      certManager: true
+      cloudWatch: true

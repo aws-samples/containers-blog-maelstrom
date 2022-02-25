@@ -19,6 +19,11 @@ if [ -z "$CW_HO11Y_IMAGE" ]; then
   exit 1
 fi
 
+sed -e "s|{{CW_KEDA_CLUSTER}}|$CW_KEDA_CLUSTER|g" \
+  -e "s|{{CW_AWS_REGION}}|$CW_AWS_REGION|g" \
+    ./templates/eks-cluster-config.yaml \
+  > ./build/eks-cluster-config.yaml
+
 sed -e "s|{{HOLLY_IMAGE}}|$CW_HO11Y_IMAGE|g" \
     ./templates/ho11y-app.yaml \
   > ./build/ho11y-app.yaml
