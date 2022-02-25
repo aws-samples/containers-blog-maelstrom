@@ -101,9 +101,9 @@ data:
     exporters:
       awsemf:
         namespace: AWSObservability/Keda/PrometheusMetrics
-        log_group_name: '/aws/eks/CW-KEDA-CLUSTER-3/keda/prometheus'
+        log_group_name: '/aws/eks/{{CW_KEDA_CLUSTER}}/keda/prometheus'
         log_stream_name: "AWSObservability/KedaLogStream"
-        region: 'us-west-2'
+        region: {{CW_AWS_REGION}}
         resource_to_telemetry_conversion:
           enabled: true
         dimension_rollup_option: NoDimensionRollup

@@ -25,6 +25,6 @@ spec:
         metricName: ho11y_total
         targetMetricValue: '1'
         minMetricValue: '0'
-        awsRegion: "us-west-2"
+        awsRegion: "{{CW_AWS_REGION}}"
         identityOwner: operator
 ---
