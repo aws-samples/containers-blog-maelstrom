@@ -24,9 +24,9 @@ spec:
           - --name
           - cw
           - --region
-          - us-west-2
+          - {{CW_AWS_REGION}}
           - --host
-          - monitoring.us-west-2.amazonaws.com
+          - monitoring.{{CW_AWS_REGION}}.amazonaws.com
         ports:
           - containerPort: 8080
 ---
