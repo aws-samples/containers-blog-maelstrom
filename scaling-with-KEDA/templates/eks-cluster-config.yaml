@@ -5,6 +5,9 @@ metadata:
   name: {{CW_KEDA_CLUSTER}}
   region: {{CW_AWS_REGION}}
   version: '1.21'
+
+availabilityZones: ["{{CW_AWS_REGION}}a", "{{CW_AWS_REGION}}b", "{{CW_AWS_REGION}}c"]
+
 iam:
   withOIDC: true
   serviceAccounts:
