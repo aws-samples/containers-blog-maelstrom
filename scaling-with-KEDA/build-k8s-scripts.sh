@@ -30,8 +30,8 @@ sed -e "s|{{HOLLY_IMAGE}}|$CW_HO11Y_IMAGE|g" \
 
 sed -e "s|{{CW_KEDA_CLUSTER}}|$CW_KEDA_CLUSTER|g" \
   -e "s|{{CW_AWS_REGION}}|$CW_AWS_REGION|g" \
-    ./templates/cw-eks-adot-prometheus-daemonset.yaml \
-  > ./build/cw-eks-adot-prometheus-daemonset.yaml
+    ./templates/cw-eks-adot-prometheus-deployment.yaml \
+  > ./build/cw-eks-adot-prometheus-deployment.yaml
 
 sed -e "s|{{CW_AWS_REGION}}|$CW_AWS_REGION|g" \
     ./templates/keda-sigv4.yaml \
