@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+   name: management
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: mem-cpu-demo
+  namespace: management
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: storage-ns1
+  namespace: management
+spec:
+  hard:
+    storagens2.storageclass.storage.k8s.io/requests.storage: 0
