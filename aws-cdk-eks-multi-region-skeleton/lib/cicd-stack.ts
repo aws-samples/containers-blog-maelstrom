@@ -13,8 +13,8 @@ export class CicdStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props: CicdProps) {
         super(scope, id, props);
 
-        const primaryRegion = 'us-east-2';
-        const secondaryRegion = 'us-west-2';
+        // const primaryRegion = 'us-east-2';
+        // const secondaryRegion = 'us-west-2';
 
         const helloPyRepo = new codecommit.Repository(this, 'hello-py-for-demogo', {
             repositoryName: `hello-py-${cdk.Stack.of(this).region}`
@@ -29,8 +29,8 @@ export class CicdStack extends cdk.Stack {
         const buildForECR = codeToECRspec(this, ecrForMainRegion.repositoryUri);
         ecrForMainRegion.grantPullPush(buildForECR.role!);
         
-        const deployToMainCluster = deployToEKSspec(this, primaryRegion, props.firstRegionCluster, ecrForMainRegion, props.firstRegionRole);
-        const deployTo2ndCluster = deployToEKSspec(this, secondaryRegion, props.secondRegionCluster, ecrForMainRegion, props.secondRegionRole);
+        const deployToMainCluster = deployToEKSspec(this, props.firstRegion, props.firstRegionCluster, ecrForMainRegion, props.firstRegionRole);
+        const deployTo2ndCluster = deployToEKSspec(this, props.secondRegion, props.secondRegionCluster, ecrForMainRegion, props.secondRegionRole);
 
 
         const sourceOutput = new codepipeline.Artifact();
