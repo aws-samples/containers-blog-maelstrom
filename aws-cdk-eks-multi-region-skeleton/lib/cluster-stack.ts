@@ -13,7 +13,9 @@ export interface CicdProps extends cdk.StackProps {
   firstRegionCluster: eks.Cluster,
   secondRegionCluster: eks.Cluster,
   firstRegionRole: iam.Role,
-  secondRegionRole: iam.Role
+  secondRegionRole: iam.Role,
+  firstRegion: string,
+  secondRegion: string
 }
 
 export class ClusterStack extends cdk.Stack {
