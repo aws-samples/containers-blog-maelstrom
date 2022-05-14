@@ -27,7 +27,8 @@ export class ClusterStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const primaryRegion = 'us-east-2';
+    // const primaryRegion = 'us-east-2';
+    const primaryRegion = props.firstRegion;
 
     const clusterAdmin = new iam.Role(this, 'AdminRole', {
       assumedBy: new iam.AccountRootPrincipal()
