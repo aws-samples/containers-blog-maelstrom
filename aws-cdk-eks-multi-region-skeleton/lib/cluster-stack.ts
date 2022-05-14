@@ -9,6 +9,12 @@ export interface EksProps extends cdk.StackProps {
   cluster: eks.Cluster
 }
 
+export interface ClusterProps extends cdk.StackProps {
+  onDemandInstanceType: string,
+  spotInstanceType: string,
+  primaryRegion: string
+}
+
 export interface CicdProps extends cdk.StackProps {
   firstRegionCluster: eks.Cluster,
   secondRegionCluster: eks.Cluster,
@@ -24,11 +30,8 @@ export class ClusterStack extends cdk.Stack {
   public readonly firstRegionRole: iam.Role;
   public readonly secondRegionRole: iam.Role;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: ClusterProps) {
     super(scope, id, props);
-
-    // const primaryRegion = 'us-east-2';
-    const primaryRegion = props.firstRegion;
 
     const clusterAdmin = new iam.Role(this, 'AdminRole', {
       assumedBy: new iam.AccountRootPrincipal()
@@ -39,26 +42,22 @@ export class ClusterStack extends cdk.Stack {
         mastersRole: clusterAdmin,
         version: eks.KubernetesVersion.V1_21,
         defaultCapacity: 2,
-        defaultCapacityInstance: cdk.Stack.of(this).region==primaryRegion ?  
-                                  new ec2.InstanceType('r5.2xlarge') : new ec2.InstanceType('m5.2xlarge')
-
+        defaultCapacityInstance: new ec2.InstanceType(props.onDemandInstanceType)
     });
 
     cluster.addAutoScalingGroupCapacity('spot-group', {
-      instanceType: new ec2.InstanceType('m5.xlarge'),
-      spotPrice: cdk.Stack.of(this).region==primaryRegion ? '0.248' : '0.192'
+      instanceType: new ec2.InstanceType(props.spotInstanceType),
+      spotPrice: cdk.Stack.of(this).region==props.primaryRegion ? '0.248' : '0.192'
     });
 
     this.cluster = cluster;
 
-    if (cdk.Stack.of(this).region==primaryRegion) {
+    if (cdk.Stack.of(this).region==props.primaryRegion) {
         this.firstRegionRole = createDeployRole(this, `for-1st-region`, cluster);
     }
     else {
         this.secondRegionRole = createDeployRole(this, `for-2nd-region`, cluster);
     }
-
-
   }
 }
 
