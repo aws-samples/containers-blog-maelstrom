@@ -15,13 +15,24 @@ export class ContainerStack extends cdk.Stack {
     readYamlFromDir(commonFolder, cluster);
     readYamlFromDir(regionFolder, cluster);
 
-    cluster.addHelmChart(`flux`, {
-      repository: 'https://charts.fluxcd.io',
-      chart: 'flux',
-      release: 'flux',
+    cluster.addHelmChart("Prometheus", {
+      chart: "prometheus",
+      release: "prometheus",
+      version: "14.6.0",
+      repository: "https://prometheus-community.github.io/helm-charts",
       values: {
-        'git.url':'git@github.com\:org/repo'
-      }
+        alertmanager: {
+          persistentVolume: {
+            storageClass: "gp2",
+          },
+        },
+        server: {
+          persistentVolume: {
+            storageClass: "gp2",
+          },
+        },
+      },
+      namespace: "prometheus",
     });
 
   }
