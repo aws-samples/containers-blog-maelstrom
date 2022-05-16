@@ -12,11 +12,9 @@ const primaryRegion = {account: account, region: 'us-east-2'};
 const secondaryRegion = {account: account, region: 'eu-west-2'};
 const primaryOnDemandInstanceType = 'r5.2xlarge';
 const secondaryOnDemandInstanceType = 'm5.2xlarge';
-const regionSpotInstanceType = 'm5.xlarge';
 
 const primaryCluster = new ClusterStack(app, `ClusterStack-${primaryRegion.region}`, {env: primaryRegion, 
     onDemandInstanceType: primaryOnDemandInstanceType,
-    spotInstanceType: regionSpotInstanceType,
     primaryRegion: primaryRegion.region
  });
 
@@ -24,7 +22,6 @@ const primaryCluster = new ClusterStack(app, `ClusterStack-${primaryRegion.regio
 
 const secondaryCluster = new ClusterStack(app, `ClusterStack-${secondaryRegion.region}`, {env: secondaryRegion,
     onDemandInstanceType: secondaryOnDemandInstanceType,
-    spotInstanceType: regionSpotInstanceType,
     primaryRegion: primaryRegion.region
  });
 

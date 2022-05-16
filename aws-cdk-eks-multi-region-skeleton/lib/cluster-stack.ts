@@ -11,7 +11,6 @@ export interface EksProps extends cdk.StackProps {
 
 export interface ClusterProps extends cdk.StackProps {
   onDemandInstanceType: string,
-  spotInstanceType: string,
   primaryRegion: string
 }
 
@@ -43,11 +42,6 @@ export class ClusterStack extends cdk.Stack {
         version: eks.KubernetesVersion.V1_21,
         defaultCapacity: 2,
         defaultCapacityInstance: new ec2.InstanceType(props.onDemandInstanceType)
-    });
-
-    cluster.addAutoScalingGroupCapacity('spot-group', {
-      instanceType: new ec2.InstanceType(props.spotInstanceType),
-      spotPrice: cdk.Stack.of(this).region==props.primaryRegion ? '0.248' : '0.192'
     });
 
     this.cluster = cluster;
