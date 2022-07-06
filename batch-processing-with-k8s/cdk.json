@@ -1,0 +1,6 @@
+{
+    "app": "npx ts-node src/integ.default.ts",
+    "context": {
+    }
+  }
+  
