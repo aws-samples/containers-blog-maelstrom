@@ -4,6 +4,7 @@ RUN apk add --no-cache git
 
 WORKDIR /app/go-sample-app
 COPY go.mod .
+COPY go.sum .
 
 RUN export GOPROXY="direct"
 RUN go env -w GOPRIVATE=*
