@@ -4,6 +4,7 @@ RUN yum install -y golang
 RUN go env -w GOPROXY=direct
 # cache dependencies
 ADD go.mod ./
+ADD go.sum ./
 RUN go mod download
 # build
 ADD . .
