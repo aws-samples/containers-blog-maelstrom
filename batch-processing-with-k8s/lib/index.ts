@@ -412,7 +412,7 @@ export class KubernetesFileBatchConstruct extends Construct {
 
     // It takes care of reading the number of split files in cache and returning the array to map function (deployed as vpc only)
     const preMapLambda = new lambda.DockerImageFunction(this, this.getId('map-redis-get-lambda'), {
-      code: lambda.DockerImageCode.fromImageAsset(path.resolve(__dirname, 'lambda-map-parallel')),
+      code: lambda.DockerImageCode.fromImageAsset(path.resolve(__dirname, '../src/lambda-map-parallel')),
       memorySize: 512,
       timeout: cdk.Duration.seconds(30),
       role: this.getRole('lambda-role', 'lambda.amazonaws.com', ['CloudWatchLogsFullAccess', 'AmazonElastiCacheFullAccess', 'AmazonEC2FullAccess']),
