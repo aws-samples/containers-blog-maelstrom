@@ -317,7 +317,7 @@ export class KubernetesFileBatchConstruct extends Construct {
     // Docker image for split-file k8s job
     redis: elasticcache.CfnReplicationGroup, securityGroup: ec2.SecurityGroup): stepFunctions.StateMachine {
     const splitFileAsset = new DockerImageAsset(this, this.getId('split-file-image'), {
-      directory: path.join(__dirname, 'split-file'),
+      directory: path.join(__dirname, '../src/split-file'),
     });
 
     // This job internally leverages unix split command to break files into multiple lines and copy it to EFS directory
@@ -412,7 +412,7 @@ export class KubernetesFileBatchConstruct extends Construct {
 
     // It takes care of reading the number of split files in cache and returning the array to map function (deployed as vpc only)
     const preMapLambda = new lambda.DockerImageFunction(this, this.getId('map-redis-get-lambda'), {
-      code: lambda.DockerImageCode.fromImageAsset(path.resolve(__dirname, 'lambda-map-parallel')),
+      code: lambda.DockerImageCode.fromImageAsset(path.resolve(__dirname, '../src/lambda-map-parallel')),
       memorySize: 512,
       timeout: cdk.Duration.seconds(30),
       role: this.getRole('lambda-role', 'lambda.amazonaws.com', ['CloudWatchLogsFullAccess', 'AmazonElastiCacheFullAccess', 'AmazonEC2FullAccess']),
@@ -440,7 +440,7 @@ export class KubernetesFileBatchConstruct extends Construct {
 
     // File processor docker image
     const mapProcessFileAsset = new DockerImageAsset(this, this.getId('map-process-asset'), {
-      directory: path.join(__dirname, 'file-processor'),
+      directory: path.join(__dirname, '../src/file-processor'),
     });
 
     // Task to process split file, save data in dynamodb and write output file back to EFS
@@ -565,7 +565,7 @@ export class KubernetesFileBatchConstruct extends Construct {
 
     // file processor docker image
     const asset = new DockerImageAsset(this, this.getId('single-threaded-image'), {
-      directory: path.join(__dirname, 'single-thread-processor'),
+      directory: path.join(__dirname, '../src/single-thread-processor'),
     });
 
     // Step running the file processor as k8s job

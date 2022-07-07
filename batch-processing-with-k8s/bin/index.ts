@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
-import { KubernetesFileBatchConstruct } from './index';
+import { KubernetesFileBatchConstruct } from '../lib/index';
 
 const app = new cdk.App();
 const env = {
