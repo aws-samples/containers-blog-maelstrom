@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as cloudTrail from 'aws-cdk-lib/aws-cloudtrail';
+import { Rule } from 'aws-cdk-lib/aws-events';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
@@ -50,7 +51,9 @@ export class KubernetesFileBatchConstruct extends Construct {
 
     // Default values
     this.vpc = props.vpc ?? new ec2.Vpc(this, this.getId('k8s-vpc'), { natGateways: 1 });
-    this.inputBucket = props.inputBucket ?? new s3.Bucket(this, 'inputBucket');
+    this.inputBucket = props.inputBucket ?? new s3.Bucket(this, 'inputBucket', {
+      eventBridgeEnabled: true
+    });
     this.minNodes = props.minNodes ?? 5;
     this.desiredNodes = props.desiredNodes ?? 5;
     this.maxNodes = props.maxNodes ?? 5;
@@ -69,22 +72,6 @@ export class KubernetesFileBatchConstruct extends Construct {
     securityGroup.addIngressRule(ec2.Peer.anyIpv6(), ec2.Port.tcp(6379), 'Port 6379 for inbound traffic from IPv6');
     securityGroup.addIngressRule(ec2.Peer.anyIpv6(), ec2.Port.tcp(22), 'Port 22 for inbound traffic from IPv6');
     securityGroup.addIngressRule(ec2.Peer.anyIpv6(), ec2.Port.tcp(22), 'Port 22 for inbound traffic from IPv6');
-
-    // Enable cloud trials and listen to write events on S3 bucket
-    const trail = new cloudTrail.Trail(this, 'CloudTrail', {
-      sendToCloudWatchLogs: true,
-    });
-    trail.addS3EventSelector(
-      [
-        {
-          bucket: this.inputBucket,
-        },
-      ],
-      {
-        includeManagementEvents: false,
-        readWriteType: cloudTrail.ReadWriteType.WRITE_ONLY,
-      },
-    );
 
     // EKS Cluster
     const cluster = new eks.Cluster(this, this.getId('ekscluster'), {
@@ -174,12 +161,25 @@ export class KubernetesFileBatchConstruct extends Construct {
       username: stepFunctionRole.roleArn,
     });
 
-
     // Invoke multi-threaded step function on cloudWatch event
     const multiThreadedStepFunction = this.setMultiThreadMapFunction(cluster, stepFunctionRole, redisReplication, securityGroup);
-    this.inputBucket.onCloudTrailWriteObject('WriteEvent', {
-      target: new targets.SfnStateMachine(multiThreadedStepFunction),
+    const s3rule = new Rule(this, 's3ToSfnRule', {
+      eventPattern: {
+        source: ['aws.s3'],
+        detailType: [
+          'Object Created'
+        ],
+        detail: {
+          bucket: {
+            name: [
+              this.inputBucket.bucketName
+            ]
+          }
+        }
+      },
+      targets: [new targets.SfnStateMachine(multiThreadedStepFunction)],
     });
+
     new cdk.CfnOutput(this, 'Multithreadedstepfuction', {
       value: multiThreadedStepFunction.stateMachineName,
     });
@@ -353,11 +353,11 @@ export class KubernetesFileBatchConstruct extends Construct {
                       env: [
                         {
                           'name': 'S3_BUCKET_NAME',
-                          'value.$': '$.detail.requestParameters.bucketName',
+                          'value.$': '$.detail.bucket.name',
                         },
                         {
                           'name': 'S3_KEY',
-                          'value.$': '$.detail.requestParameters.key',
+                          'value.$': '$.detail.object.key',
                         },
                         {
                           'name': 'STATUS_KEY',
@@ -476,11 +476,11 @@ export class KubernetesFileBatchConstruct extends Construct {
                       env: [
                         {
                           'name': 'S3_BUCKET_NAME',
-                          'value.$': '$$.Execution.Input.detail.requestParameters.bucketName',
+                          'value.$': '$$.Execution.Input.detail.bucket.name',
                         },
                         {
                           'name': 'S3_KEY',
-                          'value.$': '$$.Execution.Input.detail.requestParameters.key',
+                          'value.$': '$$.Execution.Input.detail.object.key',
                         },
                         {
                           'name': 'INPUT_FILE',
@@ -601,11 +601,11 @@ export class KubernetesFileBatchConstruct extends Construct {
                       env: [
                         {
                           'name': 'S3_BUCKET_NAME',
-                          'value.$': '$.detail.requestParameters.bucketName',
+                          'value.$': '$.detail.bucket.name',
                         },
                         {
                           'name': 'S3_KEY',
-                          'value.$': '$.detail.requestParameters.key',
+                          'value.$': '$.detail.object.key',
                         },
                         {
                           'name': 'STATUS_KEY',
