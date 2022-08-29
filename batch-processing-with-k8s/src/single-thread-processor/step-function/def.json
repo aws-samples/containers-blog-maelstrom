@@ -32,11 +32,11 @@
                     "env": [
                       {
                         "name": "S3_BUCKET_NAME",
-                        "value.$": "$.detail.requestParameters.bucketName"
+                        "value.$": "$.detail.bucket.name"
                       },
                       {
                         "name": "S3_KEY",
-                        "value.$": "$.detail.requestParameters.key"
+                        "value.$": "$.detail.object.key"
                       },
                       {
                         "name": "STATUS_KEY",
