@@ -1,0 +1,20 @@
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Host
+metadata:
+  name: hello-eksa
+spec:
+  hostname: "hello.eksa-demo.cluster-b"
+  requestPolicy:
+    insecure:
+      action: Route
+---
+apiVersion: getambassador.io/v2
+kind: Mapping
+metadata:
+  name: hello-backend
+spec:
+  prefix: /
+  service: hello-eks-a
+  hostname: "hello.eksa-demo.cluster-b"
+---
