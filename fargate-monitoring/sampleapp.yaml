@@ -46,7 +46,7 @@ spec:
           ports:
             - containerPort: 8080
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: appf
@@ -60,11 +60,14 @@ spec:
     - http:
         paths:
           - path: /*
+            pathType: Prefix
             backend:
-              serviceName: appf
-              servicePort: 80
+              service:
+                name: test
+                port:
+                  number: 80
 ---
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: appf
@@ -79,4 +82,6 @@ spec:
   - type: Resource
     resource:
       name: cpu
-      targetAverageUtilization: 50
+      target:
+        type: Utilization
+        averageUtilization: 50
