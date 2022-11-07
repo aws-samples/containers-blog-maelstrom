@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello-eks-a
+  namespace: default
   labels:
     app: hello-eks-a
 spec:
@@ -41,6 +42,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: hello-eks-a
+  namespace: default
 spec:
   type: NodePort
   selector:
