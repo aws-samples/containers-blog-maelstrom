@@ -3,6 +3,7 @@ apiVersion: getambassador.io/v3alpha1
 kind: Host
 metadata:
   name: hello-eksa
+  namespace: default
 spec:
   hostname: "hello.eksa-demo.cluster-a"
   requestPolicy:
@@ -13,6 +14,7 @@ apiVersion: getambassador.io/v2
 kind: Mapping
 metadata:
   name: hello-backend
+  namespace: default
 spec:
   prefix: /
   service: hello-eks-a
