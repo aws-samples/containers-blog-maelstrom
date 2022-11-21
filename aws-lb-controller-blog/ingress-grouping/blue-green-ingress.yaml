@@ -1,30 +1,30 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ingress-2
-  namespace: color-2
+  name: blue-green-ingress
+  namespace: blue-green-ns
   labels:
-    app: color-2
+    app: color-1
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/group.name: color-app-lb
+    alb.ingress.kubernetes.io/group.name: app-color-lb
 spec:
   ingressClassName: aws-alb
   rules:
     - http:
         paths:
-          - path: /orange
+          - path: /blue
             pathType: Prefix
             backend:
               service:
-                name: orange-service
+                name: blue-service
                 port:
                   number: 80                        
-          - path: /purple
+          - path: /green
             pathType: Prefix
             backend:
               service:
-                name: purple-service
+                name: green-service
                 port:
                   number: 80

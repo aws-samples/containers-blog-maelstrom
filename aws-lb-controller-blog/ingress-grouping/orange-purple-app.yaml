@@ -1,28 +1,28 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: color-1
+  name: orange-purple-ns
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: green-app
-  namespace: color-1
+  name: orange-app
+  namespace: orange-purple-ns
   labels:
-    app: green-app
+    app: orange-app
 spec:
   selector:
     matchLabels:
-      app: green-app
+      app: orange-app
   replicas: 2
   template:
     metadata:
       labels:
-        app: green-app
+        app: orange-app
     spec:
       containers:
-      - name: green-container
-        image: public.ecr.aws/e1x6y8e1/green:latest
+      - name: orange-container
+        image: public.ecr.aws/e1x6y8e1/orange:latest
         ports:
             - containerPort: 80
         resources:
@@ -33,23 +33,23 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: blue-app
-  namespace: color-1
+  name: purple-app
+  namespace: orange-purple-ns
   labels:
-    app: blue-app
+    app: purple-app
 spec:
   selector:
     matchLabels:
-      app: blue-app
+      app: purple-app
   replicas: 2
   template:
     metadata:
       labels:
-        app: blue-app
+        app: purple-app
     spec:
       containers:
-      - name: blue-container
-        image: public.ecr.aws/e1x6y8e1/blue:latest
+      - name: purple-container
+        image: public.ecr.aws/e1x6y8e1/purple:latest
         ports:
             - containerPort: 80
         resources:
@@ -60,33 +60,33 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: color-1
-  name: green-service
+  namespace: orange-purple-ns
+  name: orange-service
   labels:
-    app: green-app
+    app: orange-app
   annotations:
-    alb.ingress.kubernetes.io/healthcheck-path: /green/index.html
+    alb.ingress.kubernetes.io/healthcheck-path: /orange/index.html
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
-    app: green-app
+    app: orange-app
   ports:
     - port: 80
-      targetPort: 80
+      name: http
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: color-1
-  name: blue-service
+  namespace: orange-purple-ns
+  name: purple-service
   labels:
-    app: blue-app
+    app: purple-app
   annotations:
-    alb.ingress.kubernetes.io/healthcheck-path: /blue/index.html
+    alb.ingress.kubernetes.io/healthcheck-path: /purple/index.html
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
-    app: blue-app
+    app: purple-app
   ports:
     - port: 80
-      targetPort: 80
+      name: http
