@@ -1,7 +1,13 @@
+###############################################################################
+# All commands used to check the various audit values were sourced from the   #
+# CIS Bottlerocket Benchmark v1.0.0 unless the command was unavailable in     #
+# Alpine Linux, which was used as the base image for the validation container #
+###############################################################################
+
 echo "This tool validates the Amazon EKS optimized AMI against CIS Bottlerocket Benchmark v1.0.0"
 
 Num_Of_Checks_Passed=0
-Total_Num_Of_Checks=10
+Total_Num_Of_Checks=26
 
 function checkSysctlConfig()
 {
@@ -15,6 +21,120 @@ function checkSysctlConfig()
     return 1
 }
 
+RECOMMENDATION="1.1.1.1 Ensure mounting of udf filesystems is disabled (Automated)"
+mod_check=$(lsmod | grep udf)
+
+if [[ $mod_check == "" ]];
+then
+    >&2 echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    >&2 echo "[FAIL] $RECOMMENDATION"
+    >&2 echo "Error Message: udf modprobe check=$mod_check"
+fi
+
+RECOMMENDATION="1.3.1 Ensure dm-verity is configured (Automated)"
+verity_on=$(grep -Fw "dm-mod.create=root,,,ro,0" /proc/cmdline | awk '{print $20}')
+restart_on_corrupt=$(grep -Fw "dm-mod.create=root,,,ro,0" /proc/cmdline | awk '{print $31}')
+
+if [[ $verity_on == "1" ]] && [[ $restart_on_corrupt == "restart_on_corruption" ]];
+then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+    echo "Error Message: dm_verity=$verity_on dm_verity_restart=$restart_on_corrupt"
+fi
+
+RECOMMENDATION="1.4.1 Ensure setuid programs do not create core dumps (Automated)"
+sysctlList=("fs.suid_dumpable")
+expectedValue=0
+checkSysctlConfig
+
+
+if [ "$?" -eq "1" ]; then
+  echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+  echo "[FAIL] $RECOMMENDATION"
+fi
+
+RECOMMENDATION="1.4.2 Ensure address space layout randomization (ASLR) is enabled (Automated)"
+sysctlList=("kernel.randomize_va_space")
+expectedValue=2
+checkSysctlConfig
+
+
+if [ "$?" -eq "1" ]; then
+  echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+  echo "[FAIL] $RECOMMENDATION"
+fi
+
+RECOMMENDATION="1.4.3 Ensure unprivileged eBPF is disabled (Automated)"
+sysctlList=("kernel.unprivileged_bpf_disabled")
+expectedValue=1
+checkSysctlConfig
+
+
+if [ "$?" -eq "1" ]; then
+  echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+  echo "[FAIL] $RECOMMENDATION"
+fi
+
+RECOMMENDATION="1.4.4 Ensure user namespaces are disabled (Automated)"
+sysctlList=("user.max_user_namespaces")
+expectedValue=0
+checkSysctlConfig
+
+
+if [ "$?" -eq "1" ]; then
+  echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+  echo "[FAIL] $RECOMMENDATION"
+fi
+
+RECOMMENDATION="1.5.1 Ensure SELinux is configured (Automated)"
+selinux_on=$(chroot /.bottlerocket/rootfs sestatus | grep 'SELinux status:' | cut -d: -f2 | sed 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
+selinux_mode=$(chroot /.bottlerocket/rootfs sestatus | grep 'Current mode:' | cut -d: -f2 | sed 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
+
+if [[ $selinux_on == "enabled" ]] && [[ $selinux_mode == "enforcing" ]];
+then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+    echo "Error Message: selinux status=$selinux_on selinux enforcing mode=$selinux_mode"
+fi
+
+RECOMMENDATION="1.5.2 Ensure Lockdown is configured (Automated)"
+lockdown=$(cat /.bottlerocket/rootfs/sys/kernel/security/lockdown)
+
+if [[ $lockdown == "none [integrity] confidentiality" ]];
+then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+    echo "Error Message: lockdown=$lockdown"
+fi
+
+RECOMMENDATION="2.1.1.1 Ensure chrony is configured (Automated)"
+chrony=$(chroot /.bottlerocket/rootfs pgrep chronyd)
+
+if [[ $chrony != "" ]];
+then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+    echo "Error Message: chrony process is not running"
+fi
+
 RECOMMENDATION="3.1.1 Ensure packet redirect sending is disabled (Automated)"
 sysctlList=("net.ipv4.conf.all.send_redirects" "net.ipv4.conf.default.send_redirects")
 expectedValue=0
@@ -22,10 +142,23 @@ checkSysctlConfig
 
 
 if [ "$?" -eq "1" ]; then
-  >&2 echo "[PASS] $RECOMMENDATION"
+  echo "[PASS] $RECOMMENDATION"
     Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
 else
-  >&2 echo "[FAIL] $RECOMMENDATION"
+  echo "[FAIL] $RECOMMENDATION"
+fi
+
+RECOMMENDATION="3.2.1 Ensure source routed packets are not accepted (Automated)"
+sysctlList=("net.ipv4.conf.all.accept_source_route" "net.ipv4.conf.default.accept_source_route" "net.ipv6.conf.all.accept_source_route" "net.ipv6.conf.default.accept_source_route")
+expectedValue=0
+checkSysctlConfig
+
+
+if [ "$?" -eq "1" ]; then
+  echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+  echo "[FAIL] $RECOMMENDATION"
 fi
 
 RECOMMENDATION="3.2.2 Ensure ICMP redirects are not accepted (Automated)"
@@ -67,6 +200,56 @@ else
     echo "[FAIL] $RECOMMENDATION"
 fi
 
+RECOMMENDATION="3.2.5 Ensure broadcast ICMP requests are ignored (Automated)"
+sysctlList=("net.ipv4.icmp_echo_ignore_broadcasts")
+expectedValue=1
+checkSysctlConfig
+
+
+if [ "$?" -eq "1" ]; then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+fi
+
+RECOMMENDATION="3.2.6 Ensure bogus ICMP responses are ignored (Automated)"
+sysctlList=("net.ipv4.icmp_ignore_bogus_error_responses")
+expectedValue=1
+checkSysctlConfig
+
+
+if [ "$?" -eq "1" ]; then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+fi
+
+RECOMMENDATION="3.2.7 Ensure TCP SYN Cookies is enabled (Automated)"
+sysctlList=("net.ipv4.tcp_syncookies")
+expectedValue=1
+checkSysctlConfig
+
+
+if [ "$?" -eq "1" ]; then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+fi
+
+RECOMMENDATION="3.3.1 Ensure SCTP is disabled (Automated)"
+mod_check=$(lsmod | grep sctp)
+
+if [[ $mod_check == "" ]];
+then
+    >&2 echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    >&2 echo "[FAIL] $RECOMMENDATION"
+    >&2 echo "Error Message: sctp modprobe check=$mod_check"
+fi
 
 RECOMMENDATION="3.4.1.1 Ensure IPv4 default deny firewall policy (Automated)"
 inputChain=$(iptables -L | grep "Chain INPUT" | awk '{print $4}')
@@ -77,11 +260,6 @@ ForwardChain=$(iptables -L | grep "Chain FORWARD" | awk '{print $4}')
 
 OutputChain=$(iptables -L | grep "Chain OUTPUT" | awk '{print $4}' )
 #echo $OutputChain
-
-# please note, For Kubernetes variants, the iptables -P FORWARD DROP command will be unconditionally overwritten when the kubelet starts.
-# https://github.com/bottlerocket-os/bottlerocket/blob/52ea5b5c8d788f3e9d7a76e329cd2c766150cf59/packages/kubernetes-1.24/kubelet.service#L13
-# This is because Kubernetes relies on iptables rules to forward connections to any node in the cluster to the correct set of nodes where a nodePort service is running
-# Hence the below condition checks for ACCEPT instead of DROP for the ForwardChain
 
 if [[ $inputChain == "DROP)" ]] && [[ $ForwardChain == "ACCEPT)" ]] && [[ $OutputChain == "DROP)" ]];
 then
@@ -211,6 +389,30 @@ then
 else
     echo "[FAIL] $RECOMMENDATION"
     echo "Error Message: InputTCP=$InputTCP InputUDP=$InputUDP InputICMP=$InputICMP OutputTCP=$OutputTCP OutputUDP=$OutputUDP OutputICMP=$OutputICMP"
+fi
+
+RECOMMENDATION="4.1.1.1 Ensure journald is configured to write logs to persistent disk (Automated)"
+journald=$(cat /.bottlerocket/rootfs/usr/lib/systemd/journald.conf.d/journald.conf | grep 'Storage')
+
+if [[ $journald == "Storage=persistent" ]];
+then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+    echo "Error Message: journald=$journald"
+fi
+
+RECOMMENDATION="4.1.2 Ensure permissions on journal files are configured (Automated)"
+journal_perms=$(chroot /.bottlerocket/rootfs find /var/log/journal -type f -perm /g+wx,o+rwx)
+
+if [[ $journal_perms == "" ]];
+then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+    echo "Error Message: journal permissions=$journal_perms"
 fi
 
 echo "$Num_Of_Checks_Passed/$Total_Num_Of_Checks checks passed"
