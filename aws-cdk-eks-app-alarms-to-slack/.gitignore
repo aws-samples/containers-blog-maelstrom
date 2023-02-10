@@ -3,6 +3,7 @@
 *.d.ts
 node_modules
 aws-o11y-recipes
+*.json
 
 # CDK asset staging directory
 .cdk.staging

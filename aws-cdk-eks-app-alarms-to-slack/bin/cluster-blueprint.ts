@@ -18,8 +18,6 @@ const addOns: Array<blueprints.ClusterAddOn> = [
     new blueprints.addons.CertManagerAddOn(),
     new blueprints.addons.AdotCollectorAddOn(),
     new blueprints.addons.CloudWatchAdotAddOn({deploymentMode: blueprints.addons.cloudWatchDeploymentMode.DAEMONSET,
-        namespace: 'opentelemetry-operator-system',
-        name: 'adot-collector-cloudwatch',
         metricsNameSelectors: ['apiserver_request_.*', 'container_memory_.*', 'container_threads', 'otelcol_process_.*', 'ho11y*'],
         podLabelRegex: 'frontend|downstream(.*)'}
     )
