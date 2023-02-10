@@ -2,6 +2,7 @@
 !jest.config.js
 *.d.ts
 node_modules
+aws-o11y-recipes
 
 # CDK asset staging directory
 .cdk.staging
