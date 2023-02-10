@@ -4,7 +4,7 @@
 set -e
 
 read -p "This script will clean up all resources deployed as part of the blog post. Are you sure you want to proceed (y/n)? " -n 1 -r
-echo    # (optional) move to a new line
+echo -e "\n"
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
     echo "proceeding with clean up steps."
