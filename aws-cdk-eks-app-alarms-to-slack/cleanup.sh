@@ -8,6 +8,7 @@ echo -e "\n"
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
     echo "proceeding with clean up steps."
+    echo -e "\n"
 else
     exit 1
 fi
@@ -53,7 +54,7 @@ aws iam delete-role-policy --role-name ${FUNCTION_NAME}-ExecutionRole --policy-n
 aws iam delete-role --role-name ${FUNCTION_NAME}-ExecutionRole
 
 #delete SNS topic
-aws sns delete-topic --region ${CAP_CLUSTER_REGION} --topic-arn $SNS_TOPIC
+aws sns delete-topic --region ${CAP_CLUSTER_REGION} --topic-arn arn:aws:sns:${CAP_CLUSTER_REGION}:${CAP_ACCOUNT_ID}:${FUNCTION_NAME}-Topic
 
 #delete metric filter
 aws logs delete-metric-filter --region ${CAP_CLUSTER_REGION} --log-group-name /aws/containerinsights/${CAP_CLUSTER_NAME}/prometheus --filter-name 'ho11y_total by http_status_code'
@@ -67,7 +68,7 @@ aws ecr delete-repository --region ${CAP_CLUSTER_REGION} --repository-name ho11y
 docker rmi "$CAP_ACCOUNT_ID.dkr.ecr.${CAP_CLUSTER_REGION}.amazonaws.com/ho11y:latest"
 
 #delete cloned repository of sample application
-rm -r aws-o11y-recipes
+rm -fr aws-o11y-recipes
 
 #delete EKS cluster using CDK
 cdk destroy ${CAP_CLUSTER_NAME}
