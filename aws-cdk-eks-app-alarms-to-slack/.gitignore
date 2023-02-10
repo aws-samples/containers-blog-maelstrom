@@ -3,7 +3,8 @@
 *.d.ts
 node_modules
 aws-o11y-recipes
-*.json
+lambda-permission-policy.json
+kms-key-policy.json
 
 # CDK asset staging directory
 .cdk.staging
