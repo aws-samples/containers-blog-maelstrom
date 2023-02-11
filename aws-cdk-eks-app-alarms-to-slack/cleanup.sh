@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# exit when any command fails
-set -e
-
 read -p "This script will clean up all resources deployed as part of the blog post. Are you sure you want to proceed (y/n)? " -n 1 -r
 echo -e "\n"
 if [[ $REPLY =~ ^[Yy]$ ]]
@@ -41,8 +38,8 @@ curr_dir=${PWD}
 #delete cloudwatch alarm
 aws cloudwatch delete-alarms --region ${CAP_CLUSTER_REGION} --alarm-names "400 errors from ho11y app"
 
-#delete KMS key alias and schedule key for deletion
-aws kms delete-alias --region ${CAP_CLUSTER_REGION} --alias-name alias/${FUNCTION_NAME}-key
+#schedule key for deletion
+#aws kms delete-alias --region ${CAP_CLUSTER_REGION} --alias-name alias/${FUNCTION_NAME}-key
 aws kms schedule-key-deletion --region ${CAP_CLUSTER_REGION} --key-id $KEY_ID --pending-window-in-days 7
 
 #delete lambda funtion and its log group
@@ -75,3 +72,7 @@ cdk destroy ${CAP_CLUSTER_NAME}
 
 #delete log group
 aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/containerinsights/${CAP_CLUSTER_NAME}/prometheus
+
+#delete bootstrap
+aws s3 rm --recursive s3://$(aws s3 ls | grep cdk-.*"${CAP_CLUSTER_REGION}" | cut -d' ' -f3)
+aws cloudformation delete-stack --region ${CAP_CLUSTER_REGION} --stack-name CDKToolkit
