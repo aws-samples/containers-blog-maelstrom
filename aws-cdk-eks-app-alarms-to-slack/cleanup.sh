@@ -39,7 +39,7 @@ aws cloudwatch delete-alarms --region ${CAP_CLUSTER_REGION} --alarm-names "400 e
 
 #schedule key for deletion
 KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${FUNCTION_NAME}-key --query KeyMetadata.KeyId --output text)
-#aws kms delete-alias --region ${CAP_CLUSTER_REGION} --alias-name alias/${FUNCTION_NAME}-key
+aws kms delete-alias --region ${CAP_CLUSTER_REGION} --alias-name alias/${FUNCTION_NAME}-key
 aws kms schedule-key-deletion --region ${CAP_CLUSTER_REGION} --key-id $KEY_ID --pending-window-in-days 7
 
 #delete lambda funtion and its log group
