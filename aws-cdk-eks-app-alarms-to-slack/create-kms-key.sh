@@ -31,10 +31,12 @@ curr_dir=${PWD}
 sed -e "s|{{ROLE_ARN}}|${ROLE_ARN}|g; s|{{CAP_ACCOUNT_ID}}|${CAP_ACCOUNT_ID}|g; s|{{CAP_CLUSTER_REGION}}|${CAP_CLUSTER_REGION}|g; s|{{FUNCTION_NAME}}|${FUNCTION_NAME}|g" templates/kms-key-policy-template.json > kms-key-policy.json
 
 #create kms key
-KEY_ID=$(aws kms create-key --region ${CAP_CLUSTER_REGION} --key-spec SYMMETRIC_DEFAULT --key-usage ENCRYPT_DECRYPT --query KeyMetadata.KeyId --output text)
+KEY_ID=$(aws kms create-key --region ${CAP_CLUSTER_REGION} --description "Encryption Key for lambda function ${FUNCTION_NAME}" --key-spec SYMMETRIC_DEFAULT --key-usage ENCRYPT_DECRYPT --query KeyMetadata.KeyId --output text)
 
 aws kms create-alias --region ${CAP_CLUSTER_REGION} --alias-name alias/${FUNCTION_NAME}-key --target-key-id $KEY_ID
-aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${FUNCTION_NAME}-key
+#aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${FUNCTION_NAME}-key
+
+KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${FUNCTION_NAME}-key --query KeyMetadata.KeyId --output text)
 
 aws kms put-key-policy --region ${CAP_CLUSTER_REGION} --policy-name default --key-id $KEY_ID --policy file://kms-key-policy.json
 aws kms get-key-policy --region ${CAP_CLUSTER_REGION} --policy-name default --key-id $KEY_ID --output text
