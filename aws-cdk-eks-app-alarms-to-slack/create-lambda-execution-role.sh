@@ -17,6 +17,10 @@ if [ -z "${CAP_CLUSTER_NAME}" ]; then
     echo -e "env variable CAP_CLUSTER_NAME not set"; exit 1
 fi
 
+if [ -z "${KEY_ID}" ]; then
+    echo -e "env variable KEY_ID not set"; exit 1
+fi
+
 if [ -z "${FUNCTION_NAME}" ]; then
     echo -e "env variable FUNCTION_NAME not set"; exit 1
 fi
@@ -28,7 +32,7 @@ aws iam create-role --role-name ${FUNCTION_NAME}-ExecutionRole \
     --assume-role-policy-document file://templates/lambda-trust-policy.json
 
 #create permission policy
-sed -e "s|{{CAP_ACCOUNT_ID}}|${CAP_ACCOUNT_ID}|g; s|{{CAP_CLUSTER_REGION}}|${CAP_CLUSTER_REGION}|g; s|{{FUNCTION_NAME}}|${FUNCTION_NAME}|g" templates/lambda-permission-policy-template.json > lambda-permission-policy.json
+sed -e "s|{{CAP_ACCOUNT_ID}}|${CAP_ACCOUNT_ID}|g; s|{{CAP_CLUSTER_REGION}}|${CAP_CLUSTER_REGION}|g; s|{{KEY_ID}}|${KEY_ID}|g; s|{{FUNCTION_NAME}}|${FUNCTION_NAME}|g" templates/lambda-permission-policy-template.json > lambda-permission-policy.json
 
 #create role policy
 aws iam put-role-policy --role-name ${FUNCTION_NAME}-ExecutionRole \

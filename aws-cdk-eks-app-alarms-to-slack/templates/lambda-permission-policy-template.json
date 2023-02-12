@@ -13,8 +13,18 @@
                 "logs:PutLogEvents"
             ],
             "Resource": [
-                "arn:aws:logs:{{CAP_CLUSTER_REGION}}:{{CAP_ACCOUNT_ID}}:log-group:/aws/lambda/${{FUNCTION_NAME}}:*"
+                "arn:aws:logs:{{CAP_CLUSTER_REGION}}:{{CAP_ACCOUNT_ID}}:log-group:/aws/lambda/{{FUNCTION_NAME}}:*"
             ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": "kms:Decrypt",
+            "Resource": "arn:aws:kms:{{CAP_CLUSTER_REGION}}:{{CAP_ACCOUNT_ID}}:key/{{KEY_ID}}",
+            "Condition": {
+            "StringEquals": {
+                "kms:EncryptionContext:LambdaFunctionName": "{{FUNCTION_NAME}}"
+            }
+            }
         }
     ]
 }

@@ -10,7 +10,6 @@ else
     exit 1
 fi
 
-
 # checking environment variables
 
 if [ -z "${CAP_ACCOUNT_ID}" ]; then
@@ -39,6 +38,7 @@ curr_dir=${PWD}
 aws cloudwatch delete-alarms --region ${CAP_CLUSTER_REGION} --alarm-names "400 errors from ho11y app"
 
 #schedule key for deletion
+KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${FUNCTION_NAME}-key --query KeyMetadata.KeyId --output text)
 #aws kms delete-alias --region ${CAP_CLUSTER_REGION} --alias-name alias/${FUNCTION_NAME}-key
 aws kms schedule-key-deletion --region ${CAP_CLUSTER_REGION} --key-id $KEY_ID --pending-window-in-days 7
 
@@ -74,5 +74,9 @@ cdk destroy ${CAP_CLUSTER_NAME}
 aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/containerinsights/${CAP_CLUSTER_NAME}/prometheus
 
 #delete bootstrap
-aws s3 rm --recursive s3://$(aws s3 ls | grep cdk-.*"${CAP_CLUSTER_REGION}" | cut -d' ' -f3)
+BUCKET_TO_DELETE=$(aws s3 ls | grep cdk-.*"${CAP_CLUSTER_REGION}" | cut -d' ' -f3)
+aws s3api delete-objects --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --delete "$(aws s3api list-object-versions --bucket ${BUCKET_TO_DELETE} --query='{Objects: Versions[].{Key:Key,VersionId:VersionId}}')"
+aws s3api delete-objects --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --delete "$(aws s3api list-object-versions --bucket ${BUCKET_TO_DELETE} --query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')"
+aws s3 rb --region ${CAP_CLUSTER_REGION} ${BUCKET_TO_DELETE} --force
 aws cloudformation delete-stack --region ${CAP_CLUSTER_REGION} --stack-name CDKToolkit
+
