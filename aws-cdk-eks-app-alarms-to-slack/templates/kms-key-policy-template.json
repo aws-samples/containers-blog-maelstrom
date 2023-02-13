@@ -41,7 +41,6 @@
             "Effect": "Allow",
             "Principal": {
                 "AWS": [
-                    "arn:aws:iam::{{CAP_ACCOUNT_ID}}:role/{{FUNCTION_NAME}}-ExecutionRole",
                     "{{ROLE_ARN}}"
                 ]
             },
@@ -59,7 +58,6 @@
             "Effect": "Allow",
             "Principal": {
                 "AWS": [
-                    "arn:aws:iam::{{CAP_ACCOUNT_ID}}:role/{{FUNCTION_NAME}}-ExecutionRole",
                     "{{ROLE_ARN}}"
                 ]
             },

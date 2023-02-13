@@ -67,6 +67,20 @@ docker rmi "$CAP_ACCOUNT_ID.dkr.ecr.${CAP_CLUSTER_REGION}.amazonaws.com/ho11y:la
 #delete cloned repository of sample application
 rm -fr aws-o11y-recipes
 
+#remove nodegroup role which some times blocks cluster removal
+NGRole=$(aws cloudformation describe-stack-resources --region $CAP_CLUSTER_REGION --stack-name $CAP_CLUSTER_NAME --query 'StackResources[*].{Type:ResourceType,LogicalID:LogicalResourceId,PhysicalID:PhysicalResourceId}' --output text | grep "AWS::IAM::Role" | grep NodeGroupRole | cut -f2)
+# datach role policy
+for i in $(aws iam list-attached-role-policies --role-name ${NGRole} --query AttachedPolicies[*].PolicyArn[] --output text)
+do
+    echo "detaching policy $i from role ${NGRole}"
+    aws iam detach-role-policy --role-name ${NGRole} --policy-arn $i
+done
+
+#delete NodeGroup Role
+aws iam remove-role-from-instance-profile --instance-profile-name $NGRole --role-name $NGRole
+aws iam delete-role --role-name ${NGRole}
+
+
 #delete EKS cluster using CDK
 cdk destroy ${CAP_CLUSTER_NAME}
 
