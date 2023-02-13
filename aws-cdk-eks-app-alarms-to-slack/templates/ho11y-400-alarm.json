@@ -16,7 +16,6 @@
         }        
     ],
     "Period": 300,
-    "Unit": "Seconds",
     "EvaluationPeriods": 1,
     "Threshold": 15.0,
     "ComparisonOperator": "GreaterThanThreshold" 
