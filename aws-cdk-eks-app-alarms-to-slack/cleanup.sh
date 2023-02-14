@@ -35,39 +35,49 @@ fi
 curr_dir=${PWD}
 
 #delete cloudwatch alarm
+echo "deleting cloudwatch alarm"
 aws cloudwatch delete-alarms --region ${CAP_CLUSTER_REGION} --alarm-names "400 errors from ho11y app"
 
 #schedule key for deletion
+echo "deleting KMS key"
 KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${FUNCTION_NAME}-key --query KeyMetadata.KeyId --output text)
 aws kms delete-alias --region ${CAP_CLUSTER_REGION} --alias-name alias/${FUNCTION_NAME}-key
 aws kms schedule-key-deletion --region ${CAP_CLUSTER_REGION} --key-id $KEY_ID --pending-window-in-days 7
 
 #delete lambda funtion and its log group
+echo "deleting lambda function"
 aws lambda delete-function --region ${CAP_CLUSTER_REGION} --function-name ${FUNCTION_NAME}
 aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/lambda/${FUNCTION_NAME}
 
 #delete lambda execution role
+echo "deleting lambda execution role"
 aws iam delete-role-policy --role-name ${FUNCTION_NAME}-ExecutionRole --policy-name ${FUNCTION_NAME}-ExecutionRolePolicy
 aws iam delete-role --role-name ${FUNCTION_NAME}-ExecutionRole
 
 #delete SNS topic
+echo "deleting SNS topic"
 aws sns delete-topic --region ${CAP_CLUSTER_REGION} --topic-arn arn:aws:sns:${CAP_CLUSTER_REGION}:${CAP_ACCOUNT_ID}:${FUNCTION_NAME}-Topic
 
 #delete metric filter
+echo "deleting metric filter"
 aws logs delete-metric-filter --region ${CAP_CLUSTER_REGION} --log-group-name /aws/containerinsights/${CAP_CLUSTER_NAME}/prometheus --filter-name 'ho11y_total by http_status_code'
 
 #delete sample application deployed
+echo "deleting sample application ho11y"
 kubectl delete -f ./ho11y-app.yaml
 rm ./ho11y-app.yaml
 
-#delete ECR repository along and docker images
+#delete ECR repository and docker images
+echo "deleting ECR repository and docker images"
 aws ecr delete-repository --region ${CAP_CLUSTER_REGION} --repository-name ho11y --force
 docker rmi "$CAP_ACCOUNT_ID.dkr.ecr.${CAP_CLUSTER_REGION}.amazonaws.com/ho11y:latest"
 
 #delete cloned repository of sample application
+echo "deleting cloned repository of sample application ho11y"
 rm -fr aws-o11y-recipes
 
-#remove nodegroup role which some times blocks cluster removal
+#delete nodegroup role which some times blocks cluster removal
+echo "deleting nodegroup role which some times blocks cluster removal"
 NGRole=$(aws cloudformation describe-stack-resources --region $CAP_CLUSTER_REGION --stack-name $CAP_CLUSTER_NAME --query 'StackResources[*].{Type:ResourceType,LogicalID:LogicalResourceId,PhysicalID:PhysicalResourceId}' --output text | grep "AWS::IAM::Role" | grep NodeGroupRole | cut -f2)
 # datach role policy
 for i in $(aws iam list-attached-role-policies --role-name ${NGRole} --query AttachedPolicies[*].PolicyArn[] --output text)
@@ -77,17 +87,19 @@ do
 done
 
 #delete NodeGroup Role
-aws iam remove-role-from-instance-profile --instance-profile-name $NGRole --role-name $NGRole
+InstProfile=$(aws iam list-instance-profiles-for-role --role-name ${NGRole} --query InstanceProfiles[].InstanceProfileName --output text)
+aws iam remove-role-from-instance-profile --instance-profile-name ${InstProfile} --role-name ${NGRole}
 aws iam delete-role --role-name ${NGRole}
 
-
 #delete EKS cluster using CDK
+echo "deleting EKS cluster"
 cdk destroy ${CAP_CLUSTER_NAME}
 
 #delete log group
 aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/containerinsights/${CAP_CLUSTER_NAME}/prometheus
 
 #delete cluster stack
+echo "deleting CDKToolkit bootstrap"
 aws cloudformation delete-stack --region ${CAP_CLUSTER_REGION} --stack-name ${CAP_CLUSTER_NAME}
 
 #delete bootstrap
@@ -97,3 +109,4 @@ aws s3api delete-objects --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DEL
 aws s3 rb --region ${CAP_CLUSTER_REGION} s3://${BUCKET_TO_DELETE} --force
 aws cloudformation delete-stack --region ${CAP_CLUSTER_REGION} --stack-name CDKToolkit
 
+echo "CLEANUP COMPLETE!!"
