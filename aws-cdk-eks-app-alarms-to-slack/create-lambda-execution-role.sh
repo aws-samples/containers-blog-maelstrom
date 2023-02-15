@@ -28,10 +28,10 @@ aws iam create-role --role-name ${FUNCTION_NAME}-ExecutionRole \
     --assume-role-policy-document file://templates/lambda-trust-policy.json
 
 #get KMS Key ID
-KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${FUNCTION_NAME}-key --query KeyMetadata.KeyId --output text)
+CAP_KMS_KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${FUNCTION_NAME}-key --query KeyMetadata.KeyId --output text)
 
 #create permission policy
-sed -e "s|{{CAP_ACCOUNT_ID}}|${CAP_ACCOUNT_ID}|g; s|{{CAP_CLUSTER_REGION}}|${CAP_CLUSTER_REGION}|g; s|{{KEY_ID}}|${KEY_ID}|g; s|{{FUNCTION_NAME}}|${FUNCTION_NAME}|g" templates/lambda-permission-policy-template.json > lambda-permission-policy.json
+sed -e "s|{{CAP_ACCOUNT_ID}}|${CAP_ACCOUNT_ID}|g; s|{{CAP_CLUSTER_REGION}}|${CAP_CLUSTER_REGION}|g; s|{{CAP_KMS_KEY_ID}}|${CAP_KMS_KEY_ID}|g; s|{{FUNCTION_NAME}}|${FUNCTION_NAME}|g" templates/lambda-permission-policy-template.json > lambda-permission-policy.json
 
 #create role policy
 aws iam put-role-policy --role-name ${FUNCTION_NAME}-ExecutionRole \

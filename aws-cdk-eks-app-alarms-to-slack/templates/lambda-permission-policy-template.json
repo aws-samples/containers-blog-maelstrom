@@ -19,7 +19,7 @@
         {
             "Effect": "Allow",
             "Action": "kms:Decrypt",
-            "Resource": "arn:aws:kms:{{CAP_CLUSTER_REGION}}:{{CAP_ACCOUNT_ID}}:key/{{KEY_ID}}",
+            "Resource": "arn:aws:kms:{{CAP_CLUSTER_REGION}}:{{CAP_ACCOUNT_ID}}:key/{{CAP_KMS_KEY_ID}}",
             "Condition": {
             "StringEquals": {
                 "kms:EncryptionContext:LambdaFunctionName": "{{FUNCTION_NAME}}"

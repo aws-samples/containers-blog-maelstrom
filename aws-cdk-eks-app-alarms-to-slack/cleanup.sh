@@ -24,12 +24,8 @@ if [ -z "${CAP_CLUSTER_NAME}" ]; then
     echo -e "env variable CAP_CLUSTER_NAME not set"; exit 1
 fi
 
-if [ -z "${FUNCTION_NAME}" ]; then
-    echo -e "env variable FUNCTION_NAME not set"; exit 1
-fi
-
-if [ -z "${ROLE_ARN}" ]; then
-    echo -e "env variable ROLE_ARN not set"; exit 1
+if [ -z "${CAP_FUNCTION_NAME}" ]; then
+    echo -e "env variable CAP_FUNCTION_NAME not set"; exit 1
 fi
 
 curr_dir=${PWD}
@@ -40,23 +36,23 @@ aws cloudwatch delete-alarms --region ${CAP_CLUSTER_REGION} --alarm-names "400 e
 
 #schedule key for deletion
 echo "deleting KMS key"
-KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${FUNCTION_NAME}-key --query KeyMetadata.KeyId --output text)
-aws kms delete-alias --region ${CAP_CLUSTER_REGION} --alias-name alias/${FUNCTION_NAME}-key
-aws kms schedule-key-deletion --region ${CAP_CLUSTER_REGION} --key-id $KEY_ID --pending-window-in-days 7
+CAP_KMS_KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${CAP_FUNCTION_NAME}-key --query KeyMetadata.KeyId --output text)
+aws kms delete-alias --region ${CAP_CLUSTER_REGION} --alias-name alias/${CAP_FUNCTION_NAME}-key
+aws kms schedule-key-deletion --region ${CAP_CLUSTER_REGION} --key-id ${CAP_KMS_KEY_ID} --pending-window-in-days 7
 
 #delete lambda funtion and its log group
 echo "deleting lambda function"
-aws lambda delete-function --region ${CAP_CLUSTER_REGION} --function-name ${FUNCTION_NAME}
-aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/lambda/${FUNCTION_NAME}
+aws lambda delete-function --region ${CAP_CLUSTER_REGION} --function-name ${CAP_FUNCTION_NAME}
+aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/lambda/${CAP_FUNCTION_NAME}
 
 #delete lambda execution role
 echo "deleting lambda execution role"
-aws iam delete-role-policy --role-name ${FUNCTION_NAME}-ExecutionRole --policy-name ${FUNCTION_NAME}-ExecutionRolePolicy
-aws iam delete-role --role-name ${FUNCTION_NAME}-ExecutionRole
+aws iam delete-role-policy --role-name ${CAP_FUNCTION_NAME}-ExecutionRole --policy-name ${CAP_FUNCTION_NAME}-ExecutionRolePolicy
+aws iam delete-role --role-name ${CAP_FUNCTION_NAME}-ExecutionRole
 
 #delete SNS topic
 echo "deleting SNS topic"
-aws sns delete-topic --region ${CAP_CLUSTER_REGION} --topic-arn arn:aws:sns:${CAP_CLUSTER_REGION}:${CAP_ACCOUNT_ID}:${FUNCTION_NAME}-Topic
+aws sns delete-topic --region ${CAP_CLUSTER_REGION} --topic-arn arn:aws:sns:${CAP_CLUSTER_REGION}:${CAP_ACCOUNT_ID}:${CAP_FUNCTION_NAME}-Topic
 
 #delete metric filter
 echo "deleting metric filter"

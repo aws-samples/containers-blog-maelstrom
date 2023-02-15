@@ -15,7 +15,7 @@
             "Effect": "Allow",
             "Principal": {
                 "AWS": [
-                    "{{ROLE_ARN}}"
+                    "{{CAP_ROLE_ARN}}"
                 ]
             },
             "Action": [
@@ -41,7 +41,7 @@
             "Effect": "Allow",
             "Principal": {
                 "AWS": [
-                    "{{ROLE_ARN}}"
+                    "{{CAP_ROLE_ARN}}"
                 ]
             },
             "Action": [
@@ -58,7 +58,7 @@
             "Effect": "Allow",
             "Principal": {
                 "AWS": [
-                    "{{ROLE_ARN}}"
+                    "{{CAP_ROLE_ARN}}"
                 ]
             },
             "Action": [
