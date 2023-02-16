@@ -27,12 +27,12 @@ curr_dir=${PWD}
 echo -e "\n"
 
 urlRegex='^(https)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]\.[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$'
-read -p "Slack Incoming Webhook URL: " webhookURL
+read -p "Slack incoming webhook URL: " webhookURL
 if [[ $webhookURL =~ $urlRegex ]]
 then
-    echo -e "${webhookURL} will be encrypted and used in lambda function."
+    echo -e "${webhookURL} will be encrypted and used in Lambda function."
 else
-    echo -e "Slack Incoming Webhook URL is invalid. Check the input value and provide a valid Webhook URL."
+    echo -e "Slack incoming webhook URL is invalid. Check the input value and provide a valid full webhook URL along with protocol https://."
     exit 1
 fi
 
@@ -54,5 +54,5 @@ echo $EncryptedURL
 #to verify decryption
 #aws kms decrypt --region ${CAP_CLUSTER_REGION} --ciphertext-blob ${EncryptedURL} --output text --query Plaintext --encryption-context LambdaFunctionName=${CAP_FUNCTION_NAME} | base64 -d
 
-#deploy lambda function using SAM
+#deploy Lambda function using SAM
 sam deploy --region ${CAP_CLUSTER_REGION} --template templates/sam-template.yaml --resolve-s3  --confirm-changeset --stack-name ${CAP_FUNCTION_NAME}-app --capabilities CAPABILITY_IAM --parameter-overrides "AccountID=${CAP_ACCOUNT_ID} ClusterRegion=${CAP_CLUSTER_REGION} KMSKeyID=${CAP_KMS_KEY_ID} FunctionName=${CAP_FUNCTION_NAME} EncryptedURL=${EncryptedURL}"
