@@ -15,6 +15,14 @@ Parameters:
     Type: String
     Description: "KMS Key ID"
 
+  FunctionName:
+    Type: String
+    Description: "Lambda Function Name"
+  
+  EncryptedURL:
+    Type: String
+    Description: "Encrypted URL"
+
 Resources:
   # Define the SNS topic
   CloudwatchToSlackTopic:
@@ -37,7 +45,7 @@ Resources:
   CloudwatchToSlackFn:
     Type: 'AWS::Serverless::Function'
     Properties:
-      FunctionName: "cloudwatch-to-slack-from-app" 
+      FunctionName: !Ref FunctionName
       Handler: lambda_function.lambda_handler
       Runtime: python3.7
       Description: >-
@@ -60,13 +68,13 @@ Resources:
                 - !Ref KMSKeyID
           Condition:
             StringEquals:
-              "kms:EncryptionContext:LambdaFunctionName": "cloudwatch-to-slack-from-app"
+              "kms:EncryptionContext:LambdaFunctionName": !Ref FunctionName
       MemorySize: 128
       Timeout: 3
       Environment:
         Variables:
           kmsEncryptedHookUrl: >-
-            AQICAHg4GfiCiQR4hQ0qnnAR56976wUqxaTS/27IweE9R7mvmwEYojZDUQY95aVA9sQgMWKkAAAAszCBsAYJKoZIhvcNAQcGoIGiMIGfAgEAMIGZBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDIZ7xJDhJGfGlJtgJwIBEIBsR73EGCkx+Q9CeGYGbRWjLekJoJvjZONNDNgjGkM4g/MhZorLOVJki0gbzuo1ZG8Jlucjfga/QtnH+n3w12Agq+CKwp+lzyZpvFF1jZcQlQ1/X3cXoSFNJjKm0A70K6PZ8NeOzXuPmLErVvja
+            !Ref EncryptedURL
           slackChannel: ho11y-cloudwatch-alarms
       KmsKeyArn:
         !Join
