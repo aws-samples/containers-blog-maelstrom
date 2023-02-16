@@ -44,3 +44,6 @@ rm lambda-permission-policy.json
 aws iam get-role-policy --role-name ${FUNCTION_NAME}-ExecutionRole \
     --policy-name ${FUNCTION_NAME}-ExecutionRolePolicy
 
+#CAP_KMS_KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${FUNCTION_NAME}-key --query KeyMetadata.KeyId --output text)
+#sam deploy --region ${CAP_CLUSTER_REGION} --template cloudwatch-to-slack.yaml --resolve-s3  --confirm-changeset --stack-name cloudwatch-to-slack-app --capabilities CAPABILITY_IAM --parameter-overrides "AccountID=${CAP_ACCOUNT_ID} ClusterRegion=${CAP_CLUSTER_REGION} KMSKeyID=${CAP_KMS_KEY_ID}"
+#

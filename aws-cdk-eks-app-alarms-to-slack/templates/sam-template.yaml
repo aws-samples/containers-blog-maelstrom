@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: An Amazon SNS trigger that sends CloudWatch alarm notifications to Slack.
+
+Parameters:
+  AccountID:
+    Type: String
+    Description: "Account ID"
+  
+  ClusterRegion:
+    Type: String
+    Description: "Cluster Region"    
+
+  KMSKeyID:
+    Type: String
+    Description: "KMS Key ID"
+
+Resources:
+  # Define the SNS topic
+  CloudwatchToSlackTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Protocol: lambda
+          Endpoint: !GetAtt CloudwatchToSlackFn.Arn    
+
+  # Provide permission for SNS to invoke the Lambda function
+  CloudwatchToSlackPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref CloudwatchToSlackFn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref CloudwatchToSlackTopic
+   
+  # Define lambda function
+  CloudwatchToSlackFn:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: "cloudwatch-to-slack-from-app" 
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      Description: >-
+        An Amazon SNS trigger that sends CloudWatch alarm notifications to Slack.
+      CodeUri: cloudwatch-to-slack-function.zip
+      Policies:
+      - Statement:
+        - Sid: KMSKeyDecryptPolicy
+          Effect: Allow
+          Action:
+          - kms:Decrypt
+          Resource: 
+            !Join
+              - ''
+              - - 'arn:aws:kms:'
+                - !Ref ClusterRegion
+                - ':'
+                - !Ref AccountID
+                - ':key/'
+                - !Ref KMSKeyID
+          Condition:
+            StringEquals:
+              "kms:EncryptionContext:LambdaFunctionName": "cloudwatch-to-slack-from-app"
+      MemorySize: 128
+      Timeout: 3
+      Environment:
+        Variables:
+          kmsEncryptedHookUrl: >-
+            AQICAHg4GfiCiQR4hQ0qnnAR56976wUqxaTS/27IweE9R7mvmwEYojZDUQY95aVA9sQgMWKkAAAAszCBsAYJKoZIhvcNAQcGoIGiMIGfAgEAMIGZBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDIZ7xJDhJGfGlJtgJwIBEIBsR73EGCkx+Q9CeGYGbRWjLekJoJvjZONNDNgjGkM4g/MhZorLOVJki0gbzuo1ZG8Jlucjfga/QtnH+n3w12Agq+CKwp+lzyZpvFF1jZcQlQ1/X3cXoSFNJjKm0A70K6PZ8NeOzXuPmLErVvja
+          slackChannel: ho11y-cloudwatch-alarms
+      KmsKeyArn:
+        !Join
+          - ''
+          - - 'arn:aws:kms:'
+            - !Ref ClusterRegion
+            - ':'
+            - !Ref AccountID
+            - ':key/'
+            - !Ref KMSKeyID
+      Tags:
+        'lambda-console:blueprint': cloudwatch-alarm-to-slack-python
+      RuntimeManagementConfig:
+        UpdateRuntimeOn: Auto
+
+Outputs:
+  CloudwatchToSlackFnName:
+    Description: Cloudwatch to Slack Lmabda function name
+    Value: !Ref CloudwatchToSlackFn
+
+  CloudwatchToSlackFnArn:
+    Description: Cloudwatch to Slack Lmabda function ARN
+    Value: !GetAtt CloudwatchToSlackFn.Arn
+  
+  CloudwatchToSlackTopicName:
+    Description: Cloudwatch to Slack SNS Topic name
+    Value: !GetAtt CloudwatchToSlackTopic.TopicName
+
+  CloudwatchToSlackTopicArn:
+    Description: Cloudwatch to Slack SNS Topic ARN
+    Value: !Ref CloudwatchToSlackTopic

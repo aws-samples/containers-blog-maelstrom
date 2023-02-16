@@ -106,3 +106,6 @@ aws s3 rb --region ${CAP_CLUSTER_REGION} s3://${BUCKET_TO_DELETE} --force
 aws cloudformation delete-stack --region ${CAP_CLUSTER_REGION} --stack-name CDKToolkit
 
 echo "CLEANUP COMPLETE!!"
+
+
+#sam delete --region ${CAP_CLUSTER_REGION} --stack-name cloudwatch-to-slack-app
