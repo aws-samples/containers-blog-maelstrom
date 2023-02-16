@@ -34,15 +34,25 @@ curr_dir=${PWD}
 echo "deleting cloudwatch alarm"
 aws cloudwatch delete-alarms --region ${CAP_CLUSTER_REGION} --alarm-names "400 errors from ho11y app"
 
-#delete SAM app
-echo "deleting lamdba function deployed using SAM"
-sam delete --region ${CAP_CLUSTER_REGION} --stack-name ${CAP_FUNCTION_NAME}-app
-
 #schedule key for deletion
 echo "deleting KMS key"
 CAP_KMS_KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${CAP_FUNCTION_NAME}-key --query KeyMetadata.KeyId --output text)
 aws kms delete-alias --region ${CAP_CLUSTER_REGION} --alias-name alias/${CAP_FUNCTION_NAME}-key
 aws kms schedule-key-deletion --region ${CAP_CLUSTER_REGION} --key-id ${CAP_KMS_KEY_ID} --pending-window-in-days 7
+
+#delete lambda funtion and its log group
+echo "deleting lambda function"
+aws lambda delete-function --region ${CAP_CLUSTER_REGION} --function-name ${CAP_FUNCTION_NAME}
+aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/lambda/${CAP_FUNCTION_NAME}
+
+#delete lambda execution role
+echo "deleting lambda execution role"
+aws iam delete-role-policy --role-name ${CAP_FUNCTION_NAME}-ExecutionRole --policy-name ${CAP_FUNCTION_NAME}-ExecutionRolePolicy
+aws iam delete-role --role-name ${CAP_FUNCTION_NAME}-ExecutionRole
+
+#delete SNS topic
+echo "deleting SNS topic"
+aws sns delete-topic --region ${CAP_CLUSTER_REGION} --topic-arn arn:aws:sns:${CAP_CLUSTER_REGION}:${CAP_ACCOUNT_ID}:${CAP_FUNCTION_NAME}-Topic
 
 #delete metric filter
 echo "deleting metric filter"
@@ -81,10 +91,8 @@ aws iam delete-role --role-name ${NGRole}
 echo "deleting EKS cluster"
 cdk destroy ${CAP_CLUSTER_NAME}
 
-#delete log groups
-echo "deleting log groups"
+#delete log group
 aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/containerinsights/${CAP_CLUSTER_NAME}/prometheus
-aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/lambda/${CAP_FUNCTION_NAME}
 
 #delete cluster stack
 echo "deleting CDKToolkit bootstrap"
@@ -99,3 +107,5 @@ aws cloudformation delete-stack --region ${CAP_CLUSTER_REGION} --stack-name CDKT
 
 echo "CLEANUP COMPLETE!!"
 
+
+#sam delete --region ${CAP_CLUSTER_REGION} --stack-name cloudwatch-to-slack-app
