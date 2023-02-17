@@ -86,6 +86,12 @@ aws iam delete-role --role-name ${NGRole}
 echo -e "${Y}deleting EKS cluster${NC}"
 cdk destroy ${CAP_CLUSTER_NAME}
 
+if [[ $? != 0 ]]
+then
+    echo -e "${R} Exiting due to error with cdk destroy.${NC}"
+    exit 1
+fi
+
 #delete log groups
 echo -e "${Y}deleting log groups${NC}"
 aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/containerinsights/${CAP_CLUSTER_NAME}/prometheus

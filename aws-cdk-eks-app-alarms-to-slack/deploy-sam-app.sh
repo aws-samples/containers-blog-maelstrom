@@ -37,7 +37,7 @@ if [[ $webhookURL =~ $urlRegex ]]
 then
     echo -e "This webhook URL will be encrypted and used in Lambda function."
 else
-    echo -e "${R}Slack incoming webhook URL is invalid. Check the input value and provide a valid full webhook URL along with protocol https://${NC}."
+    echo -e "${R}Slack incoming webhook URL is invalid. Check the input value and provide a valid full webhook URL along with protocol https://.${NC}"
     exit 1
 fi
 
@@ -47,7 +47,7 @@ if [[ $slackChannel =~ $scRegex ]]
 then
     echo -e "Notifications will be sent to Slack channel ${slackChannel}."
 else
-    echo -e "${R}Slack channel name is invalid. Slack channel name should not contain any spaces${NC}."
+    echo -e "${R}Slack channel name is invalid. Slack channel name should not contain any spaces.${NC}"
     exit 1
 fi
 
