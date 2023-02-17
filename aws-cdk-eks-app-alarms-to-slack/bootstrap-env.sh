@@ -29,7 +29,6 @@ fi
 
 curr_dir=${PWD}
 
-echo -e "${Y}\n"
 echo "Following environment variables will be used:"
 echo "CAP_ACCOUNT_ID = "$CAP_ACCOUNT_ID
 echo "CAP_CLUSTER_REGION = "$CAP_CLUSTER_REGION

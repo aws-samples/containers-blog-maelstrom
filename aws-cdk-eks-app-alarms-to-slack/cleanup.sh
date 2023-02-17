@@ -5,6 +5,7 @@ R='\033[0;31m'          # Red
 G='\033[0;32m'        # Green
 Y='\033[0;33m'       # Yellow
 echo -e "${Y}"
+
 read -p "This script will clean up all resources deployed as part of the blog post. Are you sure you want to proceed [y/N]? " -n 1
 if [[ $REPLY =~ ^[Yy]$ ]]
 then

@@ -23,6 +23,10 @@ Parameters:
     Type: String
     Description: "Encrypted URL"
 
+  SlackChannel:
+    Type: String
+    Description: "Slack Channel"
+
 Resources:
   # Define the SNS topic
   CloudwatchToSlackTopic:
@@ -73,9 +77,8 @@ Resources:
       Timeout: 3
       Environment:
         Variables:
-          kmsEncryptedHookUrl: >-
-            !Ref EncryptedURL
-          slackChannel: ho11y-cloudwatch-alarms
+          kmsEncryptedHookUrl: !Ref EncryptedURL
+          slackChannel: !Ref SlackChannel
       KmsKeyArn:
         !Join
           - ''
