@@ -6,10 +6,10 @@ G='\033[0;32m'        # Green
 Y='\033[0;33m'       # Yellow
 echo -e "${Y}"
 
-read -p "This script will clean up all resources deployed as part of the blog post. Are you sure you want to proceed [y/N]? " -n 1
+read -p "This script will clean up all resources deployed as part of the blog post. Are you sure you want to proceed [y/N]? " -n 2
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-    echo -e "proceeding with clean up steps."
+    echo -e "\nproceeding with clean up steps."
     echo -e "\n"
 else
     exit 1
@@ -98,18 +98,30 @@ aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/c
 aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/lambda/${CAP_FUNCTION_NAME}
 
 #delete cluster stack
-echo -e "${Y}deleting CDKToolkit bootstrap${NC}"
 aws cloudformation delete-stack --region ${CAP_CLUSTER_REGION} --stack-name ${CAP_CLUSTER_NAME}
+
+#delete cluster CDKToolkit bootstrp
+echo -e "${Y}deleting CDKToolkit bootstrap${NC}"
 
 #delete bootstrap
 BUCKET_TO_DELETE=$(aws s3 ls | grep cdk-.*"${CAP_CLUSTER_REGION}" | cut -d' ' -f3)
-aws s3api delete-objects --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --delete "$(aws s3api list-object-versions --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --query='{Objects: Versions[].{Key:Key,VersionId:VersionId}}')"
-DELETE_MARKER_COUNT=$(aws s3api list-object-versions --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' --output text  | grep -v ^None | wc -l)
-if [[ $DELETE_MARKER_COUNT > 0 ]]
+if [[ ! -z $BUCKET_TO_DELETE ]]
 then
-    aws s3api delete-objects --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --delete "$(aws s3api list-object-versions --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')"
+    OBJECT_COUNT=$(aws s3api list-object-versions --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --query='{Objects: Versions[].{Key:Key,VersionId:VersionId}}' --output text | grep -v ^None | wc -l)
+    if [[ $OBJECT_COUNT > 0 ]]
+    then
+        aws s3api delete-objects --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --delete "$(aws s3api list-object-versions --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --query='{Objects: Versions[].{Key:Key,VersionId:VersionId}}')"
+    fi
+
+    DELETE_MARKER_COUNT=$(aws s3api list-object-versions --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' --output text  | grep -v ^None | wc -l)
+    if [[ $DELETE_MARKER_COUNT > 0 ]]
+    then
+        aws s3api delete-objects --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --delete "$(aws s3api list-object-versions --region ${CAP_CLUSTER_REGION} --bucket ${BUCKET_TO_DELETE} --query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')"
+    fi
+
+    aws s3 rb --region ${CAP_CLUSTER_REGION} s3://${BUCKET_TO_DELETE} --force
 fi
-aws s3 rb --region ${CAP_CLUSTER_REGION} s3://${BUCKET_TO_DELETE} --force
+
 aws cloudformation delete-stack --region ${CAP_CLUSTER_REGION} --stack-name CDKToolkit
 
 echo -e "${G}CLEANUP COMPLETE!!${NC}"
