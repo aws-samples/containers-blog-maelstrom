@@ -17,7 +17,7 @@ const addOns: Array<blueprints.ClusterAddOn> = [
     new blueprints.addons.KubeProxyAddOn(),
     new blueprints.addons.CertManagerAddOn(),
     new blueprints.addons.AdotCollectorAddOn(),
-    new blueprints.addons.CloudWatchAdotAddOn({deploymentMode: blueprints.addons.cloudWatchDeploymentMode.DAEMONSET,
+    new blueprints.addons.CloudWatchAdotAddOn({deploymentMode: blueprints.addons.cloudWatchDeploymentMode.DEPLOYMENT,
         metricsNameSelectors: ['apiserver_request_.*', 'container_memory_.*', 'container_threads', 'otelcol_process_.*', 'ho11y*'],
         podLabelRegex: 'frontend|downstream(.*)'}
     )
