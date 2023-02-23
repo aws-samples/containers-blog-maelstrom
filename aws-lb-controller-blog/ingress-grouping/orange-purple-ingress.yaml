@@ -10,7 +10,7 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: app-color-lb
 spec:
-  ingressClassName: aws-alb
+  ingressClassName: alb
   rules:
     - http:
         paths:
