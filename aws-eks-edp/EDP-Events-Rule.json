@@ -1,0 +1,5 @@
+{
+    "Name": "$EDP_NAME",
+    "Description": "Rule to trigger SSM Run Command on ECR Image PUSH Action Success",
+    "EventPattern": "{\"source\": [\"aws.ecr\"], \"detail-type\": [\"ECR Image Action\"], \"detail\": {\"action-type\": [\"PUSH\"], \"result\": [\"SUCCESS\"], \"repository-name\": [\"$EDP_NAME\"]}}"
+}
