@@ -291,12 +291,12 @@ aws iam delete-role --role-name ${ROLE_NAME}
 
 Here are some essential items to consider before using this solution:
 
-* The solution uses AWS App Runner APIs to update and deploy the new version of the application, so it is not a fully managed solution. The customer needs to manage the AWS CDK stack and the Lambda function.
-* The solution does not support tracking `latest` tag. If the customer wants to track the latest or fixed tag, we recommend using the native CI/CD support in App Runner.
-* The solution uses various AWS services (like Eventbridge, SQS, Lambda) to track the semantic version pattern. As the solution relays on Eventbridge events, SQS messages and Lambda invocations to track the semantic version, it can get expensive if the customer tracks multiple App Runner services and ECR repositories as it would result in multiple events, SQS messages and invocations.
-It can get expensive if the customer tracks multiple App Runner services and ECR repositories.
-* The code is not production ready and is provided as is. The customer should test the solution in a non-production environment before using it.
-* The solution does not support tracking multiple App Runner services using the same repository. If the customer wants to use the same repository for multiple App Runner services based on the semantic version, then the solution code needs to get updated to support this use case.
+* The solution uses AWS App Runner APIs to update and deploy the new version of the application, so it is not a fully managed solution. The customer needs to manage the AWS CDK stack and the Lambda function
+* The solution does not support tracking `latest` tag. If the customer wants to track the latest or fixed tag, we recommend using the native CI/CD support in App Runner
+* The solution uses various AWS services (like Eventbridge, SQS, Lambda) to track the semantic version pattern. As the solution relays on Eventbridge events, SQS messages and Lambda invocations to track the semantic version, it can get expensive if the customer tracks multiple App Runner services and ECR repositories as it would result in multiple events, SQS messages and invocations
+It can get expensive if the customer tracks multiple App Runner services and ECR repositories
+* The code is not production ready and is provided as is. The customer should test the solution in a non-production environment before using it
+* The solution does not support tracking multiple App Runner services using the same repository. If the customer wants to use the same repository for multiple App Runner services based on the semantic version, then the solution code needs to get updated to support this use case
 
 ## Conclusion
 
