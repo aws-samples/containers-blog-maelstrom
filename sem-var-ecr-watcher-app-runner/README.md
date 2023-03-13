@@ -69,7 +69,7 @@ The solution supports NPM style versioning checks, and here are some examples of
 * `^1.2.1` - Matches any version greater than or equal to 1.2.1 but less than 2.0.0
 
 The following environment variables need to be set in the Lambda function:
-* `QUEUE_NAME` - Name of the SQS queue that will receive the ECR push events and trigger the lambda function
+* `QUEUE_NAME` - Name of the SQS queue that will receive the Amazon ECR push events and trigger the AWS lambda function
 * `CONFIG_BUCKET` - Name of the S3 bucket that contains the JSON file with the match pattern
 * `CONFIG_FILE` - Name of the JSON file that contains the match pattern (sample provided under `config` folder)
 
