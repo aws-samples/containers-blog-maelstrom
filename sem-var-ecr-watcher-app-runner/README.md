@@ -23,7 +23,7 @@ By using semantic versioning, developers can communicate the impact of a release
 
 AWS App Runner is a fully managed container application service that makes it easy to deploy containerized applications from source code repositories quickly. App Runner provides a fully controlled environment to build, run, and scale containerized applications. It also provides a fully managed CI/CD pipeline to build and deploy new application versions automatically. Customers can leverage App Runner to continuously monitor their ECR repository for new images based on a fixed tag (like `LATEST`) and automatically deploy the new version of the application to the underlying App Runner service. 
 
-However,this approach does not allow customers to monitor and deploy the new version of the application based on semantic versioning. Let's say the customer wants App Runner to automatically deploy the new application version based on a match pattern like `>= MAJOR1.MINOR2.PATCH3`, this is not possible with the current App Runner capabilities. 
+However, this approach does not allow customers to monitor and deploy the new version of the application based on semantic versioning. Let's say the customer wants App Runner to automatically deploy the new application version based on a match pattern like `>= MAJOR1.MINOR2.PATCH3`, this is not possible with the current App Runner capabilities. 
 
 ## Customer Benefits
 
