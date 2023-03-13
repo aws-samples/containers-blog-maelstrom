@@ -69,9 +69,9 @@ The solution supports NPM style versioning checks, and here are some examples of
 * `^1.2.1` - Matches any version greater than or equal to 1.2.1 but less than 2.0.0
 
 The following environment variables need to be set in the Lambda function:
-* `QUEUE_NAME` - Name of the SQS queue that will receive the ECR push events and trigger the lambda function.
-* `CONFIG_BUCKET` - Name of the S3 bucket that contains the JSON file with the match pattern.
-* `CONFIG_FILE` - Name of the JSON file that contains the match pattern (sample provided under `config` folder).
+* `QUEUE_NAME` - Name of the SQS queue that will receive the ECR push events and trigger the lambda function
+* `CONFIG_BUCKET` - Name of the S3 bucket that contains the JSON file with the match pattern
+* `CONFIG_FILE` - Name of the JSON file that contains the match pattern (sample provided under `config` folder)
 
 The below sequence diagram shows the interaction between different components of the solution, when a new version of the application gets pushed to the ECR repository:
 
