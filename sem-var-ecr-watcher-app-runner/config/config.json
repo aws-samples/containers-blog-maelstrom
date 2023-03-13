@@ -1,0 +1,8 @@
+[
+    {
+      "repository": "apprunner-helloworld-service",
+      "semVersion": ">1.2.2",
+      "serviceArn": "arn:aws:apprunner:us-east-1:<accountId>:service/<name>/<serviceId>"
+    }
+  ]
+  
