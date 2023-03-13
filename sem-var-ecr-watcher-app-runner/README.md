@@ -62,11 +62,11 @@ The solution uses Event bridge rules to listen to the ECR `PUSH` events, which g
 ```
 
 The solution supports NPM style versioning checks, and here are some examples of the match patterns that are supported:
-* `>1.2.3` - Matches any version greater than 1.2.3.
-* `1.1.1 || 1.2.3 - 2.0.0` - Matches 1.1.1 version or any version between 1.2.3 & 2.0.0 (including).
-* `1.1.*` - Matches any version starting with 1.1.
-* `~1.2.1` - Matches any version greater than or equal to 1.2.1 but less than 1.3.0.
-* `^1.2.1` - Matches any version greater than or equal to 1.2.1 but less than 2.0.0.
+* `>1.2.3` - Matches any version greater than 1.2.3
+* `1.1.1 || 1.2.3 - 2.0.0` - Matches 1.1.1 version or any version between 1.2.3 & 2.0.0 (including)
+* `1.1.*` - Matches any version starting with 1.1
+* `~1.2.1` - Matches any version greater than or equal to 1.2.1 but less than 1.3.0
+* `^1.2.1` - Matches any version greater than or equal to 1.2.1 but less than 2.0.0
 
 The following environment variables need to be set in the Lambda function:
 * `QUEUE_NAME` - Name of the SQS queue that will receive the ECR push events and trigger the lambda function.
