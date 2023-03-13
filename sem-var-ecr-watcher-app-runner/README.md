@@ -41,9 +41,9 @@ Here are some of the benefits of using the solution outlined in this post:
 In this solution we use the following AWS services:
 * AWS App Runner - Fully managed container application service that makes it easy to quickly deploy containerized applications from source code repositories
 * AWS Lambda - Serverless compute service that allows you to run code without provisioning or managing servers
-* AWS ECR - Fully managed Docker container registry that makes it easy for developers to store, manage, and deploy Docker container images
-* AWS EventBridge - Fully managed event bus that makes it easy to connect applications together using data from your own applications, Software-as-a-Service (SaaS) applications, and AWS services
-* AWS S3 - Fully managed object storage service that offers industry-leading scalability, data availability, security, and performance
+* Amazon ECR - Fully managed Docker container registry that makes it easy for developers to store, manage, and deploy Docker container images
+* Amazon EventBridge - Fully managed event bus that makes it easy to connect applications together using data from your own applications, Software-as-a-Service (SaaS) applications, and AWS services
+* Amazon S3 - Fully managed object storage service that offers industry-leading scalability, data availability, security, and performance
 
 The following diagram shows the overall architecture of the solution:
 
@@ -69,7 +69,7 @@ The solution supports NPM style versioning checks, and here are some examples of
 * `^1.2.1` - Matches any version greater than or equal to 1.2.1 but less than 2.0.0
 
 The following environment variables need to be set in the Lambda function:
-* `QUEUE_NAME` - Name of the SQS queue that will receive the ECR push events and trigger the lambda function
+* `QUEUE_NAME` - Name of the SQS queue that will receive the Amazon ECR push events and trigger the AWS lambda function
 * `CONFIG_BUCKET` - Name of the S3 bucket that contains the JSON file with the match pattern
 * `CONFIG_FILE` - Name of the JSON file that contains the match pattern (sample provided under `config` folder)
 
@@ -242,7 +242,7 @@ cdk deploy --requires-approval
 
 ## Testing
 
-You must publish a new application version to the ECR repository to test the solution. The latest version should match the semver pattern (`>1.2.3`) that is specified in the `config.json` file inside the S3 bucket.
+You must publish a new application version to the ECR repository to test our solution. The latest version should match the semver pattern (`>1.2.3`) that is specified in the `config.json` file inside the S3 bucket.
 
 1. Update hello world application, by opening `templates\index.html` and changing `And we're live, one more time!` to `And we're live, one more time! v1.2.4` in line #183
 2. Build the docker image, tag and push it to the ECR repository.
