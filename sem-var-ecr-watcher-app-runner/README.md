@@ -35,7 +35,6 @@ Here are some of the benefits of using the solution outlined in this post:
 * With this approach, customers can start following the best practices in versioning and releasing their software. Yet, they can still leverage App Runner to roll out these changes to their end users without worrying about the underlying infrastructure.
 * The solution outlined in this post is scalable and can deploy multiple applications without additional cost.
 
----
 
 ## Solution Overview
 
