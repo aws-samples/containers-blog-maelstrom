@@ -42,7 +42,7 @@ In this solution we use the following AWS services:
 * AWS App Runner - Fully managed container application service that makes it easy to quickly deploy containerized applications from source code repositories
 * AWS Lambda - Serverless compute service that allows you to run code without provisioning or managing servers
 * AWS ECR - Fully managed Docker container registry that makes it easy for developers to store, manage, and deploy Docker container images
-* AWS EventBridge - Fully managed event bus that makes it easy to connect applications together using data from your own applications, Software-as-a-Service (SaaS) applications, and AWS services
+* Amazon EventBridge - Fully managed event bus that makes it easy to connect applications together using data from your own applications, Software-as-a-Service (SaaS) applications, and AWS services
 * Amazon S3 - Fully managed object storage service that offers industry-leading scalability, data availability, security, and performance
 
 The following diagram shows the overall architecture of the solution:
