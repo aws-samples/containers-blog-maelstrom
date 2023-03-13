@@ -3,6 +3,7 @@
 This repository is an accompaniment to blog posts  published on the [AWS Containers Blog](https://aws.amazon.com/blogs/containers/).
 
 ## Security
+
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
 
 ## License
