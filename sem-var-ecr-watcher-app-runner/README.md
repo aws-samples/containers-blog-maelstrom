@@ -302,7 +302,7 @@ It can get expensive if the customer tracks multiple App Runner services and ECR
 
 This post showed how customers could power their release pipelines based on semantic versioning and deliver new versions of the application to their customers fully automatedly using App Runner.
 
-If you have any questions or feedback, please leave a comment below.
+If you have any questions or feedback, please leave a comment below
 
 ## References
 * [AWS App Runner](https://aws.amazon.com/apprunner/)
