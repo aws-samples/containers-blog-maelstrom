@@ -212,8 +212,8 @@ arn:aws:apprunner:us-east-1:<<accountId>:service/hello-world-service/<<serviceId
 1. Checkout the solution from github
 
 ```bash
-mkdir sem-var-ecr-watcher-app-runner && cd sem-var-ecr-watcher-app-runner
-git clone https://github.com/hariohmprasath/sem-var-ecr-watcher-app-runner.git .
+git clone https://github.com/aws-samples/containers-blog-maelstrom.git
+cd sem-var-ecr-watcher-app-runner
 ```
 
 2. Update the `serviceARN` attribute inside `config.json` file under `config/` folder with the `ServiceArn` that was returned in the previous step (sample below).
