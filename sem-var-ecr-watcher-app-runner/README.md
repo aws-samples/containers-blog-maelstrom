@@ -242,7 +242,7 @@ cdk deploy --requires-approval
 
 ## Testing
 
-You must publish a new application version to the ECR repository to test the solution. The latest version should match the semver pattern (`>1.2.3`) that is specified in the `config.json` file inside the S3 bucket.
+You must publish a new application version to the ECR repository to test our solution. The latest version should match the semver pattern (`>1.2.3`) that is specified in the `config.json` file inside the S3 bucket.
 
 1. Update hello world application, by opening `templates\index.html` and changing `And we're live, one more time!` to `And we're live, one more time! v1.2.4` in line #183
 2. Build the docker image, tag and push it to the ECR repository.
