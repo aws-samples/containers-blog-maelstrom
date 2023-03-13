@@ -1,0 +1,15 @@
+title New image push deployment flow
+
+Customer->ECR: Pushes a new application version with tag **1.2.2** 
+ECR->EventBridge: Transmit Image PUSH event
+EventBridge->SQS: Publish ECR event
+SQS->Lambda: Trigger ECR event \nprocessor Lambda
+Lambda->S3: Fetch latest match configuration from S3
+Lambda-->Lambda: Verify whether there is a match between \n match pattern and ECR published imageTag\n **ex: ECR event imageTag = 1.2.2 \n Match Pattern >1.2.1\n Match=true**
+Lambda->App Runner: Fetch App Runner service configuration
+Lambda-->Lambda: If App Runner **deployed version!=ECR event imageTag**?
+Lambda->App Runner: Update App Runner service to point \n to ECR event imageTag
+App Runner-->App Runner: Update service
+Lambda-->Lambda: Else If App Runner **deployed version==ECR event imageTag**?
+Lambda->App Runner: Run Deploy on App Runner service to \npick the latest image
+App Runner-->App Runner: Deploy service

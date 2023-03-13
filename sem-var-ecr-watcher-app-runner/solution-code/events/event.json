@@ -1,0 +1,14 @@
+{
+  "Records": [
+    {
+      "messageId": "88119b9f-a45c-4c38-bfcc-f0c43b223d54",
+      "receiptHandle": "AQEBJOy7O0unj7d15CmUcsg3x9ENJJ3d7rCV9e50ZUhiDlt/mOXLwtDTzlUs2s9yQmTfa4HQWJYYgMV3QolWOQ7nU3Rr1P562poTmmrfXNXWo66VPl4Z6cKRVy1QUxWVovZg4F3NLBJY4rW8vN09DiCcI3rWECspXP/A1E4P8jn5eK1t5bS3LOj1xgaHKSekHFcmz+H4iXiVsTDWSI2lNy69dxu1ZjU53u+psMxqslgq86EDcR68QBYrqqptk5d9KzjcB1d32SWp4FIoe/uZRce499hy9I5xFpzYwQhPNAFR5HLKepfwFaEsQIhxuBdAZ6XUwRzDwhv36wHGimBTghLqqM/tDkQExh9Hk7wUBjGAVeqhTBuAc8obFY+Isbn4RCV0",
+      "body": "{\"version\":\"0\",\"id\":\"52b00ea0-261e-cb5c-b692-717d086bd02c\",\"detail-type\":\"ECR Image Action\",\"source\":\"aws.ecr\",\"account\":\"775448517459\",\"time\":\"2022-12-27T23:29:42Z\",\"region\":\"us-east-1\",\"resources\":[],\"detail\":{\"result\":\"SUCCESS\",\"repository-name\":\"apprunner-helloworld-service\",\"image-digest\":\"sha256:d0e034fe736e66d4f25aac3befb34aa8906d01392eb7ef8ce646f6d26a2fed71\",\"action-type\":\"PUSH\",\"image-tag\":\"1.2.4\"}}",
+      "messageAttributes": {},
+      "md5OfBody": "13727177ed0877c9978d6859fd539419",
+      "eventSource": "aws:sqs",
+      "eventSourceARN": "arn:aws:sqs:us-east-1:775448517459:ecr-queue",
+      "awsRegion": "us-east-1"
+    }
+  ]
+}

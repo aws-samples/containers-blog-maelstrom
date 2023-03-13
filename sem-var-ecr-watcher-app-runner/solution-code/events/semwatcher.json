@@ -1,0 +1,7 @@
+[
+  {
+    "repository": "apprunner-helloworld-service",
+    "semVersion": ">1.2.2",
+    "serviceArn": "arn:aws:apprunner:us-east-1:775448517459:service/ECREventTest/2d0032a93cbb4cbdaef0966607052336"
+  }
+]
