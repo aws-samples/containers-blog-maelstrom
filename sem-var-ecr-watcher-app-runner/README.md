@@ -13,9 +13,9 @@ Semantic versioning is a system for assigning version numbers to software releas
 ![Semantic Versioning](images/versioning.png)
 
 Here are some general rules for semantic versioning:
-* When a release contains backward-incompatible changes, the MAJOR version is incremented. 
-* When a release contains backward-compatible changes, the MINOR version is incremented. 
-* PATCH version is incremented for releases that contain only bug fixes and no other changes. 
+* When a release contains backward-incompatible changes, the MAJOR version is incremented
+* When a release contains backward-compatible changes, the MINOR version is incremented
+* PATCH version is incremented for releases that contain only bug fixes and no other changes 
 
 By using semantic versioning, developers can communicate the impact of a release to users, making it easier to understand the risks and benefits of updating to a new version. It also helps organizations to adopt a more predictable and consistent approach to versioning and releasing their software. Semantic versioning is not a replacement for a changelog or release notes. It is a way to convey the impact of a release, but it does not provide any information about the changes made.
 
