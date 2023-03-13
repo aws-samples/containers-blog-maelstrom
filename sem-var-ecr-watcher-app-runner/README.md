@@ -29,11 +29,11 @@ However, this approach does not allow customers to monitor and deploy the new ve
 
 Here are some of the benefits of using the solution outlined in this post:
 
-* Customers can use semantic versioning to communicate the impact of a release to users, making it easier to understand the risks and benefits of updating to a new version.
-* Customers can use App Runner to automatically deploy new versions of the application based on semantic versioning.
-* Customers can use unique tags (based on build ID, git commit) for each version of the application, making tracking and managing the application versions easier.
-* With this approach, customers can start following the best practices in versioning and releasing their software. Yet, they can still leverage App Runner to roll out these changes to their end users without worrying about the underlying infrastructure.
-* The solution outlined in this post is scalable and can deploy multiple applications without additional cost.
+* Customers can use semantic versioning to communicate the impact of a release to users, making it easier to understand the risks and benefits of updating to a new version
+* Customers can use App Runner to automatically deploy new versions of the application based on semantic versioning
+* Customers can use unique tags (based on build ID, git commit) for each version of the application, making tracking and managing the application versions easier
+* With this approach, customers can start following the best practices in versioning and releasing their software. Yet, they can still leverage App Runner to roll out these changes to their end users without worrying about the underlying infrastructure
+* The solution outlined in this post is scalable and can deploy multiple applications without additional cost
 
 
 ## Solution Overview
