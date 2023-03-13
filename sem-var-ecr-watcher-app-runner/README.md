@@ -84,10 +84,10 @@ If there are multiple ECR push events on the same repository, the Lambda functio
 
 To implement this solution, you need the following prerequisites:
 
-* The [AWS Command Line Interface](http://aws.amazon.com/cli) (AWS CLI) [installed](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html). The AWS CLI is a unified tool to manage your AWS services.
-* The AWS CDK [installed](https://docs.aws.amazon.com/cli/latest/userguide/installing.html) on your local laptop.
-* Git [installed and configured](https://git-scm.com/downloads) on your machine.
-* jq [installed](https://stedolan.github.io/jq/download/) on your machine.
+* The [AWS Command Line Interface](http://aws.amazon.com/cli) (AWS CLI) [installed](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html). The AWS CLI is a unified tool to manage your AWS services
+* The AWS CDK [installed](https://docs.aws.amazon.com/cli/latest/userguide/installing.html) on your local laptop
+* Git [installed and configured](https://git-scm.com/downloads) on your machine
+* jq [installed](https://stedolan.github.io/jq/download/) on your machine
 
 ## Deployment
 
