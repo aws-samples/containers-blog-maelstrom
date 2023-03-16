@@ -30,9 +30,8 @@ const stack = blueprints.EksBlueprint.builder()
     .addOns(...addOns)
     .build(app, clusterName);
 
-
 const cluster = stack.getClusterInfo().cluster;
-const clusterSecretStore = new eks.KubernetesManifest(app, "ClusterSecretStore", {
+new eks.KubernetesManifest(app, "ClusterSecretStore", {
     cluster: cluster,
     manifest: [
         {
@@ -59,7 +58,7 @@ const clusterSecretStore = new eks.KubernetesManifest(app, "ClusterSecretStore",
     ],
 });
 
-const keyfiles = new eks.KubernetesManifest(app, "ExternalSecret", {
+new eks.KubernetesManifest(app, "ExternalSecret", {
     cluster: cluster,
     manifest: [
         {
