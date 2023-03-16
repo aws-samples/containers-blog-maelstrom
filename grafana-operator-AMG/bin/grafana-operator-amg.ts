@@ -21,7 +21,9 @@ const addOns: Array<blueprints.ClusterAddOn> = [
     new blueprints.addons.PrometheusNodeExporterAddOn(),
     new blueprints.addons.KubeStateMetricsAddOn(),
     new blueprints.addons.AdotCollectorAddOn(),
-    new blueprints.addons.AmpAddOn(),
+    new blueprints.addons.AmpAddOn({
+        workspaceName: 'Demo-AMP-Workspace',
+    }),
 ];
 
 const stack = blueprints.EksBlueprint.builder()
@@ -78,7 +80,7 @@ new eks.KubernetesManifest(app, "ExternalSecret", {
                     {
                         secretKey: "GF_SECURITY_ADMIN_APIKEY",
                         remoteRef: {
-                            key: "GF_SECURITY_ADMIN_APIKEY"
+                            key: "grafana-api-key"
                         },
                     },
                 ],
