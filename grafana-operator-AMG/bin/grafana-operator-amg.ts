@@ -7,9 +7,9 @@ import * as eks from "aws-cdk-lib/aws-eks";
 
 const app = new cdk.App();
 
-const account = process.env.CAP_ACCOUNT_ID! || process.env.CDK_DEFAULT_ACCOUNT!;
-const region = process.env.CAP_CLUSTER_REGION! || process.env.CDK_DEFAULT_REGION!;
-const clusterName = process.env.CAP_CLUSTER_NAME!;
+const account = process.env.GO_ACCOUNT_ID! || process.env.CDK_DEFAULT_ACCOUNT!;
+const region = process.env.GO_AWS_REGION! || process.env.CDK_DEFAULT_REGION!;
+const clusterName = process.env.GO_CLUSTER_NAME!;
 
 const addOns: Array<blueprints.ClusterAddOn> = [
     new blueprints.addons.AwsLoadBalancerControllerAddOn(),
