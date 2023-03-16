@@ -36,7 +36,3 @@ const stack = blueprints.EksBlueprint.builder()
     .region(region)
     .addOns(...addOns)
     .build(app, clusterName);
-
-
-
-

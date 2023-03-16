@@ -37,7 +37,7 @@ export class GrafanaOperatorSecretAddon implements blueprints.ClusterAddOn {
             ],
         });
         
-        new eks.KubernetesManifest(clusterInfo.cluster.stack, "ExternalSecret", {
+        const externalSecret = new eks.KubernetesManifest(clusterInfo.cluster.stack, "ExternalSecret", {
             cluster: cluster,
             manifest: [
                 {
@@ -68,5 +68,6 @@ export class GrafanaOperatorSecretAddon implements blueprints.ClusterAddOn {
                 },
             ],
         });
+        return Promise.resolve(externalSecret);
     }
 }
