@@ -15,8 +15,8 @@ if [ -z "${GO_ACCOUNT_ID}" ]; then
     echo -e "${R}env variable GO_ACCOUNT_ID not set${NC}"; exit 1
 fi
 
-if [ -z "${GO_AWSREGION}" ]; then
-    echo -e "${R}env variable GO_CLUSTER_REGION not set${NC}"; exit 1
+if [ -z "${GO_AWS_REGION}" ]; then
+    echo -e "${R}env variable GO_AWS_REGION not set${NC}"; exit 1
 fi
 
 if [ -z "${GO_CLUSTER_NAME}" ]; then
