@@ -9,7 +9,7 @@ const app = new cdk.App();
 
 const account = process.env.GO_ACCOUNT_ID! || process.env.CDK_DEFAULT_ACCOUNT!;
 const region = process.env.GO_AWS_REGION! || process.env.CDK_DEFAULT_REGION!;
-const clusterName = process.env.GO_CLUSTER_NAME!;
+const clusterName = process.env.GO_CLUSTER_NAME! || 'grafana-operator-cluster';
 const ampWorkspaceName = process.env.GO_AMP_WORKSPACE_NAME! || 'demo-amp-Workspace';
 
 const addOns: Array<blueprints.ClusterAddOn> = [

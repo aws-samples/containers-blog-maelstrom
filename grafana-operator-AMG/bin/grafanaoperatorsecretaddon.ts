@@ -10,7 +10,7 @@ export class GrafanaOperatorSecretAddon implements blueprints.ClusterAddOn {
     @dependable(blueprints.addons.ExternalsSecretsAddOn.name)
     deploy(clusterInfo: blueprints.ClusterInfo): void | Promise<Construct> {
         const cluster = clusterInfo.cluster;
-        new eks.KubernetesManifest(clusterInfo.cluster.stack, "ClusterSecretStore", {
+        const secretStore = new eks.KubernetesManifest(clusterInfo.cluster.stack, "ClusterSecretStore", {
             cluster: cluster,
             manifest: [
                 {
@@ -70,6 +70,7 @@ export class GrafanaOperatorSecretAddon implements blueprints.ClusterAddOn {
                 },
             ],
         });
-        return Promise.resolve(externalSecret);
+        externalSecret.node.addDependency(secretStore);
+        return Promise.resolve(secretStore);
     }
 }
