@@ -6,4 +6,4 @@ spec:
   instanceSelector:
     matchLabels:
       dashboards: "external-grafana"
-  url: "https://raw.githubusercontent.com/aws-samples/containers-blog-maelstrom/feature/grafanaOperatorAMG/grafana-operator-AMG/dashboards/nodeexporter-nodes.json"
+  url: "https://raw.githubusercontent.com/aws-samples/containers-blog-maelstrom/main/grafana-operator-AMG/dashboards/nodeexporter-nodes.json"
