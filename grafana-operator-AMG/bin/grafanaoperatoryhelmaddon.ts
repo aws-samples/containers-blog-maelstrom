@@ -8,7 +8,7 @@ const defaultProps: blueprints.HelmAddOnProps = {
     chart: 'grafana-operator-v5.0.0-rc0',
     namespace: 'grafana-operator',
     repository: 'oci://ghcr.io/grafana-operator/helm-charts/grafana-operator',
-    release: 'grafana-operator',
+    release: 'grafana-operator-v5.0.0-rc0',
     version: 'v5.0.0-rc0',
     values: {}
 };

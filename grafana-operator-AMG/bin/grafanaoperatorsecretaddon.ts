@@ -7,7 +7,7 @@ import { dependable } from '@aws-quickstart/eks-blueprints/dist/utils';
 
 export class GrafanaOperatorSecretAddon implements blueprints.ClusterAddOn {
     id?: string | undefined;
-    @dependable(blueprints.addons.ExternalsSecretsAddOn.name, GrafanaOperatorHelmAddon.name)
+    @dependable(blueprints.addons.ExternalsSecretsAddOn.name)
     deploy(clusterInfo: blueprints.ClusterInfo): void | Promise<Construct> {
         const cluster = clusterInfo.cluster;
         new eks.KubernetesManifest(clusterInfo.cluster.stack, "ClusterSecretStore", {
@@ -16,7 +16,10 @@ export class GrafanaOperatorSecretAddon implements blueprints.ClusterAddOn {
                 {
                     apiVersion: "external-secrets.io/v1beta1",
                     kind: "ClusterSecretStore",
-                    metadata: {name: "default"},
+                    metadata: {
+                        name: "secret-manager-store",
+                        namespace: "default"
+                    },
                     spec: {
                         provider: {
                             aws: {
@@ -45,16 +48,15 @@ export class GrafanaOperatorSecretAddon implements blueprints.ClusterAddOn {
                     kind: "ExternalSecret",
                     metadata: {
                         name: "external-grafana-admin-credentials",
-                        namespace: "grafana-operator"
+                        namespace: "default"
                         },
                     spec: {
                         secretStoreRef: {
-                            name: "default",
+                            name: "secret-manager-store",
                             kind: "ClusterSecretStore",
                         },
                         target: {
-                            name: "grafana-admin-credentials",
-                            creationPolicy: "Merge",
+                            name: "grafana-admin-credentials"
                         },
                         data: [
                             {

@@ -4,7 +4,6 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import * as blueprints from '@aws-quickstart/eks-blueprints';
 import { GrafanaOperatorSecretAddon } from './grafanaoperatorsecretaddon';
-import { GrafanaOperatorHelmAddon } from './grafanaoperatoryhelmaddon';
 
 const app = new cdk.App();
 
@@ -26,7 +25,7 @@ const addOns: Array<blueprints.ClusterAddOn> = [
     new blueprints.addons.AmpAddOn({
         workspaceName: ampWorkspaceName,
     }),
-    new GrafanaOperatorHelmAddon(),
+    // new GrafanaOperatorHelmAddon(),
     new GrafanaOperatorSecretAddon(),
     
 ];
