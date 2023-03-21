@@ -13,9 +13,9 @@ Semantic versioning is a system for assigning version numbers to software releas
 ![Semantic Versioning](images/versioning.png)
 
 Here are some general rules for semantic versioning:
-* When a release contains backward-incompatible changes, the MAJOR version is incremented
-* When a release contains backward-compatible changes, the MINOR version is incremented
-* PATCH version is incremented for releases that contain only bug fixes and no other changes 
+* When a release contains backward-incompatible changes, the MAJOR version is incremented. 
+* When a release contains backward-compatible changes, the MINOR version is incremented. 
+* PATCH version is incremented for releases that contain only bug fixes and no other changes. 
 
 By using semantic versioning, developers can communicate the impact of a release to users, making it easier to understand the risks and benefits of updating to a new version. It also helps organizations to adopt a more predictable and consistent approach to versioning and releasing their software. Semantic versioning is not a replacement for a changelog or release notes. It is a way to convey the impact of a release, but it does not provide any information about the changes made.
 
@@ -29,21 +29,22 @@ However, this approach does not allow customers to monitor and deploy the new ve
 
 Here are some of the benefits of using the solution outlined in this post:
 
-* Customers can use semantic versioning to communicate the impact of a release to users, making it easier to understand the risks and benefits of updating to a new version
-* Customers can use App Runner to automatically deploy new versions of the application based on semantic versioning
-* Customers can use unique tags (based on build ID, git commit) for each version of the application, making tracking and managing the application versions easier
-* With this approach, customers can start following the best practices in versioning and releasing their software. Yet, they can still leverage App Runner to roll out these changes to their end users without worrying about the underlying infrastructure
-* The solution outlined in this post is scalable and can deploy multiple applications without additional cost
+* Customers can use semantic versioning to communicate the impact of a release to users, making it easier to understand the risks and benefits of updating to a new version.
+* Customers can use App Runner to automatically deploy new versions of the application based on semantic versioning.
+* Customers can use unique tags (based on build ID, git commit) for each version of the application, making tracking and managing the application versions easier.
+* With this approach, customers can start following the best practices in versioning and releasing their software. Yet, they can still leverage App Runner to roll out these changes to their end users without worrying about the underlying infrastructure.
+* The solution outlined in this post is scalable and can deploy multiple applications without additional cost.
 
+---
 
 ## Solution Overview
 
 In this solution we use the following AWS services:
-* AWS App Runner - Fully managed container application service that makes it easy to quickly deploy containerized applications from source code repositories
-* AWS Lambda - Serverless compute service that allows you to run code without provisioning or managing servers
-* Amazon ECR - Fully managed Docker container registry that makes it easy for developers to store, manage, and deploy Docker container images
-* Amazon EventBridge - Fully managed event bus that makes it easy to connect applications together using data from your own applications, Software-as-a-Service (SaaS) applications, and AWS services
-* Amazon S3 - Fully managed object storage service that offers industry-leading scalability, data availability, security, and performance
+* AWS App Runner - Fully managed container application service that makes it easy to quickly deploy containerized applications from source code repositories.
+* AWS Lambda - Serverless compute service that allows you to run code without provisioning or managing servers.
+* AWS ECR - Fully managed Docker container registry that makes it easy for developers to store, manage, and deploy Docker container images.
+* AWS EventBridge - Fully managed event bus that makes it easy to connect applications together using data from your own applications, Software-as-a-Service (SaaS) applications, and AWS services.
+* AWS S3 - Fully managed object storage service that offers industry-leading scalability, data availability, security, and performance.
 
 The following diagram shows the overall architecture of the solution:
 
@@ -62,16 +63,16 @@ The solution uses Event bridge rules to listen to the ECR `PUSH` events, which g
 ```
 
 The solution supports NPM style versioning checks, and here are some examples of the match patterns that are supported:
-* `>1.2.3` - Matches any version greater than 1.2.3
-* `1.1.1 || 1.2.3 - 2.0.0` - Matches 1.1.1 version or any version between 1.2.3 & 2.0.0 (including)
-* `1.1.*` - Matches any version starting with 1.1
-* `~1.2.1` - Matches any version greater than or equal to 1.2.1 but less than 1.3.0
-* `^1.2.1` - Matches any version greater than or equal to 1.2.1 but less than 2.0.0
+* `>1.2.3` - Matches any version greater than 1.2.3.
+* `1.1.1 || 1.2.3 - 2.0.0` - Matches 1.1.1 version or any version between 1.2.3 & 2.0.0 (including).
+* `1.1.*` - Matches any version starting with 1.1.
+* `~1.2.1` - Matches any version greater than or equal to 1.2.1 but less than 1.3.0.
+* `^1.2.1` - Matches any version greater than or equal to 1.2.1 but less than 2.0.0.
 
 The following environment variables need to be set in the Lambda function:
-* `QUEUE_NAME` - Name of the SQS queue that will receive the Amazon ECR push events and trigger the AWS lambda function
-* `CONFIG_BUCKET` - Name of the S3 bucket that contains the JSON file with the match pattern
-* `CONFIG_FILE` - Name of the JSON file that contains the match pattern (sample provided under `config` folder)
+* `QUEUE_NAME` - Name of the SQS queue that will receive the ECR push events and trigger the lambda function.
+* `CONFIG_BUCKET` - Name of the S3 bucket that contains the JSON file with the match pattern.
+* `CONFIG_FILE` - Name of the JSON file that contains the match pattern (sample provided under `config` folder).
 
 The below sequence diagram shows the interaction between different components of the solution, when a new version of the application gets pushed to the ECR repository:
 
@@ -84,10 +85,10 @@ If there are multiple ECR push events on the same repository, the Lambda functio
 
 To implement this solution, you need the following prerequisites:
 
-* The [AWS Command Line Interface](http://aws.amazon.com/cli) (AWS CLI) [installed](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html). The AWS CLI is a unified tool to manage your AWS services
-* The AWS CDK [installed](https://docs.aws.amazon.com/cli/latest/userguide/installing.html) on your local laptop
-* Git [installed and configured](https://git-scm.com/downloads) on your machine
-* jq [installed](https://stedolan.github.io/jq/download/) on your machine
+* The [AWS Command Line Interface](http://aws.amazon.com/cli) (AWS CLI) [installed](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html). The AWS CLI is a unified tool to manage your AWS services.
+* The AWS CDK [installed](https://docs.aws.amazon.com/cli/latest/userguide/installing.html) on your local laptop.
+* Git [installed and configured](https://git-scm.com/downloads) on your machine.
+* jq [installed](https://stedolan.github.io/jq/download/) on your machine.
 
 ## Deployment
 
@@ -212,8 +213,8 @@ arn:aws:apprunner:us-east-1:<<accountId>:service/hello-world-service/<<serviceId
 1. Checkout the solution from github
 
 ```bash
-git clone https://github.com/aws-samples/containers-blog-maelstrom.git
-cd sem-var-ecr-watcher-app-runner
+mkdir sem-var-ecr-watcher-app-runner && cd sem-var-ecr-watcher-app-runner
+git clone https://github.com/hariohmprasath/sem-var-ecr-watcher-app-runner.git .
 ```
 
 2. Update the `serviceARN` attribute inside `config.json` file under `config/` folder with the `ServiceArn` that was returned in the previous step (sample below).
@@ -242,7 +243,7 @@ cdk deploy --requires-approval
 
 ## Testing
 
-You must publish a new application version to the ECR repository to test our solution. The latest version should match the semver pattern (`>1.2.3`) that is specified in the `config.json` file inside the S3 bucket.
+You must publish a new application version to the ECR repository to test the solution. The latest version should match the semver pattern (`>1.2.3`) that is specified in the `config.json` file inside the S3 bucket.
 
 1. Update hello world application, by opening `templates\index.html` and changing `And we're live, one more time!` to `And we're live, one more time! v1.2.4` in line #183
 2. Build the docker image, tag and push it to the ECR repository.
@@ -291,18 +292,18 @@ aws iam delete-role --role-name ${ROLE_NAME}
 
 Here are some essential items to consider before using this solution:
 
-* The solution uses AWS App Runner APIs to update and deploy the new version of the application, so it is not a fully managed solution. The customer needs to manage the AWS CDK stack and the Lambda function
-* The solution does not support tracking `latest` tag. If the customer wants to track the latest or fixed tag, we recommend using the native CI/CD support in App Runner
-* The solution uses various AWS services (like Eventbridge, SQS, Lambda) to track the semantic version pattern. As the solution relays on Eventbridge events, SQS messages and Lambda invocations to track the semantic version, it can get expensive if the customer tracks multiple App Runner services and ECR repositories as it would result in multiple events, SQS messages and invocations
-It can get expensive if the customer tracks multiple App Runner services and ECR repositories
-* The code is not production ready and is provided as is. The customer should test the solution in a non-production environment before using it
-* The solution does not support tracking multiple App Runner services using the same repository. If the customer wants to use the same repository for multiple App Runner services based on the semantic version, then the solution code needs to get updated to support this use case
+* The solution uses AWS App Runner APIs to update and deploy the new version of the application, so it is not a fully managed solution. The customer needs to manage the AWS CDK stack and the Lambda function.
+* The solution does not support tracking `latest` tag. If the customer wants to track the latest or fixed tag, we recommend using the native CI/CD support in App Runner.
+* The solution uses various AWS services (like Eventbridge, SQS, Lambda) to track the semantic version pattern. As the solution relays on Eventbridge events, SQS messages and Lambda invocations to track the semantic version, it can get expensive if the customer tracks multiple App Runner services and ECR repositories as it would result in multiple events, SQS messages and invocations.
+It can get expensive if the customer tracks multiple App Runner services and ECR repositories.
+* The code is not production ready and is provided as is. The customer should test the solution in a non-production environment before using it.
+* The solution does not support tracking multiple App Runner services using the same repository. If the customer wants to use the same repository for multiple App Runner services based on the semantic version, then the solution code needs to get updated to support this use case.
 
 ## Conclusion
 
 This post showed how customers could power their release pipelines based on semantic versioning and deliver new versions of the application to their customers fully automatedly using App Runner.
 
-If you have any questions or feedback, please leave a comment below
+If you have any questions or feedback, please leave a comment below.
 
 ## References
 * [AWS App Runner](https://aws.amazon.com/apprunner/)

@@ -9,6 +9,7 @@ import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as cdk from 'aws-cdk-lib';
 import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
+import { NagSuppressions } from 'cdk-nag';
 
 export interface SemVarEcrAppRunnerConstructProps {
   readonly appRunnerServiceArn?: string;
@@ -23,12 +24,29 @@ export class SemVarEcrWatcherAppRunnerStack extends cdk.Stack {
 
     this.appRunnerServiceArn = props.appRunnerServiceArn ?? '';
 
+    NagSuppressions.addStackSuppressions(this, [{
+        id: 'AwsSolutions-IAM4',
+        reason: 'All the required permissions are added to S3 bucket and lambda'
+      }, {
+        id: 'AwsSolutions-IAM5',
+        reason: 'All the required permissions are added to SQS queue'
+      }, {
+        id: 'AwsSolutions-SQS3',
+        reason: 'DLQ added, so suppressing this check.'
+      }
+    ])
+
     // Bucket to save failed records
     const semVarConfigBucket = new s3.Bucket(this, 'semvar-config-bucket', {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+      enforceSSL: true,
+      accessControl: s3.BucketAccessControl.PRIVATE,
+      serverAccessLogsPrefix: 'logs',
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL
     });
 
+    // Disable public access on s3 bucket
     new s3deploy.BucketDeployment(this, 'semvar-s3-deployment', {
       sources: [s3deploy.Source.asset('./config')],
       destinationBucket: semVarConfigBucket,
@@ -36,7 +54,15 @@ export class SemVarEcrWatcherAppRunnerStack extends cdk.Stack {
 
     // SQS Queue
     const queue = new sqs.Queue(this, 'semvar-ecr-event-queue', {
-      visibilityTimeout: cdk.Duration.seconds(120)      
+      visibilityTimeout: cdk.Duration.seconds(120),
+      enforceSSL: true,
+      deadLetterQueue: {
+        maxReceiveCount: 3,
+        queue: new sqs.Queue(this, 'semvar-ecr-event-queue-dlq', {
+          visibilityTimeout: cdk.Duration.seconds(120),
+          enforceSSL: true,
+        }),
+      },
     });
 
     // Lambda IAM rule
@@ -49,17 +75,38 @@ export class SemVarEcrWatcherAppRunnerStack extends cdk.Stack {
         statements: [
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
-            actions: ['s3:*'],
+            actions: [
+                "s3:GetObject",
+                "s3:GetBucketLogging",
+                "s3:ListBucketVersions",
+                "s3:ListBucket",
+                "s3:GetBucketPolicy",
+                "s3:GetObjectTagging",
+                "s3:GetBucketAcl",
+                "s3:GetAccessPointConfigurationForObjectLambda",
+                "s3:ListAllMyBuckets",
+                "s3:GetBucketLocation",
+                "s3:GetObjectVersion"
+            ],
             resources: [`${semVarConfigBucket.bucketArn}/*`],
           }),
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
-            actions: ['sqs:*'],
+            actions: [
+                "sqs:ListQueues",
+                "sqs:GetQueueUrl",
+                "sqs:ReceiveMessage",
+                "sqs:GetQueueAttributes"
+            ],
             resources: [`${queue.queueArn}`],
           }),
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
-            actions: ['apprunner:*'],
+            actions: [
+                "apprunner:DescribeService",
+                "apprunner:StartDeployment",
+                "apprunner:UpdateService"
+            ],
             resources: ['*'],
           }),              
           new iam.PolicyStatement({
