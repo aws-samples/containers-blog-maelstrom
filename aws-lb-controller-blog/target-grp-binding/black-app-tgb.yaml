@@ -1,0 +1,10 @@
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: black-tgb
+  namespace: black-ns
+spec:
+  serviceRef:
+    name: black-service
+    port: 80
+  targetGroupARN: arn:aws:elasticloadbalancing:us-west-2:<acct_id>:targetgroup/black-app-tgt-grp/8750e00de01ecbd4

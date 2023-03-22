@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: orange-purple-ingress
+  namespace: orange-purple-ns
+  labels:
+    app: color-2
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: app-color-lb
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /orange
+            pathType: Prefix
+            backend:
+              service:
+                name: orange-service
+                port:
+                  number: 80                        
+          - path: /purple
+            pathType: Prefix
+            backend:
+              service:
+                name: purple-service
+                port:
+                  number: 80

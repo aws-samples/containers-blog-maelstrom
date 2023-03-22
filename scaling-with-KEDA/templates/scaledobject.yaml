@@ -1,0 +1,30 @@
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: ho11y-hpa
+  namespace: ho11y
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: downstream0
+  pollingInterval:  30 
+  cooldownPeriod:   300
+  fallback:
+    failureThreshold: 3
+    replicas: 2
+  minReplicaCount: 1        # Optional. Default: 0
+  maxReplicaCount: 10       # Optional. Default: 100
+  triggers:
+    - type: aws-cloudwatch
+      metadata:
+        namespace: AWSObservability/Keda/PrometheusMetrics
+        dimensionName: k8s_namespace;service.name
+        dimensionValue: ho11y;ho11y
+        metricName: ho11y_total
+        targetMetricValue: '1'
+        minMetricValue: '0'
+        awsRegion: "{{CW_AWS_REGION}}"
+        identityOwner: operator
+---

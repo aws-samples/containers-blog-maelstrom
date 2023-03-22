@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: sample
+  name: sample-ui
+  labels:
+    app: sample-ui
+    tier: frontend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 80
+  selector:
+    app: sample-ui
+    tier: frontend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: sample
+  name: sample-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sample-ui
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: sample-ui
+        tier: frontend
+    spec:
+      containers:
+        - name: sample-ui
+          image: IMAGE_URI
+          env:
+            - name: AWS_REGION
+              value: "COK_AWS_REGION"       
+          ports:
+            - containerPort: 80
