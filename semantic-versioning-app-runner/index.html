@@ -1,0 +1,895 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.3.1, mkdocs-material-8.3.9">
+    
+    
+      
+        <title>Semantic Versioning App Runner - Amazon Containers Blog Maelstrom</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.1d29e8d0.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.cbb835fc.min.css">
+        
+      
+      
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="" data-md-color-primary="none" data-md-color-accent="none">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#enable-continuous-deployment-based-on-semantic-versioning-using-aws-app-runner" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Amazon Containers Blog Maelstrom" class="md-header__button md-logo" aria-label="Amazon Containers Blog Maelstrom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Amazon Containers Blog Maelstrom
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Semantic Versioning App Runner
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/aws-samples/containers-blog-maelstrom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    aws-samples/containers-blog-maelstrom
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Amazon Containers Blog Maelstrom" class="md-nav__button md-logo" aria-label="Amazon Containers Blog Maelstrom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    Amazon Containers Blog Maelstrom
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/aws-samples/containers-blog-maelstrom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    aws-samples/containers-blog-maelstrom
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2">
+          Patterns
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Patterns" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Patterns
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../aws-cdk-eks-multi-region-skeleton/" class="md-nav__link">
+        Multi Region EKS Clusters with CDK
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../batch-processing-with-k8s/" class="md-nav__link">
+        Batch Processing with K8s
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prefetch-data-to-eks-nodes/" class="md-nav__link">
+        Prefetch Images to EKS nodes
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Semantic Versioning App Runner
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Semantic Versioning App Runner
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#semantic-versioning" class="md-nav__link">
+    Semantic Versioning
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#problem-statement" class="md-nav__link">
+    Problem Statement
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customer-benefits" class="md-nav__link">
+    Customer Benefits
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-overview" class="md-nav__link">
+    Solution Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-requisites" class="md-nav__link">
+    Pre-requisites
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    Deployment
+  </a>
+  
+    <nav class="md-nav" aria-label="Deployment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#setup-ecr-repository-and-app-runner-service" class="md-nav__link">
+    Setup ECR repository and App Runner Service
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploy-the-solution" class="md-nav__link">
+    Deploy the solution
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    Testing
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clean-up" class="md-nav__link">
+    Clean Up
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#considerations" class="md-nav__link">
+    Considerations
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    Conclusion
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    References
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#semantic-versioning" class="md-nav__link">
+    Semantic Versioning
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#problem-statement" class="md-nav__link">
+    Problem Statement
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customer-benefits" class="md-nav__link">
+    Customer Benefits
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-overview" class="md-nav__link">
+    Solution Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-requisites" class="md-nav__link">
+    Pre-requisites
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment" class="md-nav__link">
+    Deployment
+  </a>
+  
+    <nav class="md-nav" aria-label="Deployment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#setup-ecr-repository-and-app-runner-service" class="md-nav__link">
+    Setup ECR repository and App Runner Service
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploy-the-solution" class="md-nav__link">
+    Deploy the solution
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    Testing
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clean-up" class="md-nav__link">
+    Clean Up
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#considerations" class="md-nav__link">
+    Considerations
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    Conclusion
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    References
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+  <a href="https://github.com/aws-samples/containers-blog-maelstrom/edit/master/docs/semantic-versioning-app-runner.md" title="Edit this page" class="md-content__button md-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
+  </a>
+
+
+
+<h1 id="enable-continuous-deployment-based-on-semantic-versioning-using-aws-app-runner">Enable continuous deployment based on semantic versioning using AWS App Runner<a class="headerlink" href="#enable-continuous-deployment-based-on-semantic-versioning-using-aws-app-runner" title="Permanent link">&para;</a></h1>
+<h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h2>
+<p>In this modern cloud era, customers automatically build, test, and deploy the new version of their application multiple times a day, and this is a common scenario in the software development life cycle as it allows for faster delivery of features, bug fixes, and other updates to end users. One key aspect of continuous deployment is semantic versioning, a system for assigning version numbers to software releases. Semantic versioning uses a standard format to convey the level of change in a release, allowing developers and users to understand the potential impact of an update. </p>
+<p>In this blog post, we will show you how to use semantic versioning combined with the CI/CD capabilities App Runner provides to deploy new versions of the application automatically.</p>
+<h2 id="semantic-versioning">Semantic Versioning<a class="headerlink" href="#semantic-versioning" title="Permanent link">&para;</a></h2>
+<p>Semantic versioning is a system for assigning version numbers to software releases. It uses a standard format to convey the level of change in a release, allowing developers and users to understand the potential impact of an update. The basic format of a semantic version number is <code>MAJOR.MINOR.PATCH</code>, where each component is a non-negative integer.</p>
+<p><img alt="Semantic Versioning" src="images/versioning.png" /></p>
+<p>Here are some general rules for semantic versioning:
+* When a release contains backward-incompatible changes, the MAJOR version is incremented. 
+* When a release contains backward-compatible changes, the MINOR version is incremented. 
+* PATCH version is incremented for releases that contain only bug fixes and no other changes. </p>
+<p>By using semantic versioning, developers can communicate the impact of a release to users, making it easier to understand the risks and benefits of updating to a new version. It also helps organizations to adopt a more predictable and consistent approach to versioning and releasing their software. Semantic versioning is not a replacement for a changelog or release notes. It is a way to convey the impact of a release, but it does not provide any information about the changes made.</p>
+<h2 id="problem-statement">Problem Statement<a class="headerlink" href="#problem-statement" title="Permanent link">&para;</a></h2>
+<p>AWS App Runner is a fully managed container application service that makes it easy to deploy containerized applications from source code repositories quickly. App Runner provides a fully controlled environment to build, run, and scale containerized applications. It also provides a fully managed CI/CD pipeline to build and deploy new application versions automatically. Customers can leverage App Runner to continuously monitor their ECR repository for new images based on a fixed tag (like <code>LATEST</code>) and automatically deploy the new version of the application to the underlying App Runner service. </p>
+<p>However, this approach does not allow customers to monitor and deploy the new version of the application based on semantic versioning. Let's say the customer wants App Runner to automatically deploy the new application version based on a match pattern like <code>&gt;= MAJOR1.MINOR2.PATCH3</code>, this is not possible with the current App Runner capabilities. </p>
+<h2 id="customer-benefits">Customer Benefits<a class="headerlink" href="#customer-benefits" title="Permanent link">&para;</a></h2>
+<p>Here are some of the benefits of using the solution outlined in this post:</p>
+<ul>
+<li>Customers can use semantic versioning to communicate the impact of a release to users, making it easier to understand the risks and benefits of updating to a new version.</li>
+<li>Customers can use App Runner to automatically deploy new versions of the application based on semantic versioning.</li>
+<li>Customers can use unique tags (based on build ID, git commit) for each version of the application, making tracking and managing the application versions easier.</li>
+<li>With this approach, customers can start following the best practices in versioning and releasing their software. Yet, they can still leverage App Runner to roll out these changes to their end users without worrying about the underlying infrastructure.</li>
+<li>The solution outlined in this post is scalable and can deploy multiple applications without additional cost.</li>
+</ul>
+<hr />
+<h2 id="solution-overview">Solution Overview<a class="headerlink" href="#solution-overview" title="Permanent link">&para;</a></h2>
+<p>In this solution we use the following AWS services:
+* AWS App Runner - Fully managed container application service that makes it easy to quickly deploy containerized applications from source code repositories.
+* AWS Lambda - Serverless compute service that allows you to run code without provisioning or managing servers.
+* AWS ECR - Fully managed Docker container registry that makes it easy for developers to store, manage, and deploy Docker container images.
+* AWS EventBridge - Fully managed event bus that makes it easy to connect applications together using data from your own applications, Software-as-a-Service (SaaS) applications, and AWS services.
+* AWS S3 - Fully managed object storage service that offers industry-leading scalability, data availability, security, and performance.</p>
+<p>The following diagram shows the overall architecture of the solution:</p>
+<p><img alt="Architecture" src="images/arch.png" /></p>
+<p>The solution uses Event bridge rules to listen to the ECR <code>PUSH</code> events, which get processed by a Lambda function via an SQS queue. The lambda function uses AWS App Runner APIs to fetch the currently deployed version of the application and compare it with the <code>imageTag</code> that got pushed to the ECR repository. If there is a match (based on semantic versioning), the Lambda function updates the App Runner service to deploy the new version of the application. Customers can provide the match pattern as an input parameter to the Lambda function in the form of a JSON file (sample below) stored in an S3 bucket.</p>
+<div class="highlight"><pre><span></span><code><span class="p">[</span><span class="w"></span>
+<span class="w">  </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;repository&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Hello-World-AppRunner-Repo&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;semVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&gt;1.2.3&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;serviceArn&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;arn:aws:apprunner:us-east-1:123456789123:service/Hello-World-Service/2d0032a93cbb4cbdaef0966607052336&quot;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">]</span><span class="w"></span>
+</code></pre></div>
+<p>The solution supports NPM style versioning checks, and here are some examples of the match patterns that are supported:
+* <code>&gt;1.2.3</code> - Matches any version greater than 1.2.3.
+* <code>1.1.1 || 1.2.3 - 2.0.0</code> - Matches 1.1.1 version or any version between 1.2.3 &amp; 2.0.0 (including).
+* <code>1.1.*</code> - Matches any version starting with 1.1.
+* <code>~1.2.1</code> - Matches any version greater than or equal to 1.2.1 but less than 1.3.0.
+* <code>^1.2.1</code> - Matches any version greater than or equal to 1.2.1 but less than 2.0.0.</p>
+<p>The following environment variables need to be set in the Lambda function:
+* <code>QUEUE_NAME</code> - Name of the SQS queue that will receive the ECR push events and trigger the lambda function.
+* <code>CONFIG_BUCKET</code> - Name of the S3 bucket that contains the JSON file with the match pattern.
+* <code>CONFIG_FILE</code> - Name of the JSON file that contains the match pattern (sample provided under <code>config</code> folder).</p>
+<p>The below sequence diagram shows the interaction between different components of the solution, when a new version of the application gets pushed to the ECR repository:</p>
+<p><img alt="Seq" src="images/seq.png" /></p>
+<p><strong>Retry Logic:</strong>
+If there are multiple ECR push events on the same repository, the Lambda function will first check whether there is an ongoing deployment for the target App Runner service. If a deployment is in progress, the Lambda function will wait for the deployment to complete and retry again after 10 minutes. Lambda will retry a maximum of 3 times before giving up.</p>
+<h2 id="pre-requisites">Pre-requisites<a class="headerlink" href="#pre-requisites" title="Permanent link">&para;</a></h2>
+<p>To implement this solution, you need the following prerequisites:</p>
+<ul>
+<li>The <a href="http://aws.amazon.com/cli">AWS Command Line Interface</a> (AWS CLI) <a href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html">installed</a>. The AWS CLI is a unified tool to manage your AWS services.</li>
+<li>The AWS CDK <a href="https://docs.aws.amazon.com/cli/latest/userguide/installing.html">installed</a> on your local laptop.</li>
+<li>Git <a href="https://git-scm.com/downloads">installed and configured</a> on your machine.</li>
+<li>jq <a href="https://stedolan.github.io/jq/download/">installed</a> on your machine.</li>
+</ul>
+<h2 id="deployment">Deployment<a class="headerlink" href="#deployment" title="Permanent link">&para;</a></h2>
+<h3 id="setup-ecr-repository-and-app-runner-service">Setup ECR repository and App Runner Service<a class="headerlink" href="#setup-ecr-repository-and-app-runner-service" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p>Note: Let us demonstrate the solution by using the hello world sample application from the App Runner documentation.</p>
+</blockquote>
+<ol>
+<li>Checkout the sample application from Github.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>mkdir hello-app-runner <span class="o">&amp;&amp;</span> <span class="nb">cd</span> hello-app-runner
+git clone https://github.com/aws-containers/hello-app-runner.git .
+</code></pre></div>
+<ol>
+<li>Create a new ECR repository.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>aws ecr create-repository --repository-name hello-world-apprunner-repo
+</code></pre></div>
+<p><strong>Output</strong></p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;repository&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;repositoryArn&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;arn:aws:ecr:us-east-1:&lt;&lt;account&gt;&gt;:repository/hello-world-apprunner-repo&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;registryId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;&lt;account&gt;&gt;&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;repositoryName&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;hello-world-apprunner-repo&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;repositoryUri&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;&lt;account&gt;&gt;.dkr.ecr.us-east-1.amazonaws.com/hello-world-apprunner-repo&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;createdAt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2023-01-02T15:20:14-08:00&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;imageTagMutability&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MUTABLE&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;imageScanningConfiguration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;scanOnPush&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"></span>
+<span class="w">        </span><span class="p">},</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;encryptionConfiguration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;encryptionType&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AES256&quot;</span><span class="w"></span>
+<span class="w">        </span><span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+<ol>
+<li>Login to the ECR repository.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>aws ecr get-login-password --region us-east-1 <span class="p">|</span> docker login --username AWS --password-stdin <span class="s">&lt;&lt;account&gt;&gt;.dkr.ecr.us-ea</span>st-1.amazonaws.com
+</code></pre></div>
+<ol>
+<li>Build the docker image, tag and push it to the ECR repository.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>docker build -t hello-world-apprunner-repo .
+docker tag hello-world-apprunner-repo:latest <span class="s">&lt;&lt;account&gt;&gt;.dkr.ecr.us-east-1.amazonaws.com/hello-world-apprunner-repo:1.2.3</span>
+<span class="s">docker push &lt;&lt;account</span>&gt;&gt;.dkr.ecr.us-east-1.amazonaws.com/hello-world-apprunner-repo:1.2.3
+</code></pre></div>
+<ol>
+<li>Create a App Runner access role and attach ECR access policy to it.</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="nb">export</span> <span class="nv">TP_FILE</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="k">)</span>
+<span class="nb">export</span> <span class="nv">ROLE_NAME</span><span class="o">=</span>AppRunnerSemVarAccessRole
+cat <span class="s">&lt;&lt;EOF | tee $TP_FILE</span>
+<span class="s">{</span>
+<span class="s">  &quot;Version&quot;: &quot;2012-10-17&quot;,</span>
+<span class="s">  &quot;Statement&quot;: [</span>
+<span class="s">    {</span>
+<span class="s">      &quot;Effect&quot;: &quot;Allow&quot;,</span>
+<span class="s">      &quot;Principal&quot;: {</span>
+<span class="s">        &quot;Service&quot;: &quot;build.apprunner.amazonaws.com&quot;</span>
+<span class="s">      },</span>
+<span class="s">      &quot;Action&quot;: &quot;sts:AssumeRole&quot;</span>
+<span class="s">    }</span>
+<span class="s">  ]</span>
+<span class="s">}</span>
+<span class="s">EOF</span>
+aws iam create-role --role-name <span class="nv">$ROLE_NAME</span> --assume-role-policy-document file://<span class="nv">$TP_FILE</span>
+rm <span class="nv">$TP_FILE</span>
+aws iam attach-role-policy --role-name <span class="nv">$ROLE_NAME</span> --policy-arn arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess
+</code></pre></div>
+<ol>
+<li>Create a new App Runner service using the ECR repository that was created in the previous step.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>aws apprunner create-service --cli-input-json file://input.json
+</code></pre></div>
+<p>Contents of <code>input.json</code>:
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;ServiceName&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;hello-world-service&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;SourceConfiguration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;AuthenticationConfiguration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;AccessRoleArn&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;arn:aws:iam::${AWS_REGION}:role/${ROLE_NAME}&quot;</span><span class="w"></span>
+<span class="w">        </span><span class="p">},</span><span class="w">        </span>
+<span class="w">        </span><span class="nt">&quot;ImageRepository&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;ImageIdentifier&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/hello-world-apprunner-repo:1.2.3&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;ImageConfiguration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">                </span><span class="nt">&quot;Port&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;8000&quot;</span><span class="w"></span>
+<span class="w">            </span><span class="p">},</span><span class="w"></span>
+<span class="w">            </span><span class="nt">&quot;ImageRepositoryType&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ECR&quot;</span><span class="w"></span>
+<span class="w">        </span><span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;InstanceConfiguration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;CPU&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1 vCPU&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;Memory&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;3 GB&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div></p>
+<p><strong>Output</strong>
+Keep track of the <code>ServiceArn</code> (sample below) returned in the output. This will be used in the next step.</p>
+<div class="highlight"><pre><span></span><code>arn:aws:apprunner:us-east-1:&lt;&lt;accountId&gt;:service/hello-world-service/&lt;&lt;serviceId&gt;&gt;
+</code></pre></div>
+<ol>
+<li>Once the service is created, you can access the application using the URL that is displayed in the App Runner console. You should see the following output:</li>
+</ol>
+<p><img alt="image" src="images/output.png" /></p>
+<h3 id="deploy-the-solution">Deploy the solution<a class="headerlink" href="#deploy-the-solution" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Checkout the solution from github</li>
+</ol>
+<div class="highlight"><pre><span></span><code>mkdir sem-var-ecr-watcher-app-runner <span class="o">&amp;&amp;</span> <span class="nb">cd</span> sem-var-ecr-watcher-app-runner
+git clone https://github.com/hariohmprasath/sem-var-ecr-watcher-app-runner.git .
+</code></pre></div>
+<ol>
+<li>Update the <code>serviceARN</code> attribute inside <code>config.json</code> file under <code>config/</code> folder with the <code>ServiceArn</code> that was returned in the previous step (sample below).</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;serviceARN&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;arn:aws:apprunner:us-east-1:&lt;&lt;accountId&gt;:service/hello-world-service/&lt;&lt;serviceId&gt;&gt;&quot;</span><span class="p">,</span><span class="w">    </span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+<ol>
+<li>If you’re running AWS CDK for the first time, run the following command to bootstrap the AWS CDK environment (provide your AWS account ID and AWS Region):</li>
+</ol>
+<div class="highlight"><pre><span></span><code>cdk bootstrap <span class="se">\</span>
+    --cloudformation-execution-policies arn:aws:iam::aws:policy/AdministratorAccess <span class="se">\</span>
+    aws://&lt;AWS Account Id&gt;/&lt;AWS_REGION&gt;
+</code></pre></div>
+<blockquote>
+<p>Note: You only need to bootstrap the AWS CDK one time (skip this step if you have already done this).</p>
+</blockquote>
+<ol>
+<li>Run the following command to deploy the code:</li>
+</ol>
+<div class="highlight"><pre><span></span><code>cdk deploy --requires-approval
+</code></pre></div>
+<h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
+<p>You must publish a new application version to the ECR repository to test the solution. The latest version should match the semver pattern (<code>&gt;1.2.3</code>) that is specified in the <code>config.json</code> file inside the S3 bucket.</p>
+<ol>
+<li>Update hello world application, by opening <code>templates\index.html</code> and changing <code>And we're live, one more time!</code> to <code>And we're live, one more time! v1.2.4</code> in line #183</li>
+<li>Build the docker image, tag and push it to the ECR repository.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>docker build -t hello-world-apprunner-repo .
+docker tag hello-world-apprunner-repo:latest <span class="s">&lt;&lt;account&gt;&gt;.dkr.ecr.us-east-1.amazonaws.com/hello-world-apprunner-repo:1.2.4</span>
+<span class="s">docker push &lt;&lt;account</span>&gt;&gt;.dkr.ecr.us-east-1.amazonaws.com/hello-world-apprunner-repo:1.2.4
+</code></pre></div>
+<p>The above action will trigger an ECR event, which will get picked up by the Lambda function. The Lambda function will update the App Runner service with the new image in a few seconds. You can verify this by running the following command:</p>
+<div class="highlight"><pre><span></span><code>aws apprunner describe-service --service-arn arn:aws:apprunner:us-east-1:<span class="s">&lt;&lt;accountId&gt;:service/hello-world-service/&lt;&lt;serviceId&gt;&gt; | jq -r &#39;.Service.Sta</span>tus<span class="err">&#39;</span>
+</code></pre></div>
+<p><strong>Output</strong></p>
+<div class="highlight"><pre><span></span><code>OPERATION_IN_PROGRESS
+</code></pre></div>
+<p>Event logs for the App Runner service will show the following, to confirm the update is being triggered by the deployed solution:</p>
+<div class="highlight"><pre><span></span><code><span class="m">12</span>-30-2022 <span class="m">01</span>:55:48 PM <span class="o">[</span>CI/CD<span class="o">]</span> Semantic version &gt;1.2.2 matched with the recent ECR push <span class="m">1</span>.2.4, so updating the service to the deploy from the latest version
+</code></pre></div>
+<p>When the update is successful, you will see the following output with the changes applied to the App Runner service:</p>
+<p><img alt="image" src="images/output2.png" /></p>
+<h2 id="clean-up">Clean Up<a class="headerlink" href="#clean-up" title="Permanent link">&para;</a></h2>
+<p>Run the following command from the root directory to delete the stack:</p>
+<div class="highlight"><pre><span></span><code>cdk destroy
+aws ecr delete-repository --repository-name hello-world-apprunner-repo --force
+aws iam delete-role --role-name <span class="si">${</span><span class="nv">ROLE_NAME</span><span class="si">}</span>
+</code></pre></div>
+<hr />
+<h2 id="considerations">Considerations<a class="headerlink" href="#considerations" title="Permanent link">&para;</a></h2>
+<p>Here are some essential items to consider before using this solution:</p>
+<ul>
+<li>The solution uses AWS App Runner APIs to update and deploy the new version of the application, so it is not a fully managed solution. The customer needs to manage the AWS CDK stack and the Lambda function.</li>
+<li>The solution does not support tracking <code>latest</code> tag. If the customer wants to track the latest or fixed tag, we recommend using the native CI/CD support in App Runner.</li>
+<li>The solution uses various AWS services (like Eventbridge, SQS, Lambda) to track the semantic version pattern. As the solution relays on Eventbridge events, SQS messages and Lambda invocations to track the semantic version, it can get expensive if the customer tracks multiple App Runner services and ECR repositories as it would result in multiple events, SQS messages and invocations.
+It can get expensive if the customer tracks multiple App Runner services and ECR repositories.</li>
+<li>The code is not production ready and is provided as is. The customer should test the solution in a non-production environment before using it.</li>
+<li>The solution does not support tracking multiple App Runner services using the same repository. If the customer wants to use the same repository for multiple App Runner services based on the semantic version, then the solution code needs to get updated to support this use case.</li>
+</ul>
+<h2 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h2>
+<p>This post showed how customers could power their release pipelines based on semantic versioning and deliver new versions of the application to their customers fully automatedly using App Runner.</p>
+<p>If you have any questions or feedback, please leave a comment below.</p>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://aws.amazon.com/apprunner/">AWS App Runner</a></li>
+<li><a href="https://semver.org/">Semantic Versioning</a></li>
+<li><a href="https://aws.amazon.com/cdk/">AWS CDK</a></li>
+<li><a href="https://aws.amazon.com/blogs/devops/build-a-continuous-delivery-pipeline-for-your-container-images-with-amazon-ecr-as-source/">Build a Continuous Delivery Pipeline for Your Container Images with Amazon ECR as Source</a></li>
+</ul>
+
+              
+            </article>
+            
+          </div>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="../prefetch-data-to-eks-nodes/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Prefetch Images to EKS nodes" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Prefetch Images to EKS nodes
+            </div>
+          </div>
+        </a>
+      
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": "..", "features": ["tabs"], "search": "../assets/javascripts/workers/search.b97dbffb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.6c7ad80a.min.js"></script>
+      
+    
+  </body>
+</html>
