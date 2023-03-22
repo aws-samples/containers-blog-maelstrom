@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orange-purple-ns
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orange-app
+  namespace: orange-purple-ns
+  labels:
+    app: orange-app
+spec:
+  selector:
+    matchLabels:
+      app: orange-app
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: orange-app
+    spec:
+      containers:
+      - name: orange-container
+        image: public.ecr.aws/e1x6y8e1/orange:latest
+        ports:
+            - containerPort: 80
+        resources:
+          limits:
+            memory: "100Mi"
+            cpu: "200m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: purple-app
+  namespace: orange-purple-ns
+  labels:
+    app: purple-app
+spec:
+  selector:
+    matchLabels:
+      app: purple-app
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: purple-app
+    spec:
+      containers:
+      - name: purple-container
+        image: public.ecr.aws/e1x6y8e1/purple:latest
+        ports:
+            - containerPort: 80
+        resources:
+          limits:
+            memory: "100Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: orange-purple-ns
+  name: orange-service
+  labels:
+    app: orange-app
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: /orange/index.html
+spec:
+  type: ClusterIP
+  selector:
+    app: orange-app
+  ports:
+    - port: 80
+      name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: orange-purple-ns
+  name: purple-service
+  labels:
+    app: purple-app
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: /purple/index.html
+spec:
+  type: ClusterIP
+  selector:
+    app: purple-app
+  ports:
+    - port: 80
+      name: http

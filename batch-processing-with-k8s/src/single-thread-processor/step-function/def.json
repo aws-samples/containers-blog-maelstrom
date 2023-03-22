@@ -1,0 +1,80 @@
+{
+  "StartAt": "Single threaded job on EKS",
+  "States": {
+    "Single threaded job on EKS": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::eks:runJob.sync",
+      "Parameters": {
+        "ClusterName": "BlueGreenDeployeksclusterAE9CBEE2-eb1b3661940a4db8af4f6a1a6ead5e11",
+        "CertificateAuthority": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM1ekNDQWMrZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJeE1EUXhNekl5TlRRMU0xb1hEVE14TURReE1USXlOVFExTTFvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBSnk2CnhmU2xPQnFKUGZmNWtENmtOWnFndkRkc3B2OTEyR3lVYnNCOHNodTdCZlQya2hWSCtEK3VHZ0luMmNFSC9RWXUKTnVET1EzTHNJLzJ1QjJ2Qll0KzlxdWtpSyttUW85Zy9FYzNiTWlqdThZUXZDUUlOaGh1S2RCazNDc2gwYks5aApaNHRTa29vbWxQMnVUMHZ6YjY2SHkwVWZWeHIxTDNwOTk4enQ2Y1JUNnlPR2FKYXViNEhFMG13clFpSk5GNGNQCjkzdmhuTnJvOHEwVTJ6UUs4RHAwL1hmNWV6WFlSQ1c2b3d3UzRKUytNcldoaHhOK1VtSVZSSTdrcU93SVFjZDgKek81bWIwSWVidEtWT1pCcW9JSnNQcVFPL3R2VFBTMUlqODhCR3JUL2VFc2NTWW9sb0Q2ZUw2dEVWSkRibjFFeApnaWFFNVA1bG1pT1krSXhqb3RFQ0F3RUFBYU5DTUVBd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0hRWURWUjBPQkJZRUZCNDRDSkhUTkZ6Ny85WEdDZm5IRHo2TG1hdVhNQTBHQ1NxR1NJYjMKRFFFQkN3VUFBNElCQVFCdHpjdTNPTnFBcXRJaTQ3TjdNMnNxUmtpUVJvSk83WUtaVzBpZnJHNU9sUTNZZGZ1SAovUnhMdmpzaWZjVGFYKzZzSjBqQ0FCTkhITTkwZGJNVUNmQVFwSFVOcDYwdmRsamJQZTNMUVVMa1pmSWIzN2hCCktobnNRdlRrN3JJeWZrSnFIZUM3SitXMVdKdlE4MzdBd1libUpLZ2MrWFREV0ZXbi9EMXNhSnozejlYOFpVZmgKVGpaL1RFQlFINUVlb2pJckFYMTc1ZmVtanliVVVmNUo5YlVTVzR4NW8yRGdsZHBtYlpmTXlmZDJOdC9HMzQyagpUb204aUN3dU1uMGFnZHp0SncyMnhYdmY4WFEzR3lUVUdXdUM4VE5jaUt1VTQyR0RPTjdNb21vWE1rVHl2SWRJCjU0dTZ3bDducThMVU9IR0Q1VTd0cUdQNmx3K0xnRWc4R01VZwotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==",
+        "Endpoint": "https://D57037A4DD71122B48F151510075B842.gr7.us-east-1.eks.amazonaws.com",
+        "LogOptions": {
+          "RetrieveLogs": false
+        },
+        "Job": {
+          "apiVersion": "batch/v1",
+          "kind": "Job",
+          "metadata": {
+            "generateName": "single-threaded"
+          },
+          "spec": {
+            "backoffLimit": 0,
+            "ttlSecondsAfterFinished": 100,
+            "template": {
+              "metadata": {
+                "name": "single-threaded"
+              },
+              "spec": {
+                "containers": [
+                  {
+                    "name": "single-threaded-container",
+                    "image": "775492342640.dkr.ecr.us-east-1.amazonaws.com/single-thread-processor:latest",
+                    "env": [
+                      {
+                        "name": "S3_BUCKET_NAME",
+                        "value.$": "$.detail.bucket.name"
+                      },
+                      {
+                        "name": "S3_KEY",
+                        "value.$": "$.detail.object.key"
+                      },
+                      {
+                        "name": "STATUS_KEY",
+                        "value.$": "$.id"
+                      },
+                      {
+                        "name": "EFS_DIRECTORY",
+                        "value": "/data"
+                      },
+                      {
+                        "name": "AWS_REGION",
+                        "value": "us-east-1"
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "persistent-storage",
+                        "mountPath": "/data"
+                      }
+                    ]
+                  }
+                ],
+                "volumes": [
+                  {
+                    "name": "persistent-storage",
+                    "persistentVolumeClaim": {
+                      "claimName": "efs-storage-claim"
+                    }
+                  }
+                ],
+                "restartPolicy": "Never"
+              }
+            }
+          }
+        }
+      },
+      "OutputPath": "$.status.succeeded",
+      "End": true
+    }
+  }
+}

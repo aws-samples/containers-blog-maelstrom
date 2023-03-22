@@ -1,0 +1,10 @@
+operator:
+  name: keda-operator
+podSecurityContext:
+  fsGroup: 1001
+securityContext:
+  runAsGroup: 1001
+  runAsUser: 1001
+serviceAccount:
+  create: false
+  name: keda-operator
