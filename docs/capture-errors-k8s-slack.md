@@ -1,7 +1,5 @@
 # Using Amazon EKS Blueprints and Open Telemetry to capture errors from Kubernetes applications on Slack
 
-[cloudops-1162](https://issues.amazon.com/issues/cloudops-1162)
-
 ### Introduction
 
 The [Operational Excellence](https://docs.aws.amazon.com/wellarchitected/latest/framework/operational-excellence.html) pillar of [AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html) focusses on the the ability to support development and run workloads effectively, gain insight into their operations, and to continuously improve supporting processes and procedures to deliver business value. Capturing errors from your Kubernetes applications and effectively alerting those errors are very important to improve business processes to constantly deliver real business value to your end users. Efficient and effective management of these operational events is required to achieve operational excellence.
