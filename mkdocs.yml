@@ -9,8 +9,10 @@ theme:
 nav:
   - Overview: 'index.md'
   - Solutions:
+    - ALB Ingress Sharing and Target Group Binding: 'ALB-ingresssharing-tbg.md'
     - Managing AMG using Grafana Operator: 'grafana-operator-AMG.md'
     - Batch Processing with K8s: 'batch-processing-with-k8s.md'
+    - Capture Errors from K8s to Slack: 'capture-errors-k8s-slack.md'
     - Prefetch Images to EKS nodes: 'prefetch-data-to-eks-nodes.md'
     - Semantic Versioning App Runner: 'semantic-versioning-app-runner.md'
 markdown_extensions:
