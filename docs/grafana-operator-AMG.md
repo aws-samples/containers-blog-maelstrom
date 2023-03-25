@@ -12,7 +12,7 @@ In this blog, we will be demonstrating on how to use Grafana Operator from your 
 
 ### Solution Architecture
 
-[Image: Image.jpg]
+![Image](images/AMG-1.jpg)
 The architecture diagram shows the demonstration of Kubernetes cluster as a control plane with using Grafana Operator to setup an identity with AMG, adding AMP as a datasource and creating dashboards on AMG from Amazon EKS cluster in a Kubernetes native way.
 
 ### Solution Walkthrough
@@ -351,8 +351,8 @@ Defaulted container "grafana-operator" out of: grafana-operator, kube-rbac-proxy
 Please check on [grafana-operator-manifests](https://github.com/aws-samples/containers-blog-maelstrom/tree/main/grafana-operator-AMG/grafana-operator-manifests) if your looking for samples to Amazon CloudWatch and AWS X-Ray as a datasource to AMG from your Amazon EKS Cluster.
 
 Next lets navigate to AMG console and click on `Configuration` → `Data Sources` and click on the data source `grafana-operator-amp-datasource` as shown below :
-[Image: Image.jpg]Next, lets click on `Save and Test` as shown to make sure the data source is working fine.
-[Image: Image.jpg]
+![Image](images/AMG-2.jpg) Next, lets click on `Save and Test` as shown to make sure the data source is working fine.
+![Image](images/AMG-3.jpg)
 Finally lets create a Grafana Dashboard on AMG from your Amazon EKS Cluster. We will be using `grafanadashboards.grafana.integreatly.org` CRD for this purpose as shown below :
 
 ```
@@ -391,7 +391,8 @@ Defaulted container "grafana-operator" out of: grafana-operator, kube-rbac-proxy
 ```
 
 Finally lets navigate to AMG console, click on `Search Dashboards` and you will be able to see a Dashboard by name `Grafana Operator - Node Exporter/Nodes` and click on the same will show you the Grafana Dashboard created out of the box having all the metrics from Prometheus Node Exporter installed on your Amazon EKS Cluster.
-[Image: Image.jpg]
+![Image](images/AMG-4.jpg)
+
 ### GitOps Approach with Grafana Operator
 
 GitOps is a way of managing application and infrastructure deployment so that the whole system is described declaratively in a Git repository. It is an operational model that offers you the ability to manage the state of multiple Kubernetes clusters leveraging the best practices of version control, immutable artifacts, and automation. [Flux](https://fluxcd.io/) is a declarative, GitOps-based continuous delivery tool that can be integrated into any CI/CD pipeline. It gives users the flexibility of choosing their Git provider (GitHub, GitLab, BitBucket). [Crossplane](https://docs.crossplane.io/latest) is an open-source Kubernetes add-on that enables platform teams to assemble cloud infrastructure resources, without having to write any code. Now, with [grafana-operator](https://github.com/grafana-operator/grafana-operator#:~:text=The%20grafana%2Doperator%20is%20a,an%20easy%20and%20scalable%20way.)supporting the management of external Grafana instances such as Amazon Managed Grafana, operations personas can use GitOps mechanisms using CNCF projects such as Flux and Crossplane to create and manage the lifecyle of resources in Amazon Managed Grafana.
