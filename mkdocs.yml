@@ -8,6 +8,11 @@ theme:
     - tabs
 nav:
   - Overview: 'index.md'
+  - Solutions:
+    - Managing AMG using Grafana Operator: 'grafana-operator-AMG.md'
+    - Batch Processing with K8s: 'batch-processing-with-k8s.md'
+    - Prefetch Images to EKS nodes: 'prefetch-data-to-eks-nodes.md'
+    - Semantic Versioning App Runner: 'semantic-versioning-app-runner.md'
 markdown_extensions:
   - def_list
   - pymdownx.highlight
