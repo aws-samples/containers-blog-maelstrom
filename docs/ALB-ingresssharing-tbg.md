@@ -18,7 +18,7 @@ To minimize the number of Application Load Balancers (ALBs) in your architecture
 ## Ingress groups in action
 
 Let’s walk through the process of sharing ALBs with multiple Ingresses. For this demonstration, we’ll deploy four web applications in two different namespaces. Then, we’ll show you how multiple Ingresses can be configured and grouped to share a single ALB. We’ll use `[group.name](http://group.name/)` annotations to enable grouping of multiple Ingress resources.
-[Image: Creation of AWS resources by ALB Controller]*Ingress groups in action*
+![Image](images/alb-groups-in-action-1.jpg)
 
 The diagram above shows the operations the AWS Load Balancer Controller performs once installed. It watches the Kubernetes API server for updates to Ingress resources. When it detects changes, it updates resources such as the Application Load Balancer, listeners, target groups, and listener rules.
 
@@ -30,7 +30,7 @@ In this post, we will run four variants of a web application that renders a web 
 
 In the diagram below, when ALB receives traffic, it will route requests to Pods based on the Ingress rules. The `blue-green-ingress` Ingress will have the routing rules to access `blue` and `green` web apps, and will be deployed in the `blue-green-ns` namespace. Similarly, the `orange-purple-ingress` Ingress will have the routing rules to access `orange` and `purple` web apps, and will be deployed in namespace `orange-purple-ns`.
 
-[Image: image.png]*Application Load Balancer routing to multiple Ingress* 
+![Image](images/alb-load-balancer-routing-2.jpg)
 
 ## Solution walkthrough
 
@@ -121,8 +121,8 @@ kubectl get ingress blue-green-ingress -n blue-green-ns \
 ```
 
 Navigate to the address of the ALB at `/green` path. A webpage with Green background(as shown below) indicates that the routing is working as intended.
-[Image: image]Similarly, the `/blue` , `/orange`, and `/purple` paths should show a page each with their corresponding background color.
-[Image: image.png]Let’s get back to the reason for having just one ALB for both Ingresses. Describe either of the Ingresses and you’d notice that they include the `[alb.ingress.kubernetes.io/group.name](http://alb.ingress.kubernetes.io/group.name)` annotation. 
+![Image](images/alb-Web-Page-Green-3.jpg) Similarly, the `/blue` , `/orange`, and `/purple` paths should show a page each with their corresponding background color.
+![Image](images/albWeb-Page-Blue-4.jpg) Let’s get back to the reason for having just one ALB for both Ingresses. Describe either of the Ingresses and you’d notice that they include the `[alb.ingress.kubernetes.io/group.name](http://alb.ingress.kubernetes.io/group.name)` annotation. 
 
 ```
 kubectl -n blue-green-ns describe ingress blue-green-ingress
@@ -140,7 +140,7 @@ Below are the Ingress annotations from the [blue-green-ingress.yaml](https://git
 By adding an `alb.ingress.kubernetes.io/group.name` annotation, you can assign a group to an Ingress. Ingresses with same `group.name` annotation form an "IngressGroup". An IngressGroup can have Ingresses in multiple namespaces. 
 
 In our example, both `blue-green-ingress` and `orange-purple-ingress` use "app-color-lb" as the value of this annotation, which puts them in the same group. This enables the Application Load Balancer to route traffic for both the `Ingresse`s based on their corresponding routing rules. You can view the ingress rules as they are configured as listener rules in ALB. The screenshot below shows the `Rules` that the AWS Load Balancer Controller created: 
-[Image: Screen Shot 2022-11-21 at 5.15.51 PM.png]With IngressGroup, a single ALB serves as the entry point for all four applications. This change in design reduces the number of ALBs we need and results in cost savings. 
+![Image](images/alb-Rules-in-Load-Balancer-5.jpg) With IngressGroup, a single ALB serves as the entry point for all four applications. This change in design reduces the number of ALBs we need and results in cost savings. 
 
 
 ### Design considerations with IngressGroup
@@ -164,7 +164,7 @@ In the previous section, we described the operations the AWS Load Balancer perfo
 There are a few scenarios in which customers prefer managing a load balancer themselves. They separate the creation and deletion load balancers from the lifecycle of a Service or Ingress. We have worked with customers that do not give EKS clusters the permission to create load balancers. In other situations, teams wanted to migrate workloads to EKS but wanted to preserve the load balancer. In both scenarios, teams needed to the ability to use a  pre-existing load balancer to expose Kubernetes Services. 
 
 `TargetGroupBinding` is a custom resource managed by the AWS Load Balancer Controller. It allows you to expose  Kubernetes applications using existing load balancers. A `TargetGroupBinding` resource binds a Kubernetes Service with a load balancer target group. When you create a `TargetGroupBinding` resource, the controller automatically configures the target group to route traffic to a Service.  Here’s an example of a TargetGroupBinding resource:
-[Image: Image.jpg]*Example of a TargetGroupBinding resource*
+![Image](images/alb-TargetGroupBinding-6.jpg) *Example of a TargetGroupBinding resource*
 
 An obvious advantage is that the load balancer remains static as you create and delete Ingresses or even clusters. The lifecycle of the load balancer becomes independent from the Service(s) its exposing. An even bigger benefit is that now you can use an pre-existing ALB to distribute traffic to multiple EKS clusters. 
 
@@ -173,7 +173,7 @@ An obvious advantage is that the load balancer remains static as you create and 
 ALB can distribute traffic to multiple backends using [weighted target groups](https://aws.amazon.com/blogs/aws/new-application-load-balancer-simplifies-deployment-with-weighted-target-groups/). You can use this feature to route traffic to multiple clusters by first creating a target group for each cluster and then binding the target group to Services in multiple clusters. This strategy allows you to control the percentage of traffic you send to each cluster. 
 
 Such traffic controls are especially useful when performing blue/green cluster upgrades. You can migrate traffic from the older cluster to the newer in a controlled manner. 
-[Image: Image.jpg]*Load balance application traffic across clusters*
+![Image](images/alb-Application-traffic-7.jpg) *Load balance application traffic across clusters*
 
 Customers also use this architecture to improve workload resilience in multi-cluster environments. There are customers that deploy their applications to multiple Kubernetes clusters simultaneously. By doing this, they eliminate any Kubernetes cluster from becoming a single point of failure. In case one cluster experiences disrupting events, you can remove it from load balancer targets. 
 
@@ -249,7 +249,8 @@ LISTENER_ARN=$(aws elbv2 create-listener \
 ```
 
 Here’s a screenshot of the target group rules in AWS Management Console after applying the configuration:
-[Image: Image.jpg]
+![Image](images/alb-Load-Balancer-Rules-8.jpg)
+
 ### Deploy applications
 
 Now that we have an Application Load Balancer and the two target groups created, we will need to associate the two target groups with corresponding Services. Let’s create manifests for the two target group binding CRDs:
@@ -292,7 +293,7 @@ kubectl apply -f containers-blog-maelstrom/aws-lb-controller-blog/target-grp-bin
 ```
 
 Let’s switch back to the AWS Management Console to visualize this configuration. Navigate to either of the target groups and you’ll see that the AWS Load Balancer Controller has registered corresponding Pods as targets
-[Image: Image.jpg]Once the targets are in `healthy` status, navigate to the DNS name of the ALB and open it in a browser. You may get a page with a black or blue background. Refresh the page and the colors should alternate. 
+![Image](images/alb-Target-Groups-9.jpg) Once the targets are in `healthy` status, navigate to the DNS name of the ALB and open it in a browser. You may get a page with a black or blue background. Refresh the page and the colors should alternate. 
 
 
 > Note: if you receive a timeout error when accessing the page, verify that the ALB’s security groups have an inbound rule to permit HTTP traffic from your IP address.  
