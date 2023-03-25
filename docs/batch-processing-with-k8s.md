@@ -289,3 +289,22 @@ cdk destroy
 * [CSI Driver EFS](https://docs.aws.amazon.com/eks/latest/userguide/efs-csi.html)
 * [Unix split command](https://kb.iu.edu/d/afar)
 * [Redis set commands](https://redis.io/commands/set)
+
+
+![Hari](images/Hari.jpg)
+
+### Hari Ohm Prasath
+
+Hari is a Senior Software Development Engineer with App Runner and Elastic Beanstalk, working on new ways for customers to modernize their web applications on AWS. Hari loves to code and actively contributes to the open source initiatives. You can find him in Medium, Github & Twitter @hariohmprasath
+
+![Ela](images/Ela.jpg)
+
+### Elamaran Shanmugam
+
+Elamaran (Ela) Shanmugam is a Sr. Container Specialist Solutions Architect with Amazon Web Services. Ela is a Container, Observability and Multi-Account Architecture SME and helps AWS partners and customers to design and build scalable, secure and optimized container workloads on AWS. His passion is building and automating Infrastructure to allow customers to focus more on their business. He is based out of Tampa, Florida and you can reach him on twitter @IamElaShan
+
+![Re](images/Re.jpg)
+
+### Re Alvarez Parmar
+
+In his role as Containers Specialist Solutions Architect at Amazon Web Services. Re advises engineering teams with modernizing and building distributed services in the cloud. Prior to joining AWS, he spent over 15 years as Enterprise and Software Architect. He is based out of Seattle. You can connect with him on LinkedIn linkedin.com/in/realvarez/
