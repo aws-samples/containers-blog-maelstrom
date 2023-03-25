@@ -430,18 +430,19 @@ For more information, see the following references:
 
 ## Authors
 
-[Image: Ela.jpg]
+![Ela](images/Ela.jpg)
 
 ### Elamaran Shanmugam
 
 Elamaran (Ela) Shanmugam is a Sr. Container Specialist Solutions Architect with Amazon Web Services. Ela is a Container, Observability and Multi-Account Architecture SME and helps AWS partners and customers to design and build scalable, secure and optimized container workloads on AWS. His passion is building and automating Infrastructure to allow customers to focus more on their business. He is based out of Tampa, Florida and you can reach him on twitter @IamElaShan
-[Image: Mikhail.jpg]
+
+![Mikhail](images/Mikhail.jpg)
 
 ### Mikhail Shapirov
 
 Mikhail is a Principal Partner Solutions Architect at AWS, focusing on container services. Mikhail helps partners and customers drive their products and services on AWS, integrating with Amazon ECS, EKS and AppMesh. He is also a software engineer.
 
-[Image: Edvin.jpg]
+![Edvin](images/Edvin.jpg)
 
 ### **Edvin Norling**
 
