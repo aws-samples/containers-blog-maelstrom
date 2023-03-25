@@ -8,7 +8,10 @@ In this blog we will using [Amazon EKS Blueprints](https://github.com/aws-quicks
 
 ### Solution Overview
 
-[Image: Image.jpg]**Here is a functional flow of this solution:**
+![Image](images/CAP-1.jpg)
+
+
+**Here is a functional flow of this solution:**
 
 1. [AWS Distro for Open Telemetry](https://aws.amazon.com/otel/) (ADOT) Operator manages the life cycle of your ADOT CloudWatch Collector. 
 2. ADOT CloudWatch Collector scrapes metrics from application and  sends metrics to Amazon CloudWatch.
@@ -105,7 +108,12 @@ cdk deploy "*" --require-approval never
 ```
 
 Deployment will take approximately 20-30 minutes to complete. Upon completion, you will have a fully functioning EKS cluster deployed in your account. 
-[Image: Image.jpg]Please copy and run the `aws eks update-kubeconfig...` command as shown in the above screenshot to gain access to your Amazon EKS cluster using `kubectl`.
+
+
+![Image](images/CAP-2.jpg)
+
+
+Please copy and run the `aws eks update-kubeconfig...` command as shown in the above screenshot to gain access to your Amazon EKS cluster using `kubectl`.
 
 #### AWS Distro for OpenTelemetry (ADOT) Operator
 
@@ -231,7 +239,14 @@ aws lambda invoke --region ${CAP_CLUSTER_REGION} \
 ```
 
 Successful run will post test message to Slack channel and have command output as shown below :
-[Image: Image.jpg][Image: Image.jpg]
+
+
+![Image](images/CAP-3.jpg)
+
+
+![Image](images/CAP-4.jpg)
+
+
 ```
 [INFO]  2023-02-17T22:48:12.041Z        a07549ea-3dcf-4131-9f15-b676f461bbbd    Message posted to ho11y-cloudwatch-alarms
 END RequestId: a07549ea-3dcf-4131-9f15-b676f461bbbd
@@ -271,7 +286,14 @@ done
 ```
 
 Let this run for 10 minutes and check CloudWatch alarm status. If there is a breach in threshold, you will get notification sent to Slack channel as shown below. 
-[Image: Image.jpg][Image: Image.jpg]
+
+
+![Image](images/CAP-5.jpg)
+
+
+![Image](images/CAP-6.jpg)
+
+
 ### Cleanup
 
 Run `cleanup.sh` script to clean up all resources deployed as part of this post.

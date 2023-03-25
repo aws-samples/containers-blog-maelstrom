@@ -16,7 +16,10 @@ In this blog, we will demonstrate the usage of AWS Systems Manager SSM Automatio
 ### Solution Overview
 
 Below is the overall architecture for setting up **Event Driven process to prefetch data to EKS Nodes using SSM Automation**
-[Image: Image.jpg]The process for implementing this solution is as follows:
+
+![Image](images/EDP-1.jpg)
+
+The process for implementing this solution is as follows:
 
 * The first step is to identify the image repository to fetch the container image. The container image repository could be Amazon Elastic Container Registry (Amazon ECR), DockerHub or others. For this demonstration we are using Amazon ECR as the image source.
 * Next, when a container image gets pushed to Amazon ECR, an event based rule is triggered  by Amazon EventBridge to trigger an AWS SSM automation to prefetch container images from Amazon ECR to your existing Amazon EKS worker nodes.
@@ -125,7 +128,12 @@ docker push $EDP_AWS_ACCOUNT.dkr.ecr.$EDP_AWS_REGION.amazonaws.com/$EDP_NAME
 ```
 
 Now lets check if the event rule we created on the Amazon EventBridge has been triggered. In your Amazon EventBridge console, Navigate to **TriggeredRules** under **Monitoring** tab. If there are no **FailedInvocations** datapoints, then EventBridge has delivered the event to the target successfully which in this case is AWS Systems Manager Run Command (Note: It might take 3 to 5 mins for the data points to be published in the Monitoring graphs)
-[Image: Image.jpg]Next lets verify if AWS Systems Manager Run Command is triggered by Amazon EventBridge. Run the below command to see the invocations. Look for `DocumentName` which should be `AWS-RunShellScript`, `RequestedDateTime` to identify corresponding run, and then status to make sure if the Run Command executed Successfully or not.
+
+
+![Image](images/EDP-2.jpg)
+
+
+Next lets verify if AWS Systems Manager Run Command is triggered by Amazon EventBridge. Run the below command to see the invocations. Look for `DocumentName` which should be `AWS-RunShellScript`, `RequestedDateTime` to identify corresponding run, and then status to make sure if the Run Command executed Successfully or not.
 
 ```
 aws ssm list-command-invocations \

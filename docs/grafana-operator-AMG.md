@@ -14,6 +14,7 @@ In this blog, we will be demonstrating on how to use Grafana Operator from your 
 
 ![Image](images/AMG-1.jpg)
 
+
 The architecture diagram shows the demonstration of Kubernetes cluster as a control plane with using Grafana Operator to setup an identity with AMG, adding AMP as a datasource and creating dashboards on AMG from Amazon EKS cluster in a Kubernetes native way.
 
 ### Solution Walkthrough
@@ -355,9 +356,11 @@ Next lets navigate to AMG console and click on `Configuration` → `Data Sources
 
 ![Image](images/AMG-2.jpg) 
 
+
 Next, lets click on `Save and Test` as shown to make sure the data source is working fine.
 
 ![Image](images/AMG-3.jpg)
+
 
 Finally lets create a Grafana Dashboard on AMG from your Amazon EKS Cluster. We will be using `grafanadashboards.grafana.integreatly.org` CRD for this purpose as shown below :
 
@@ -399,6 +402,7 @@ Defaulted container "grafana-operator" out of: grafana-operator, kube-rbac-proxy
 Finally lets navigate to AMG console, click on `Search Dashboards` and you will be able to see a Dashboard by name `Grafana Operator - Node Exporter/Nodes` and click on the same will show you the Grafana Dashboard created out of the box having all the metrics from Prometheus Node Exporter installed on your Amazon EKS Cluster.
 
 ![Image](images/AMG-4.jpg)
+
 
 ### GitOps Approach with Grafana Operator
 
