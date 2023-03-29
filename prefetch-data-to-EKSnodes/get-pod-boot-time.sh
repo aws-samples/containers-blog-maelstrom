@@ -9,8 +9,13 @@ get_condition_time() {
   condition="$1"
   iso_time=$(kubectl get pod "$pod" -o json | jq ".status.conditions[] | select(.type == \"$condition\" and .status == \"True\") | .lastTransitionTime" | tr -d '"\n')
   test -n "$iso_time" || fail "Pod $pod is not in $condition yet"
-  date -j -f "%Y-%m-%dT%H:%M:%SZ" "$iso_time" +%s # Enable this line if you are running on Mac terminal
-  #date -d $iso_time +%s # Enable this line if you are running on Linux terminal
+  if [[ "$(uname)" == "Linux" ]]; then
+      date -j -f "%Y-%m-%dT%H:%M:%SZ" "$iso_time" +%s
+      echo "Running on Linux"
+  elif [[ "$(uname)" == "Darwin" ]]; then
+      date -d $iso_time +%s
+      echo "Running on macOS"
+  fi
 }
 initialized_time=$(get_condition_time PodScheduled)
 ready_time=$(get_condition_time Ready)
