@@ -98,14 +98,15 @@ git clone https://github.com/aws-samples/containers-blog-maelstrom/tree/main/pre
 7. Create Amazon EventBridge Rule to trigger SSM Run Command on successful ECR Image push, using envsubst we will be replacing the variables in the events-rule.json file.
 
    ```bash
-   envsubst < events-rule.json > events-rule-updated.json \ 
-   && aws events put-rule --cli-input-json file://events-rule-updated.json && rm events-rule-updated.json
+   envsubst < events-rule.json > events-rule-updated.json \
+   && aws events put-rule --cli-input-json file://events-rule-updated.json \
+   && rm events-rule-updated.json
    ```
 
 8. Attach the Target as AWS Systems Manager Run Command to AWS EventBridge Rule created above, using envsubst we will be replacing the variables in the events-target.json file.
 
    ```bash
-   envsubst '$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME' < events-target.json > events-target-updated.json \     
+   envsubst '$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME' < events-target.json > events-target-updated.json \
    && aws events put-targets --rule $EDP_NAME --cli-input-json file://events-target-updated.json \
    && rm events-target-updated.json   
    ```
@@ -113,8 +114,8 @@ git clone https://github.com/aws-samples/containers-blog-maelstrom/tree/main/pre
 9. Create AWS Systems Manager State Manager Association for new worker nodes to prefetch container images, using envsubst we will be replacing the variables in the statemanager-association.json file.
 
    ```bash
-   envsubst '$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME' < statemanager-association.json > \
-   statemanager-association-updated.json && aws ssm create-association --cli-input-json file://statemanager-association-updated.json \
+   envsubst '$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME' < statemanager-association.json > statemanager-association-updated.json \
+   && aws ssm create-association --cli-input-json file://statemanager-association-updated.json \
    && rm statemanager-association-updated.json   
    ```
 
@@ -153,8 +154,8 @@ Verify if the container images are getting fetched to existing worker nodes auto
 
    ```bash
    aws ssm list-command-invocations \
-   --details \
-   --filter "[{\"key\": \"DocumentName\", \"value\": \"arn:aws:ssm:us-east-1::document/AWS-RunShellScript\"}]"
+       --details \
+       --filter "[{\"key\": \"DocumentName\", \"value\": \"arn:aws:ssm:us-east-1::document/AWS-RunShellScript\"}]"
    ```
 
    **Output**
@@ -182,7 +183,7 @@ Verify if the container images are getting fetched to existing worker nodes auto
 5. Verify if the Image has been copied in to worker node of your Amazon EKS Cluster using the below command.
 
    ```bash
-   aws ec2 describe-instances \  
+   aws ec2 describe-instances \
        --filters "Name=tag:eks:cluster-name,Values=$EDP_NAME" "Name=tag:eks:nodegroup-name,Values=nodegroup" \
        --query "Reservations[*].Instances[*].InstanceId" \
        --output text | xargs -I {} aws ssm start-session \
@@ -210,18 +211,18 @@ Validate the container image getting copied to new worker node for any newly add
 
    ```bash
    eksctl scale nodegroup \
-   --cluster $EDP_NAME \
-   --name nodegroup \
-   --nodes 2 \
-   --nodes-min 1\
-   --nodes-max 3
+      --cluster $EDP_NAME \
+      --name nodegroup \
+      --nodes 2 \
+      --nodes-min 1\
+      --nodes-max 3
    ```
 
 2. Verify if the AWS System Manager State Manager Association has been triggered and association execution is successful. 
 
    ```bash
-   aws ssm list-associations \                                     
-   --association-filter-list "key=AssociationName,value=$EDP_NAME"
+   aws ssm list-associations \
+       --association-filter-list "key=AssociationName,value=$EDP_NAME"
    ```
 
    Note: Please wait for for few minutes for new worker node to come up and run above command
@@ -248,13 +249,13 @@ Validate the container image getting copied to new worker node for any newly add
 3. Verify if the Image has been copied in to worker node of your Amazon EKS Cluster using the below command.
 
    ```bash
-   aws ec2 describe-instances \                                                                                             
-       --filters "Name=tag:eks:cluster-name,Values=$EDP_NAME" "Name=tag:eks:nodegroup-name,Values=nodegroup" \              
-       --query "Reservations[*].Instances[*].InstanceId" \                                                                  
-       --output text | xargs -I {} aws ssm start-session \                                                                  
-       --target {} \                                                                                                        
-       --document-name AWS-StartInteractiveCommand \                                                                        
-       --parameters "command=echo \$(curl -s http://169.254.169.254/latest/meta-data/instance-id) && sudo docker images" \   
+   aws ec2 describe-instances \
+       --filters "Name=tag:eks:cluster-name,Values=$EDP_NAME" "Name=tag:eks:nodegroup-name,Values=nodegroup" \
+       --query "Reservations[*].Instances[*].InstanceId" \
+       --output text | xargs -I {} aws ssm start-session \
+       --target {} \
+       --document-name AWS-StartInteractiveCommand \
+       --parameters "command=echo \$(curl -s http://169.254.169.254/latest/meta-data/instance-id) && sudo docker images" \
        --region $EDP_AWS_REGION
    ```
 
@@ -307,7 +308,7 @@ Lets identify the time difference for a Kubernetes pod to get in to running stat
    docker rmi $IMAGE_ID
    ```
 
-   Exit out of the SSM session
+   Exit out of root anf exit out of the SSM session
 
 5. Pull the latest container image and create a Kubernetes Pod.
 
@@ -378,7 +379,7 @@ Lets identify the time difference for a Kubernetes pod to get in to running stat
    **Output**
 
    ```bash
-   It took 60 seconds for pod get in to running state
+   It took approximately 60 seconds for pod get in to running state
    ```
 
 
