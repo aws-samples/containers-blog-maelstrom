@@ -185,7 +185,7 @@ Next, lets configure our solution to send CloudWatch notification alarms to [Sla
 Slack allows you to send messages from other applications using incoming webhook. Please refer to [sending messages using incoming webhooks](https://api.slack.com/messaging/webhooks) for more details. We will use this incoming webhook to send required CloudWatch alarms to Slack channel. Follow below steps to configure incoming webhook in Slack:
 
 1. Create or pick a Slack channel to send CloudWatch alarms notifications.
-2. Go to https://<your-team-domain>.slack.com/services/new and search for "Incoming WebHooks", select and click "Add to Slack".
+2. Go to `https://<your-team-domain>.slack.com/services/new` and search for "Incoming WebHooks", select and click "Add to Slack".
 3. Under Post to Channel, choose the Slack channel where messages will be sent and click "Add Incoming WebHooks Integration".
 4. Copy webhook URL from the setup instructions and save it. This URL will be used in Lambda function.
 
