@@ -4,7 +4,7 @@ tag=$(aws ecr describe-images --repository-name $EDP_NAME --query 'sort_by(image
 
 echo $tag
 
-cat << EOF > EDP-Pod.yaml
+cat << EOF > pod.yaml
 ---
 apiVersion: v1
 kind: Pod
