@@ -147,10 +147,10 @@ otel-collector-cloudwatch-collector-x5djc   1/1     Running   0          7m43s
 
 Next, let us deploy a sample application called [ho11y](https://github.com/aws-observability/aws-o11y-recipes/tree/main/sandbox/ho11y#overview), a synthetic signal generator that lets you test observability solutions for microservices. It emits logs, metrics, and traces in a configurable manner. For more information, see the [AWS O11y Receipes respository](https://github.com/aws-observability/aws-o11y-recipes/tree/main/sandbox/ho11y). 
 
-Run the `deploy-ho11y.sh` script which builds docker image for ho11y application and pushes into [Elastic Container Registry](https://aws.amazon.com/ecr/) (ECR) repository. Then this script deploys `ho11y` application into EKS cluster.
+Run the below command to deploy ho11y application:
 
 ```
-sh ./deploy-ho11y.sh
+kubectl apply -f ./templates/ho11y-app.yaml
 ```
 
 Once `ho11y` app is deployed successfully, run the the below command to list all pods in `ho11y` namespace on your EKS cluster.
@@ -318,11 +318,9 @@ Elamaran (Ela) Shanmugam is a Sr. Container Specialist Solutions Architect with 
 
 In his role as Containers Specialist Solutions Architect at Amazon Web Services. Re advises engineering teams with modernizing and building distributed services in the cloud. Prior to joining AWS, he spent over 15 years as Enterprise and Software Architect. He is based out of Seattle. You can connect with him on LinkedIn linkedin.com/in/realvarez/
 
+![Prakash](images/prakkie.jpg)
+
 ### Prakash Srinivasan
 
-
-
-
-
-
+Prakash is a Solutions Architect with Amazon Web Services. He is a passionate builder and helps customers to modernize their applications and accelerate their Cloud journey to get the best out of Cloud for their business. In his spare time, he enjoys watching movies and spend more time with family. He is based out of Denver, Colorado and you can connect with him on Linkedin at linkedin.com/in/prakash-s(https://www.linkedin.com/in/prakash-s/)
 
