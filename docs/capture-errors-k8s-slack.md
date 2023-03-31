@@ -322,5 +322,5 @@ In his role as Containers Specialist Solutions Architect at Amazon Web Services.
 
 ### Prakash Srinivasan
 
-Prakash is a Solutions Architect with Amazon Web Services. He is a passionate builder and helps customers to modernize their applications and accelerate their Cloud journey to get the best out of Cloud for their business. In his spare time, he enjoys watching movies and spend more time with family. He is based out of Denver, Colorado and you can connect with him on Linkedin at linkedin.com/in/prakash-s(https://www.linkedin.com/in/prakash-s/)
+Prakash is a Solutions Architect with Amazon Web Services. He is a passionate builder and helps customers to modernize their applications and accelerate their Cloud journey to get the best out of Cloud for their business. In his spare time, he enjoys watching movies and spend more time with family. He is based out of Denver, Colorado and you can connect with him on Linkedin at [linkedin.com/in/prakash-s](https://www.linkedin.com/in/prakash-s/)
 
