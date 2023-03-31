@@ -3,7 +3,6 @@
 *.d.ts
 node_modules
 aws-o11y-recipes
-ho11y-app.yaml
 lambda-permission-policy.json
 kms-key-policy.json
 

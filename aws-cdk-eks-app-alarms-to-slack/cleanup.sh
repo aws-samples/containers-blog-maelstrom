@@ -56,17 +56,7 @@ aws logs delete-metric-filter --region ${CAP_CLUSTER_REGION} --log-group-name /a
 
 #delete sample application deployed
 echo -e "${Y}deleting sample application ho11y${NC}"
-kubectl delete -f ./ho11y-app.yaml
-rm ./ho11y-app.yaml
-
-#delete ECR repository and docker images
-echo -e "${Y}deleting ECR repository and docker images${NC}"
-aws ecr delete-repository --region ${CAP_CLUSTER_REGION} --repository-name ho11y --force
-docker rmi "$CAP_ACCOUNT_ID.dkr.ecr.${CAP_CLUSTER_REGION}.amazonaws.com/ho11y:latest"
-
-#delete cloned repository of sample application
-echo -e "${Y}deleting cloned repository of sample application ho11y${NC}"
-rm -fr aws-o11y-recipes
+kubectl delete -f ./templates/ho11y-app.yaml
 
 #delete nodegroup role which some times blocks cluster removal
 echo -e "${Y}deleting nodegroup role which some times blocks cluster removal${NC}"
