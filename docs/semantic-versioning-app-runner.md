@@ -213,16 +213,22 @@ arn:aws:apprunner:us-east-1:<<accountId>:service/hello-world-service/<<serviceId
 1. Checkout the solution from github
 
 ```bash
-mkdir sem-var-ecr-watcher-app-runner && cd sem-var-ecr-watcher-app-runner
-git clone https://github.com/hariohmprasath/sem-var-ecr-watcher-app-runner.git .
+git clone https://github.com/aws-samples/containers-blog-maelstrom.git
+cd containers-blog-maelstrom/sem-var-ecr-watcher-app-runner
 ```
 
 2. Update the `serviceARN` attribute inside `config.json` file under `config/` folder with the `ServiceArn` that was returned in the previous step (sample below).
 
-```json
-{
-    "serviceARN": "arn:aws:apprunner:us-east-1:<<accountId>:service/hello-world-service/<<serviceId>>",    
-}
+```bash
+cat > config/config.json<< EOF
+[
+    {
+      "repository": "hello-world-apprunner-repo",
+      "semVersion": ">1.2.2",
+      "serviceArn": "arn:aws:apprunner:${AWS_REGION}:${AWS_ACCOUNT_ID}:service/hello-world-service/${SERVICE_ID}"
+    }
+  ]
+EOF
 ```
 
 3. If you’re running AWS CDK for the first time, run the following command to bootstrap the AWS CDK environment (provide your AWS account ID and AWS Region):
