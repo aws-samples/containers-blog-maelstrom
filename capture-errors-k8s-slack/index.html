@@ -1,0 +1,928 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../batch-processing-with-k8s/">
+      
+      
+        <link rel="next" href="../prefetch-data-to-eks-nodes/">
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.1.4">
+    
+    
+      
+        <title>Capture Errors from K8s to Slack - Amazon Containers Blog Maelstrom</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.240905d7.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.a0c5b2b5.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#using-amazon-eks-blueprints-and-open-telemetry-to-capture-errors-from-kubernetes-applications-on-slack" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Amazon Containers Blog Maelstrom" class="md-header__button md-logo" aria-label="Amazon Containers Blog Maelstrom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Amazon Containers Blog Maelstrom
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Capture Errors from K8s to Slack
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/aws-samples/containers-blog-maelstrom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    aws-samples/containers-blog-maelstrom
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Amazon Containers Blog Maelstrom" class="md-nav__button md-logo" aria-label="Amazon Containers Blog Maelstrom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    Amazon Containers Blog Maelstrom
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/aws-samples/containers-blog-maelstrom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    aws-samples/containers-blog-maelstrom
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          Solutions
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Solutions
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ALB-ingresssharing-tbg/" class="md-nav__link">
+        ALB Ingress Sharing and Target Group Binding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grafana-operator-AMG/" class="md-nav__link">
+        Managing AMG using Grafana Operator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../batch-processing-with-k8s/" class="md-nav__link">
+        Batch Processing with K8s
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Capture Errors from K8s to Slack
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Capture Errors from K8s to Slack
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-overview" class="md-nav__link">
+    Solution Overview
+  </a>
+  
+    <nav class="md-nav" aria-label="Solution Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bootstrap-the-environment" class="md-nav__link">
+    Bootstrap the Environment
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-the-clusters" class="md-nav__link">
+    Create the clusters
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aws-distro-for-opentelemetry-adot-operator" class="md-nav__link">
+    AWS Distro for OpenTelemetry (ADOT) Operator
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adot-cloudwatch-collector" class="md-nav__link">
+    ADOT CloudWatch Collector
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploy-sample-application-ho11y" class="md-nav__link">
+    Deploy Sample Application (ho11y)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-cloudwatch-metrics" class="md-nav__link">
+    Create CloudWatch Metrics
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#send-cloudwatch-alarms-to-slack" class="md-nav__link">
+    Send CloudWatch alarms to Slack
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-cloudwatch-alarms" class="md-nav__link">
+    Create CloudWatch Alarms
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-traffic-to-ho11y-application" class="md-nav__link">
+    Generate Traffic to ho11y application
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanup" class="md-nav__link">
+    Cleanup
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    Conclusion
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#elamaran-shanmugam" class="md-nav__link">
+    Elamaran Shanmugam
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#re-alvarez-parmar" class="md-nav__link">
+    Re Alvarez Parmar
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prakash-srinivasan" class="md-nav__link">
+    Prakash Srinivasan
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prefetch-data-to-eks-nodes/" class="md-nav__link">
+        Prefetch Images to EKS nodes
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../semantic-versioning-app-runner/" class="md-nav__link">
+        Semantic Versioning App Runner
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-overview" class="md-nav__link">
+    Solution Overview
+  </a>
+  
+    <nav class="md-nav" aria-label="Solution Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bootstrap-the-environment" class="md-nav__link">
+    Bootstrap the Environment
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-the-clusters" class="md-nav__link">
+    Create the clusters
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aws-distro-for-opentelemetry-adot-operator" class="md-nav__link">
+    AWS Distro for OpenTelemetry (ADOT) Operator
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adot-cloudwatch-collector" class="md-nav__link">
+    ADOT CloudWatch Collector
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploy-sample-application-ho11y" class="md-nav__link">
+    Deploy Sample Application (ho11y)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-cloudwatch-metrics" class="md-nav__link">
+    Create CloudWatch Metrics
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#send-cloudwatch-alarms-to-slack" class="md-nav__link">
+    Send CloudWatch alarms to Slack
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-cloudwatch-alarms" class="md-nav__link">
+    Create CloudWatch Alarms
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-traffic-to-ho11y-application" class="md-nav__link">
+    Generate Traffic to ho11y application
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanup" class="md-nav__link">
+    Cleanup
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    Conclusion
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#elamaran-shanmugam" class="md-nav__link">
+    Elamaran Shanmugam
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#re-alvarez-parmar" class="md-nav__link">
+    Re Alvarez Parmar
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prakash-srinivasan" class="md-nav__link">
+    Prakash Srinivasan
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="using-amazon-eks-blueprints-and-open-telemetry-to-capture-errors-from-kubernetes-applications-on-slack">Using Amazon EKS Blueprints and Open Telemetry to capture errors from Kubernetes applications on Slack<a class="headerlink" href="#using-amazon-eks-blueprints-and-open-telemetry-to-capture-errors-from-kubernetes-applications-on-slack" title="Permanent link">&para;</a></h1>
+<h3 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h3>
+<p>The <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/operational-excellence.html">Operational Excellence</a> pillar of <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html">AWS Well-Architected Framework</a> focusses on the the ability to support development and run workloads effectively, gain insight into their operations, and to continuously improve supporting processes and procedures to deliver business value. Capturing errors from your Kubernetes applications and effectively alerting those errors are very important to improve business processes to constantly deliver real business value to your end users. Efficient and effective management of these operational events is required to achieve operational excellence.</p>
+<p>In this blog we will using <a href="https://github.com/aws-quickstart/cdk-eks-blueprints">Amazon EKS Blueprints</a> as a vehicle to create your Amazon EKS clusters with Day 2 operational tooling such as <a href="https://aws.amazon.com/otel/">AWS Distro for Open Telemetry</a> (ADOT) and ADOT CloudWatch Collector to capture errors from your Kubernetes application. The solution will then deploy a <a href="https://aws.amazon.com/serverless/sam/">AWS Serverless Application Model (SAM)</a> template which will generate CloudWatch alarms for errors from your Kubernetes application and invokes an Amazon Lambda function to send real time alerts to <a href="https://slack.com/">Slack</a>. </p>
+<h3 id="solution-overview">Solution Overview<a class="headerlink" href="#solution-overview" title="Permanent link">&para;</a></h3>
+<p><img alt="Image" src="../images/CAP-1.jpg" /></p>
+<p><strong>Here is a functional flow of this solution:</strong></p>
+<ol>
+<li><a href="https://aws.amazon.com/otel/">AWS Distro for Open Telemetry</a> (ADOT) Operator manages the life cycle of your ADOT CloudWatch Collector. </li>
+<li>ADOT CloudWatch Collector scrapes metrics from application and  sends metrics to Amazon CloudWatch.</li>
+<li><a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/MonitoringPolicyExamples.html">Amazon CloudWatch custom metric filters</a> monitors required events in respective CloudWatch log groups.</li>
+<li><a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html">CloudWatch Alarm</a> triggers notification to Amazon SNS when a threshold is breached.</li>
+<li>Amazon SNS invokes an Amazon Lambda function which in-turn sends CloudWatch alarm notifications to Slack.</li>
+</ol>
+<h4 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h4>
+<p>Install the following utilities on a Linux based host machine, which can be an <a href="https://aws.amazon.com/ec2/">Amazon EC2</a> instance, <a href="https://docs.aws.amazon.com/cloud9/latest/user-guide/setting-up.html">Cloud9</a> instance or a local machine with access to your AWS account:</p>
+<ul>
+<li><a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions">AWS CLI version 2</a> to interact with AWS services using CLI commands</li>
+<li><a href="https://nodejs.org/en/download/current/">Node.js</a> (v16.0.0 or later) and <a href="https://docs.npmjs.com/downloading-and-installing-node-js-and-npm">npm</a> (8.10.0 or later)</li>
+<li><a href="https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html#getting_started_install">AWS CDK v2.62.0</a>or later to build and deploy cloud infrastructure and Kubernetes resources programmatically</li>
+<li><a href="https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html">AWS SAM CLI</a> to deploy AWS Lambda function</li>
+<li><a href="https://docs.docker.com/get-docker/">Docker CLI</a> to build docker images</li>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html">Kubectl</a> to communicate with the Kubernetes API server</li>
+<li><a href="https://git-scm.com/download/linux">Git</a> to clone required source repository from GitHub</li>
+</ul>
+<p>Let’s start by setting a few environment variables:</p>
+<div class="highlight"><pre><span></span><code>export CAP_ACCOUNT_ID=$(aws sts get-caller-identity \
+--query &#39;Account&#39; --output text)
+export CAP_CLUSTER_REGION=&quot;us-east-2&quot;
+export CAP_CLUSTER_NAME=&quot;demo-cluster&quot;
+export CAP_FUNCTION_NAME=&quot;cloudwatch-to-slack&quot;
+</code></pre></div>
+<p>Clone the sample repository which contains the code for our solution :</p>
+<div class="highlight"><pre><span></span><code>git clone https://github.com/aws-samples/containers-blog-maelstrom.git
+cd ./containers-blog-maelstrom/aws-cdk-eks-app-alarms-to-slack
+</code></pre></div>
+<h4 id="bootstrap-the-environment">Bootstrap the Environment<a class="headerlink" href="#bootstrap-the-environment" title="Permanent link">&para;</a></h4>
+<p>In this solution we will be using <a href="https://github.com/aws-quickstart/cdk-eks-blueprints/tree/main/docs">Amazon EKS CDK Blueprints</a> to provision our Amazon EKS cluster. The first step to any <a href="https://aws.amazon.com/cdk/">CDK</a> deployment is bootstrapping the environment. <code>cdk bootstrap</code> is a tool in the AWS CDK command-line interface (<a href="https://docs.aws.amazon.com/cli/?id=docs_gateway">AWS CLI)</a> responsible for preparing the environment (i.e., a combination of AWS account and AWS Region) with resources required by CDK to perform deployments into that environment. If you already use <a href="https://aws.amazon.com/cdk/">CDK</a> in a region, you don’t need to repeat the bootstrapping process. </p>
+<p>Lets run the below script to bootstrap your environment and install all node dependencies required for deploying the solution:</p>
+<div class="highlight"><pre><span></span><code>sh ./bootstrap-env.sh
+</code></pre></div>
+<p>Please navigate to <code>bin/cluster-blueprint.ts</code> in the cloned repo to check on the <a href="https://github.com/aws-quickstart/cdk-eks-blueprints/tree/main/docs">Amazon EKS CDK Blueprints</a> stack which will deploy EKS Cluster with day 2 operational <a href="https://aws-quickstart.github.io/cdk-eks-blueprints/addons/">add-ons</a> required to run our solution. Please see the below <code>bin/cluster-blueprint.ts</code> snippet showing our EKS CDK Blueprints stack :</p>
+<div class="highlight"><pre><span></span><code>import &#39;source-map-support/register&#39;;
+import * as cdk from &#39;aws-cdk-lib&#39;;
+import * as blueprints from &#39;@aws-quickstart/eks-blueprints&#39;;
+
+const app = new cdk.App();
+
+const account = process.env.CAP_ACCOUNT_ID! || process.env.CDK_DEFAULT_ACCOUNT!;
+const region = process.env.CAP_CLUSTER_REGION! || process.env.CDK_DEFAULT_REGION!;
+const clusterName = process.env.CAP_CLUSTER_NAME!;
+
+const addOns: Array&lt;blueprints.ClusterAddOn&gt; = [
+    new blueprints.addons.AwsLoadBalancerControllerAddOn(),
+    new blueprints.addons.VpcCniAddOn(),
+    new blueprints.addons.CoreDnsAddOn(),
+    new blueprints.addons.KubeProxyAddOn(),
+    new blueprints.addons.CertManagerAddOn(),
+    new blueprints.addons.AdotCollectorAddOn(),
+    new blueprints.addons.CloudWatchAdotAddOn({deploymentMode: blueprints.addons.cloudWatchDeploymentMode.DEPLOYMENT,
+        metricsNameSelectors: [&#39;apiserver_request_.*&#39;, &#39;container_memory_.*&#39;, &#39;container_threads&#39;, &#39;otelcol_process_.*&#39;, &#39;ho11y*&#39;],
+        podLabelRegex: &#39;frontend|downstream(.*)&#39;}
+    )
+];
+
+const stack = blueprints.EksBlueprint.builder()
+    .account(account)
+    .region(region)
+    .addOns(...addOns)
+    .build(app, clusterName);
+</code></pre></div>
+<p>Next, run the <code>cdk list</code> command which lists name of stack that will be created.</p>
+<div class="highlight"><pre><span></span><code>cdk list
+</code></pre></div>
+<p>If you are interested in knowing list of resources that will be created by this stack, you can view them using <code>cdk diff</code> command. </p>
+<h4 id="create-the-clusters">Create the clusters<a class="headerlink" href="#create-the-clusters" title="Permanent link">&para;</a></h4>
+<p>Run below command to deploy the Amazon EKS cluster with day 2 operational <a href="https://aws-quickstart.github.io/cdk-eks-blueprints/addons/">add-ons</a> required to run our solution. </p>
+<div class="highlight"><pre><span></span><code>cdk deploy &quot;*&quot; --require-approval never
+</code></pre></div>
+<p>Deployment will take approximately 20-30 minutes to complete. Upon completion, you will have a fully functioning EKS cluster deployed in your account. </p>
+<p><img alt="Image" src="../images/CAP-2.jpg" /></p>
+<p>Please copy and run the <code>aws eks update-kubeconfig...</code> command as shown in the above screenshot to gain access to your Amazon EKS cluster using <code>kubectl</code>.</p>
+<h4 id="aws-distro-for-opentelemetry-adot-operator">AWS Distro for OpenTelemetry (ADOT) Operator<a class="headerlink" href="#aws-distro-for-opentelemetry-adot-operator" title="Permanent link">&para;</a></h4>
+<p><a href="https://aws-otel.github.io/docs/introduction">AWS Distro for OpenTelemetry (ADOT)</a> is a production ready, secure, AWS-supported distribution OpenTelemetry project. With ADOT, you can instrument your application once and send correlated metrics and traces to many monitoring solutions including <a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a>. You can deploy ADOT in EKS as an add-on which in-turn deploys <a href="https://aws-otel.github.io/docs/getting-started/adot-eks-add-on#the-adot-operator-and-adot-collector">ADOT Operator</a>. ADOT Operator manages the lifecyle of your <a href="https://aws-otel.github.io/docs/getting-started/adot-eks-add-on#the-adot-operator-and-adot-collector">ADOT Collector</a>, a collection agent which receives, processes, and exports telemetry data. With the deployment in the previous step, ADOT Operator is deployed as an add-on (<a href="https://aws-quickstart.github.io/cdk-eks-blueprints/addons/adot-addon/">AdotCollectorAddOn</a>) in the namespace <code>opentelemetry-operator-system</code>. </p>
+<p>Run the below command to check the running <code>opentelemetry-operator-controller-manager</code> pods :</p>
+<div class="highlight"><pre><span></span><code>kubectl get po -n opentelemetry-operator-system \
+-l app.kubernetes.io/name=opentelemetry-operator
+
+NAME                                                         READY   STATUS    RESTARTS   AGE
+opentelemetry-operator-controller-manager-76b94f4756-lgq69   2/2     Running   0          7m36s
+</code></pre></div>
+<h4 id="adot-cloudwatch-collector">ADOT CloudWatch Collector<a class="headerlink" href="#adot-cloudwatch-collector" title="Permanent link">&para;</a></h4>
+<p>To send application metrics and traces to Amazon CloudWatch, you can use <a href="https://aws-quickstart.github.io/cdk-eks-blueprints/addons/cloudwatch-adot-addon/">Amazon CloudWatch ADOT Collector add-on</a>. You can deploy this add-on as Deployment, Daemonset, StatefulSet or Sidecar as per your deployment strategy. Amazon CloudWatch ADOT Collector blueprints add-on is deployed with filters on specific metrics and pod labels using <code>metricsNameSelectors</code> and <code>podLabelRegex</code>. </p>
+<p>Run the below command to validate installation of CloudWatch ADOT Collector add-on and this shows the list of collector pods :</p>
+<div class="highlight"><pre><span></span><code>kubectl get po -n default \
+-l app.kubernetes.io/component=opentelemetry-collector
+
+NAME                                        READY   STATUS    RESTARTS   AGE
+otel-collector-cloudwatch-collector-x5djc   1/1     Running   0          7m43s
+</code></pre></div>
+<h4 id="deploy-sample-application-ho11y">Deploy Sample Application (ho11y)<a class="headerlink" href="#deploy-sample-application-ho11y" title="Permanent link">&para;</a></h4>
+<p>Next, let us deploy a sample application called <a href="https://github.com/aws-observability/aws-o11y-recipes/tree/main/sandbox/ho11y#overview">ho11y</a>, a synthetic signal generator that lets you test observability solutions for microservices. It emits logs, metrics, and traces in a configurable manner. For more information, see the <a href="https://github.com/aws-observability/aws-o11y-recipes/tree/main/sandbox/ho11y">AWS O11y Receipes respository</a>. </p>
+<p>Run the below command to deploy ho11y application:</p>
+<div class="highlight"><pre><span></span><code>kubectl apply -f ./templates/ho11y-app.yaml
+</code></pre></div>
+<p>Once <code>ho11y</code> app is deployed successfully, run the the below command to list all pods in <code>ho11y</code> namespace on your EKS cluster.</p>
+<div class="highlight"><pre><span></span><code>kubectl get po -n ho11y
+
+NAME                           READY   STATUS    RESTARTS   AGE
+downstream0-5d48fd95b6-xl28g   1/1     Running   0          23s
+downstream1-79ccd4b64c-fbxnv   1/1     Running   0          23s
+frontend-7758b97475-lvfqk      1/1     Running   0          24s
+</code></pre></div>
+<h4 id="create-cloudwatch-metrics">Create CloudWatch Metrics<a class="headerlink" href="#create-cloudwatch-metrics" title="Permanent link">&para;</a></h4>
+<p>You can convert log data into numerical CloudWatch metrics using <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/MonitoringLogData.html">metric filters</a>. Metric filters allow you to configure rules to extract metric data from log events. <code>ho11y</code> app exposes number of metrics via <code>/metrics</code>endpoint. One such <a href="https://github.com/aws-observability/aws-o11y-recipes/tree/main/sandbox/ho11y#request-based-metrics">request based metric</a> <code>ho11y_total</code> is used in the below <code>put-metric-filter</code> command to create metric filter with dimensions such as <code>namespace</code> and <code>http_status_code</code>.</p>
+<p>Lets run the below commands to create metric filter:</p>
+<div class="highlight"><pre><span></span><code>aws logs put-metric-filter --region ${CAP_CLUSTER_REGION} \
+--log-group-name /aws/containerinsights/${CAP_CLUSTER_NAME}/prometheus \
+--cli-input-json file://templates/ho11y-metric-filter.json
+</code></pre></div>
+<h4 id="send-cloudwatch-alarms-to-slack">Send CloudWatch alarms to Slack<a class="headerlink" href="#send-cloudwatch-alarms-to-slack" title="Permanent link">&para;</a></h4>
+<p>Next, lets configure our solution to send CloudWatch notification alarms to <a href="https://slack.com/">Slack</a>. <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html">Amazon CloudWatch alarms</a>can be created for required metric and one or more actions can be triggered based on metric value relative to a threshold over a duration. One such action is to send notification to <a href="https://aws.amazon.com/sns/">Simple Notification Service (SNS)</a>. We will then use Lambda function to process this notification and forward to Slack using incoming webhook. </p>
+<p><strong>Create Slack Incoming Webhook</strong></p>
+<p>Slack allows you to send messages from other applications using incoming webhook. Please refer to <a href="https://api.slack.com/messaging/webhooks">sending messages using incoming webhooks</a> for more details. We will use this incoming webhook to send required CloudWatch alarms to Slack channel. Follow below steps to configure incoming webhook in Slack:</p>
+<ol>
+<li>Create or pick a Slack channel to send CloudWatch alarms notifications.</li>
+<li>Go to <code>https://&lt;your-team-domain&gt;.slack.com/services/new</code> and search for "Incoming WebHooks", select and click "Add to Slack".</li>
+<li>Under Post to Channel, choose the Slack channel where messages will be sent and click "Add Incoming WebHooks Integration".</li>
+<li>Copy webhook URL from the setup instructions and save it. This URL will be used in Lambda function.</li>
+</ol>
+<p><strong>Create KMS Key</strong></p>
+<p>In order to increase security posture of incoming webhook URL, we will now encrypt it using <a href="https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#kms_keys">AWS KMS keys</a>. Create KMS Key and key alias using below mentioned commands:</p>
+<div class="highlight"><pre><span></span><code>CAP_KMS_KEY_ID=$(aws kms create-key --region ${CAP_CLUSTER_REGION} \
+--description &quot;Encryption Key for lambda function ${CAP_FUNCTION_NAME}&quot; \
+--key-spec SYMMETRIC_DEFAULT --key-usage ENCRYPT_DECRYPT \
+--query KeyMetadata.KeyId --output text)
+
+aws kms create-alias --region ${CAP_CLUSTER_REGION} \
+--alias-name alias/${CAP_FUNCTION_NAME}-key --target-key-id $CAP_KMS_KEY_ID
+</code></pre></div>
+<p><strong>Create an Amazon Lambda function</strong></p>
+<p>As next step, we will create Lambda function to send CloudWatch alarm notifications to Slack using <a href="https://aws.amazon.com/serverless/sam/">AWS Serverless Application Model (SAM)</a>. AWS SAM uses AWS CloudFormation as the underlying deployment mechanism. We will create following resources using AWS SAM template:</p>
+<ol>
+<li>An Amazon SNS topic to which notifications will be published by CloudWatch alarm.</li>
+<li>A Lambda execution role to grant function permission with basic access and to decrypt using KMS Key.</li>
+<li>A Lambda function to send notifications to Slack using incoming webhook URL.</li>
+<li>Permission for SNS to trigger Lambda function.</li>
+</ol>
+<p>The script <code>deploy-sam-app.sh</code>  intakes the following two input values to deploy SAM template.</p>
+<ol>
+<li>Slack incoming webhook URL which you created previously. </li>
+<li>Slack channel name (you selected previously) to which notifications need to be sent</li>
+</ol>
+<p><code>deploy-sam-app.sh</code> script, Slack incoming webhook URL will be encrypted (client-side) using KMS Key to specific encryption context. Lambda function will decrypt using same encryption context. Lambda execution role is provided with fine-grained access to use KMS Key only for the specific encryption context. 
+Run the below command to deploy SAM template.</p>
+<div class="highlight"><pre><span></span><code>sh ./deploy-sam-app.sh
+</code></pre></div>
+<p><strong>Test Lambda function</strong></p>
+<p>Next, let us validate our Lambda function by pushing a test event using the payload available at <code>templates/test-event.json</code>. Run the command given below to push a test event:</p>
+<div class="highlight"><pre><span></span><code>aws lambda invoke --region ${CAP_CLUSTER_REGION} \
+--function-name ${CAP_FUNCTION_NAME} \
+--log-type Tail \
+--query LogResult --output text \
+--payload $(cat templates/test-event.json | base64 -w 0) -` \
+| base64 -d`
+</code></pre></div>
+<p>Successful run will post test message to Slack channel and have command output as shown below :</p>
+<p><img alt="Image" src="../images/CAP-3.jpg" /></p>
+<p><img alt="Image" src="../images/CAP-4.jpg" /></p>
+<div class="highlight"><pre><span></span><code>[INFO]  2023-02-17T22:48:12.041Z        a07549ea-3dcf-4131-9f15-b676f461bbbd    Message posted to ho11y-cloudwatch-alarms
+END RequestId: a07549ea-3dcf-4131-9f15-b676f461bbbd
+REPORT RequestId: a07549ea-3dcf-4131-9f15-b676f461bbbd  Duration: 292.01 ms     Billed Duration: 293 ms Memory Size: 128 MB     Max Memory Used: 69 MB  Init Duration: 399.38 ms
+</code></pre></div>
+<h4 id="create-cloudwatch-alarms">Create CloudWatch Alarms<a class="headerlink" href="#create-cloudwatch-alarms" title="Permanent link">&para;</a></h4>
+<p>Next, we will create CloudWatch alarm on a metric to create and send notifications to SNS topic. Below mentioned command creates CloudWatch alarm that monitors for http_status_code=400 and when the number of errors is above 15 in last 5 minutes, then a notification is sent to SNS topic.</p>
+<div class="highlight"><pre><span></span><code>SNS_TOPIC=$(aws cloudformation --region ${CAP_CLUSTER_REGION} describe-stacks --stack-name ${CAP_FUNCTION_NAME}-app --query &#39;Stacks[0].Outputs[?OutputKey==`CloudwatchToSlackTopicArn`].OutputValue&#39; --output text)
+
+aws cloudwatch put-metric-alarm --region ${CAP_CLUSTER_REGION} \
+--alarm-actions ${SNS_TOPIC} \
+--cli-input-json file://templates/ho11y-400-alarm.json
+
+aws cloudwatch describe-alarms --region ${CAP_CLUSTER_REGION} \
+--alarm-names &quot;400 errors from ho11y app&quot;
+</code></pre></div>
+<h4 id="generate-traffic-to-ho11y-application">Generate Traffic to ho11y application<a class="headerlink" href="#generate-traffic-to-ho11y-application" title="Permanent link">&para;</a></h4>
+<p>Generate traffic to ho11y application using below mentioned command which in-turn generates metrics. Run this script in a separate terminal :</p>
+<div class="highlight"><pre><span></span><code>frontend_pod=`kubectl get pod -n ho11y --no-headers -l app=frontend -o jsonpath=&#39;{.items[*].metadata.name}&#39;`
+loop_counter=0
+while [ $loop_counter -le 5000 ] ;
+do
+    echo $loop_counter;
+    kubectl exec -n ho11y -it $frontend_pod -- curl frontend.ho11y.svc.cluster.local;
+    loop_counter=$[$loop_counter+1];
+done
+</code></pre></div>
+<p>Let this run for 10 minutes and check CloudWatch alarm status. If there is a breach in threshold, you will get notification sent to Slack channel as shown below. </p>
+<p><img alt="Image" src="../images/CAP-5.jpg" /></p>
+<p><img alt="Image" src="../images/CAP-6.jpg" /></p>
+<h3 id="cleanup">Cleanup<a class="headerlink" href="#cleanup" title="Permanent link">&para;</a></h3>
+<p>Run <code>cleanup.sh</code> script to clean up all resources deployed as part of this post.</p>
+<div class="highlight"><pre><span></span><code>sh ./cleanup.sh
+</code></pre></div>
+<h3 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h3>
+<p>In this blog we demonstrated a solution to capture errors from your Kubernetes applications to validate your understanding of operational success of your Kubernetes applications and how it changes over time. We used <a href="https://github.com/aws-quickstart/cdk-eks-blueprints">Amazon EKS Blueprints</a> to create your Amazon EKS clusters with Day 2 operational tooling such as <a href="https://aws.amazon.com/otel/">AWS Distro for Open Telemetry</a> (ADOT) and ADOT CloudWatch Collector. We then deployed a <a href="https://aws.amazon.com/serverless/sam/">AWS Serverless Application Model (SAM)</a> template to generate CloudWatch alarms and invoke an Amazon Lambda function to send real time alerts to <a href="https://slack.com/">Slack</a> for errors from your Kubernetes application. We would recommend you to try this solution and for further learning please check our <a href="https://aws-observability.github.io/observability-best-practices/">AWS Observability Best practices</a> guide. Additionally, you can get hands-on experience with the AWS services using the One Observability Workshop. </p>
+<p><img alt="Ela" src="../images/Ela.jpg" /></p>
+<h3 id="elamaran-shanmugam">Elamaran Shanmugam<a class="headerlink" href="#elamaran-shanmugam" title="Permanent link">&para;</a></h3>
+<p>Elamaran (Ela) Shanmugam is a Sr. Container Specialist Solutions Architect with Amazon Web Services. Ela is a Container, Observability and Multi-Account Architecture SME and helps AWS partners and customers to design and build scalable, secure and optimized container workloads on AWS. His passion is building and automating Infrastructure to allow customers to focus more on their business. He is based out of Tampa, Florida and you can reach him on twitter @IamElaShan</p>
+<p><img alt="Re" src="../images/Re.jpg" /></p>
+<h3 id="re-alvarez-parmar">Re Alvarez Parmar<a class="headerlink" href="#re-alvarez-parmar" title="Permanent link">&para;</a></h3>
+<p>In his role as Containers Specialist Solutions Architect at Amazon Web Services. Re advises engineering teams with modernizing and building distributed services in the cloud. Prior to joining AWS, he spent over 15 years as Enterprise and Software Architect. He is based out of Seattle. You can connect with him on LinkedIn linkedin.com/in/realvarez/</p>
+<p><img alt="Prakash" src="../images/prakkie.jpg" /></p>
+<h3 id="prakash-srinivasan">Prakash Srinivasan<a class="headerlink" href="#prakash-srinivasan" title="Permanent link">&para;</a></h3>
+<p>Prakash is a Solutions Architect with Amazon Web Services. He is a passionate builder and helps customers to modernize their applications and accelerate their Cloud journey to get the best out of Cloud for their business. In his spare time, he enjoys watching movies and spend more time with family. He is based out of Denver, Colorado and you can connect with him on Linkedin at <a href="https://www.linkedin.com/in/prakash-s/">linkedin.com/in/prakash-s</a></p>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["tabs"], "search": "../assets/javascripts/workers/search.208ed371.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.19047be9.min.js"></script>
+      
+    
+  </body>
+</html>

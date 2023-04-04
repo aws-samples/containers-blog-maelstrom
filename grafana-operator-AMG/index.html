@@ -1,0 +1,1049 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../ALB-ingresssharing-tbg/">
+      
+      
+        <link rel="next" href="../batch-processing-with-k8s/">
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.1.4">
+    
+    
+      
+        <title>Managing AMG using Grafana Operator - Amazon Containers Blog Maelstrom</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.240905d7.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.a0c5b2b5.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#using-open-source-grafana-operator-on-your-kubernetes-cluster-to-manage-amazon-managed-grafana" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Amazon Containers Blog Maelstrom" class="md-header__button md-logo" aria-label="Amazon Containers Blog Maelstrom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Amazon Containers Blog Maelstrom
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Managing AMG using Grafana Operator
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/aws-samples/containers-blog-maelstrom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    aws-samples/containers-blog-maelstrom
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Amazon Containers Blog Maelstrom" class="md-nav__button md-logo" aria-label="Amazon Containers Blog Maelstrom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    Amazon Containers Blog Maelstrom
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/aws-samples/containers-blog-maelstrom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    aws-samples/containers-blog-maelstrom
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          Solutions
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Solutions
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ALB-ingresssharing-tbg/" class="md-nav__link">
+        ALB Ingress Sharing and Target Group Binding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Managing AMG using Grafana Operator
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Managing AMG using Grafana Operator
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-architecture" class="md-nav__link">
+    Solution Architecture
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-walkthrough" class="md-nav__link">
+    Solution Walkthrough
+  </a>
+  
+    <nav class="md-nav" aria-label="Solution Walkthrough">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bootstrap-the-environment" class="md-nav__link">
+    Bootstrap the Environment
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-the-clusters-and-deploy-the-addons" class="md-nav__link">
+    Create the clusters and deploy the addons
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-grafana-operator" class="md-nav__link">
+    Installing Grafana Operator
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-amazon-managed-grafana-datasources-and-dashboards-using-grafana-operator" class="md-nav__link">
+    Creating Amazon Managed Grafana Datasources and Dashboards using Grafana Operator:
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gitops-approach-with-grafana-operator" class="md-nav__link">
+    GitOps Approach with Grafana Operator
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanup" class="md-nav__link">
+    Cleanup
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    Conclusion
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authors" class="md-nav__link">
+    Authors
+  </a>
+  
+    <nav class="md-nav" aria-label="Authors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#elamaran-shanmugam" class="md-nav__link">
+    Elamaran Shanmugam
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mikhail-shapirov" class="md-nav__link">
+    Mikhail Shapirov
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edvin-norling" class="md-nav__link">
+    Edvin Norling
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../batch-processing-with-k8s/" class="md-nav__link">
+        Batch Processing with K8s
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../capture-errors-k8s-slack/" class="md-nav__link">
+        Capture Errors from K8s to Slack
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prefetch-data-to-eks-nodes/" class="md-nav__link">
+        Prefetch Images to EKS nodes
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../semantic-versioning-app-runner/" class="md-nav__link">
+        Semantic Versioning App Runner
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-architecture" class="md-nav__link">
+    Solution Architecture
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-walkthrough" class="md-nav__link">
+    Solution Walkthrough
+  </a>
+  
+    <nav class="md-nav" aria-label="Solution Walkthrough">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bootstrap-the-environment" class="md-nav__link">
+    Bootstrap the Environment
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-the-clusters-and-deploy-the-addons" class="md-nav__link">
+    Create the clusters and deploy the addons
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installing-grafana-operator" class="md-nav__link">
+    Installing Grafana Operator
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-amazon-managed-grafana-datasources-and-dashboards-using-grafana-operator" class="md-nav__link">
+    Creating Amazon Managed Grafana Datasources and Dashboards using Grafana Operator:
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gitops-approach-with-grafana-operator" class="md-nav__link">
+    GitOps Approach with Grafana Operator
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanup" class="md-nav__link">
+    Cleanup
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    Conclusion
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authors" class="md-nav__link">
+    Authors
+  </a>
+  
+    <nav class="md-nav" aria-label="Authors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#elamaran-shanmugam" class="md-nav__link">
+    Elamaran Shanmugam
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mikhail-shapirov" class="md-nav__link">
+    Mikhail Shapirov
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edvin-norling" class="md-nav__link">
+    Edvin Norling
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="using-open-source-grafana-operator-on-your-kubernetes-cluster-to-manage-amazon-managed-grafana">Using Open Source Grafana Operator on your Kubernetes cluster to manage Amazon Managed Grafana<a class="headerlink" href="#using-open-source-grafana-operator-on-your-kubernetes-cluster-to-manage-amazon-managed-grafana" title="Permanent link">&para;</a></h1>
+<h3 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h3>
+<p>In this modern era, many customers running Kubernetes are moving towards the paradigm of leveraging Kubernetes as a control plane and rarely as a data plane. Their focus is shifted towards workload gravity and reliance on Kubernetes-native controllers to deploy and manage the lifecycle of external resources such as Cloud resources. We have seen customers installing <a href="https://www.crossplane.io/">Crossplane</a> and <a href="https://aws-controllers-k8s.github.io/community/docs/community/overview/">AWS Controllers for Kubernetes (ACK)</a>to create, deploy and manage AWS services. Many customers these days opt to offload the Prometheus and Grafana implementations to managed services and in case of AWS these services are <a href="https://docs.aws.amazon.com/prometheus/?icmpid=docs_homepage_mgmtgov">Amazon Managed Service for Prometheus</a> (AMP) and <a href="https://docs.aws.amazon.com/grafana/?icmpid=docs_homepage_mgmtgov">Amazon Managed Grafana</a> (AMG) for monitoring their workloads. Fundamentally what they need is one single API - the Kubernetes API, to control heterogeneous deployments.</p>
+<p>Though customers look for ways to offload and manage their Grafana implementations to managed services such as AMG, there is no mechanism to achieve this. The <a href="https://github.com/grafana-operator/grafana-operator#:~:text=The%20grafana%2Doperator%20is%20a,an%20easy%20and%20scalable%20way.">grafana-operator</a>is a Kubernetes operator built to help you manage your Grafana instances inside Kubernetes. Grafana Operator makes it possible for you to manage and create Grafana dashboards, datasources etc. declaratively between multiple instances in an easy and scalable way. Though Grafana Operator makes it possible to manage Grafana instances using code in a Kubernetes native way, there was no mechanism to intergrate Grafana services deployed outside of the cluster, such as AMG. </p>
+<p>To address this gap, AWS team collaborated with the <a href="https://github.com/grafana-operator/grafana-operator#:~:text=The%20grafana%2Doperator%20is%20a,an%20easy%20and%20scalable%20way.">grafana-operator</a>team and submitted a <a href="https://github.com/grafana-operator/grafana-operator-experimental/pull/39">design proposal</a>to support the integration of external Grafana instances. With this mechanism it will be possible to add external Prometheus compatible data sources (e.g., Amazon Managed Service for Prometheus) and create Grafana dashboards in external grafana instances (e.g., Amazon Managed Grafana) from your Kubernetes cluster. This enables us to use our Kubernetes cluster as a control plane to create Grafana implementations to Amazon Managed Grafana. Upon colloboration and consistently working through deployment stages with the Grafana Operator team (Kubernetes community), this feature is now fully supported in <a href="https://github.com/grafana-operator/grafana-operator/releases/tag/v5.0.0-rc0">release 5</a> of Grafana Operator. This ultimately enables us to use GitOps mechanisms using CNCF projects such as <a href="https://fluxcd.io/">Flux</a> and <a href="https://docs.crossplane.io/latest">Crossplane</a> to create and manage the lifecyle of resources in AMG.</p>
+<p>In this blog, we will be demonstrating on how to use Grafana Operator from your Kubernetes cluster to add an AMP data source and create dashboards in AMG in a Kubernetes native way.</p>
+<h3 id="solution-architecture">Solution Architecture<a class="headerlink" href="#solution-architecture" title="Permanent link">&para;</a></h3>
+<p><img alt="Image" src="../images/AMG-1.jpg" /></p>
+<p>The architecture diagram shows the demonstration of Kubernetes cluster as a control plane with using Grafana Operator to setup an identity with AMG, adding AMP as a datasource and creating dashboards on AMG from Amazon EKS cluster in a Kubernetes native way.</p>
+<h3 id="solution-walkthrough">Solution Walkthrough<a class="headerlink" href="#solution-walkthrough" title="Permanent link">&para;</a></h3>
+<h4 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h4>
+<p>You will need the following to complete the steps in this post:</p>
+<ul>
+<li><a href="https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html">AWS CLI version 2</a></li>
+<li><a href="https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html#getting_started_install">AWS CDK</a> version 2.66.0 or later</li>
+<li><a href="https://nodejs.org/en/download/current/">Node</a> version 18.12.1 or later</li>
+<li><a href="https://docs.npmjs.com/downloading-and-installing-node-js-and-npm">NPM</a> version 8.19.2 or later</li>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html">Kubectl</a></li>
+<li><a href="https://git-scm.com/download">Git</a></li>
+<li><a href="https://stedolan.github.io/jq/download/">jq</a></li>
+<li><a href="https://helm.sh/docs/intro/install/">Helm</a></li>
+<li><a href="https://aws.amazon.com/blogs/mt/amazon-managed-grafana-getting-started/">An existing Amazon Managed Grafana Workspace</a></li>
+</ul>
+<p>Let’s start by setting a few environment variables:</p>
+<div class="highlight"><pre><span></span><code>export GO_ACCOUNT_ID=$(aws sts get-caller-identity --query &#39;Account&#39; --output text)
+export GO_AWS_REGION=us-west-2
+export GO_CLUSTER_NAME=&quot;grafana-operator-cluster&quot;
+export GO_AMP_WORKSPACE_NAME=&quot;demo-amp-Workspace&quot;
+</code></pre></div>
+<p>Clone the sample repository which contains the code for our solution :</p>
+<div class="highlight"><pre><span></span><code>git clone https://github.com/aws-samples/containers-blog-maelstrom.git
+cd ./containers-blog-maelstrom/grafana-operator-AMG
+</code></pre></div>
+<h4 id="bootstrap-the-environment">Bootstrap the Environment<a class="headerlink" href="#bootstrap-the-environment" title="Permanent link">&para;</a></h4>
+<p>In this solution we will be using <a href="https://github.com/aws-quickstart/cdk-eks-blueprints/tree/main/docs">Amazon EKS CDK Blueprints</a> to provision our Amazon EKS cluster. The first step to any <a href="https://aws.amazon.com/cdk/">CDK</a> deployment is bootstrapping the environment. <code>cdk bootstrap</code> is a tool in the AWS CDK command-line interface (<a href="https://docs.aws.amazon.com/cli/?id=docs_gateway">AWS CLI)</a> responsible for preparing the environment (i.e., a combination of AWS account and AWS Region) with resources required by CDK to perform deployments into that environment. If you already use <a href="https://aws.amazon.com/cdk/">CDK</a> in a region, you don’t need to repeat the bootstrapping process. </p>
+<p>Lets run the below commands to bootstrap your environment and install all node dependencies required for deploying the solution:</p>
+<div class="highlight"><pre><span></span><code>npm install
+`cdk bootstrap aws``:``//$GO_ACCOUNT_ID/$GO_AWS_REGION`
+</code></pre></div>
+<p>Next, lets try to grab the workspace if of any existing Amazon Managed Grafana workspace :</p>
+<div class="highlight"><pre><span></span><code>aws grafana list-workspaces
+
+{
+    &quot;workspaces&quot;: [
+        {
+            &quot;authentication&quot;: {
+                &quot;providers&quot;: [
+                    &quot;AWS_SSO&quot;
+                ]
+            },
+            &quot;created&quot;: &quot;2022-02-20T23:26:19.829000+00:00&quot;,
+            &quot;description&quot;: &quot;Demo AMG Workspace&quot;,
+            &quot;endpoint&quot;: &quot;g-XXXXXXXXXX.grafana-workspace.us-west-2.amazonaws.com&quot;,
+            &quot;grafanaVersion&quot;: &quot;8.4&quot;,
+            &quot;id&quot;: &quot;g-XXXXXXXX&quot;,
+            &quot;modified&quot;: &quot;2022-02-20T23:26:19.829000+00:00&quot;,
+            &quot;name&quot;: &quot;EKSA-Demo-AMG-Workspace&quot;,
+            &quot;notificationDestinations&quot;: [
+                &quot;SNS&quot;
+            ],
+            &quot;status&quot;: &quot;ACTIVE&quot;,
+            &quot;tags&quot;: {}
+        }
+}
+
+# populate the values from `id` and `endpoint` to below environment variable
+
+export GO_AMG_WORKSPACE_ID=&quot;&lt;&lt;Your-WORKSPACE-ID&gt;&gt;&quot;
+export GO_AMG_WORKSPACE_URL=&quot;https://&lt;&lt;YOUR-WORKSPACE-URL&gt;&gt;
+</code></pre></div>
+<p>Next, lets create a grafana api key from your AMG workspace and setup a secret on AWS Secrets Manager which will be used to access from external secrets by our Amazon EKS cluster :</p>
+<div class="highlight"><pre><span></span><code>export GO_AMG_API_KEY=$(aws grafana create-workspace-api-key \
+  --key-name &quot;grafana-operator-key&quot; \
+  --key-role &quot;ADMIN&quot; \
+  --seconds-to-live 432000 \
+  --workspace-id $GO_AMG_WORKSPACE_ID \
+  --query key \
+  --output text)
+
+export GO_API_KEY_SECRET_ARN=$(aws secretsmanager create-secret \
+    --name grafana-api-key \
+    --description &quot;API Key of your Grafana Instance&quot; \
+    --secret-string $GO_AMG_API_KEY \
+    --region $GO_AWS_REGION \
+    --query ARN \
+    --output text)
+</code></pre></div>
+<p>Please navigate to <code>bin/cluster-blueprint.ts</code> in the cloned repo to check on the <a href="https://github.com/aws-quickstart/cdk-eks-blueprints/tree/main/docs">Amazon EKS CDK Blueprints</a> stack which will deploy EKS Cluster with day 2 operational <a href="https://aws-quickstart.github.io/cdk-eks-blueprints/addons/">add-ons</a> required to run our solution. Please see the below <code>bin/cluster-blueprint.ts</code> snippet showing our EKS CDK Blueprints stack :</p>
+<div class="highlight"><pre><span></span><code>#!/usr/bin/env node
+
+import &#39;source-map-support/register&#39;;
+import * as cdk from &#39;aws-cdk-lib&#39;;
+import * as blueprints from &#39;@aws-quickstart/eks-blueprints&#39;;
+import { GrafanaOperatorSecretAddon } from &#39;./grafanaoperatorsecretaddon&#39;;
+
+const app = new cdk.App();
+
+const account = process.env.GO_ACCOUNT_ID! || process.env.CDK_DEFAULT_ACCOUNT!;
+const region = process.env.GO_AWS_REGION! || process.env.CDK_DEFAULT_REGION!;
+const clusterName = process.env.GO_CLUSTER_NAME!;
+const ampWorkspaceName = process.env.GO_AMP_WORKSPACE_NAME! || &#39;demo-amp-Workspace&#39;;
+
+const addOns: Array&lt;blueprints.ClusterAddOn&gt; = [
+    new blueprints.addons.AwsLoadBalancerControllerAddOn(),
+    new blueprints.addons.VpcCniAddOn(),
+    new blueprints.addons.CoreDnsAddOn(),
+    new blueprints.addons.KubeProxyAddOn(),
+    new blueprints.addons.CertManagerAddOn(),
+    new blueprints.addons.ExternalsSecretsAddOn(),
+    new blueprints.addons.PrometheusNodeExporterAddOn(),
+    new blueprints.addons.KubeStateMetricsAddOn(),
+    new blueprints.addons.AdotCollectorAddOn(),
+    new blueprints.addons.AmpAddOn({
+        workspaceName: ampWorkspaceName,
+    }),
+    new GrafanaOperatorSecretAddon(),
+
+];
+
+const stack = blueprints.EksBlueprint.builder()
+    .account(account)
+    .region(region)
+    .addOns(...addOns)
+    .build(app, clusterName);
+</code></pre></div>
+<p>Next, run the <code>cdk list</code> command which lists name of stack that will be created.</p>
+<div class="highlight"><pre><span></span><code>npm install
+cdk list
+</code></pre></div>
+<p>If you are interested in knowing list of resources that will be created by this stack, you can view them using <code>cdk diff</code> command. </p>
+<h4 id="create-the-clusters-and-deploy-the-addons">Create the clusters and deploy the addons<a class="headerlink" href="#create-the-clusters-and-deploy-the-addons" title="Permanent link">&para;</a></h4>
+<p>Run below command to deploy the Amazon EKS cluster with day 2 operational <a href="https://aws-quickstart.github.io/cdk-eks-blueprints/addons/">add-ons</a> required to run our solution. </p>
+<div class="highlight"><pre><span></span><code>cdk deploy &quot;*&quot; --require-approval never
+</code></pre></div>
+<p>Deployment will take approximately 20-30 minutes to complete. Upon completion, you will have a fully functioning EKS cluster deployed in your account.</p>
+<p>This blueprint will deploy the following:</p>
+<ul>
+<li><a href="https://aws.amazon.com/vpc/">Amazon Virtual Private Cloud (Amazon VPC)</a> with both Public and Private subnets</li>
+<li>An Amazon EKS cluster in the region and account you specify</li>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/managing-vpc-cni.html">Amazon VPC CNI</a> Add-on to your EKS cluster to support native VPC networking</li>
+<li><a href="https://aws-quickstart.github.io/cdk-eks-blueprints/addons/external-secrets/">External Secrets Addon</a> to integrate with AWS Secrets Manager to pull Amazon Managed Grafana api key.</li>
+<li><a href="https://aws-quickstart.github.io/cdk-eks-blueprints/addons/coredns/">CoreDNS Addon</a> is a flexible, extensible DNS server that can serve as the Kubernetes cluster DNS. </li>
+<li><a href="https://github.com/aws-quickstart/cdk-eks-blueprints/blob/main/docs/addons/cert-manager.md">CertManager Addon</a> to install and manage the AWS Distro for OpenTelemetry (ADOT) Operator. </li>
+<li><a href="https://github.com/aws-quickstart/cdk-eks-blueprints/blob/main/docs/addons/kube-state-metrics.md">KubeStateMetrics Addon</a> is a simple service that listens to the Kubernetes API server and generates metrics about the state of the objects.</li>
+<li><a href="https://github.com/aws-quickstart/cdk-eks-blueprints/blob/main/docs/addons/prometheus-node-exporter.md">PrometheusNodeExporter Addon</a> enables you to measure various machine resources such as memory, disk and CPU utilization.</li>
+<li><a href="https://aws-quickstart.github.io/cdk-eks-blueprints/addons/adot-addon/">Adot Addon</a> to install and manage the AWS Distro for OpenTelemetry (ADOT) Operator. </li>
+<li><a href="https://aws-quickstart.github.io/cdk-eks-blueprints/addons/amp-addon/">Amp Adot Addon</a> deploys an AWS Distro for OpenTelemetry (ADOT) Collector for Amazon Managed Service for Prometheus (AMP) which receives transactional metrics from the application and Prometheus metrics scraped from pods on the cluster and remote writes the metrics to AMP remote write endpoint. This addon creates an AMP workspace with name <code>demo-amp-wokspace</code>. </li>
+<li>Creates a <a href="https://external-secrets.io/v0.5.9/api-clustersecretstore/">ClusterSecretStore</a> which can be used by all external secrets from all namespaces</li>
+<li>Creates an <a href="https://external-secrets.io/v0.5.9/api-externalsecret/">ExternalSecret</a> which can be used to fetch, transform and inject secret data AMG API Key</li>
+</ul>
+<p>Once the deployment is complete, you will see the below output in your terminal:</p>
+<div class="highlight"><pre><span></span><code>Outputs:
+grafana-operator-cluster.grafanaoperatorclusterClusterName861294B8 = grafana-operator-cluster
+grafana-operator-cluster.grafanaoperatorclusterConfigCommandDD46DC5D = aws eks update-kubeconfig --name grafana-operator-cluster --region us-west-2 --role-arn arn:aws:iam::940019131157:role/grafana-operator-cluster-grafanaoperatorclusterMas-3E4ITHRP3FRI
+grafana-operator-cluster.grafanaoperatorclusterGetTokenCommand6228506B = aws eks get-token --cluster-name grafana-operator-cluster --region us-west-2 --role-arn arn:aws:iam::940019131157:role/grafana-operator-cluster-grafanaoperatorclusterMas-3E4ITHRP3FRI
+Stack ARN:
+arn:aws:cloudformation:us-west-2:940019131157:stack/grafana-operator-cluster/ee4f6ac0-c460-11ed-9e3a-022cbdd1a7dd
+</code></pre></div>
+<p>To update your Kubernetes config for you new cluster, copy and run the <code>aws eks update-kubeconfig...</code> command (the second command in the list above) in your terminal.</p>
+<div class="highlight"><pre><span></span><code>aws eks update-kubeconfig \
+    --name $GO_CLUSTER_NAME \
+    --region $GO_AWS_REGION \
+    --role-arn arn:aws:iam::$GO_ACCOUNT_ID:role/grafana-operator-cluster-grafanaoperatorclusterMas-3E4ITHRP3FRI
+</code></pre></div>
+<p>Validate the access to your EKS cluster using below <code>kubectl</code> listing the secret created to access AMG workspace:</p>
+<div class="highlight"><pre><span></span><code>❯ k get secret                                                                                                                                                                     ─╯
+NAME                        TYPE     DATA   AGE
+grafana-admin-credentials   Opaque   1      2m59s
+</code></pre></div>
+<p>Lets also grab the endpoint URL of your created AMP workspace using the below commands :</p>
+<div class="highlight"><pre><span></span><code>export GO_AMP_WORKSPACE_ID=$(aws amp list-workspaces \
+--alias &#39;demo-amp-Workspace&#39; \
+--query &#39;workspaces[].workspaceId&#39; \
+--output text)
+
+export GO_AMP_ENDPOINT_URL=&quot;https://aps-workspaces.${GO_AWS_REGION}.amazonaws.com/workspaces/${GO_AMP_WORKSPACE_ID}&quot;
+</code></pre></div>
+<h4 id="installing-grafana-operator">Installing Grafana Operator<a class="headerlink" href="#installing-grafana-operator" title="Permanent link">&para;</a></h4>
+<p>Next, lets install <a href="https://github.com/grafana-operator/grafana-operator">Grafana Operator</a> on Amazon EKS to manage external Grafana instances such as Amazon Managed Grafana. The Grafana-operator will be used to create an AMP data source and dashboards on AMG using Kubernetes Custom Resource Definitions in a Kubernetes native way. Please use the below command to perform an Helm installation of Grafana Operator :</p>
+<div class="highlight"><pre><span></span><code>`&gt;`` helm upgrade ``-``i grafana``-``operator`` oci``:``//ghcr.io/grafana-operator/helm-charts/grafana-operator --version v5.0.0-rc0
+
+Release &quot;grafana-operator&quot; does not exist. Installing it now.
+Pulled: ghcr.io/grafana-operator/helm-charts/grafana-operator:v5.0.0-rc0
+Digest: sha256:12c28961333134da98890488c6ecfb2012bdf1900d76cf02b57b470cc7e70957
+NAME: grafana-operator
+LAST DEPLOYED: Fri Mar 17 02:06:56 2023
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+`
+</code></pre></div>
+<p>Next, run the below command to status of Grafana Operator Helm installation :</p>
+<div class="highlight"><pre><span></span><code>&gt; kubectl get all
+
+NAME                                                READY   STATUS    RESTARTS   AGE
+pod/grafana-operator-5cd6677459-56b4n               2/2     Running   0          14s
+pod/otel-collector-amp-collector-59c7c9b4fb-c6qwz   1/1     Running   0          28m
+
+NAME                                              TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+service/grafana-operator-metrics-service          ClusterIP   172.20.47.157   &lt;none&gt;        8443/TCP   15s
+service/kubernetes                                ClusterIP   172.20.0.1      &lt;none&gt;        443/TCP    39m
+service/otel-collector-amp-collector-monitoring   ClusterIP   172.20.30.253   &lt;none&gt;        8888/TCP   28m
+
+NAME                                           READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/grafana-operator               1/1     1            1           15s
+deployment.apps/otel-collector-amp-collector   1/1     1            1           28m
+
+NAME                                                      DESIRED   CURRENT   READY   AGE
+replicaset.apps/grafana-operator-5cd6677459               1         1         1       16s
+replicaset.apps/otel-collector-amp-collector-59c7c9b4fb   1         1         1       28m
+</code></pre></div>
+<h4 id="creating-amazon-managed-grafana-datasources-and-dashboards-using-grafana-operator">Creating Amazon Managed Grafana Datasources and Dashboards using Grafana Operator:<a class="headerlink" href="#creating-amazon-managed-grafana-datasources-and-dashboards-using-grafana-operator" title="Permanent link">&para;</a></h4>
+<p>Now, lets get to the fun part to creating an identity to Amazon Managed Grafana using the Grafana API Key from your Amazon EKS cluster. We will be using <code>grafanas.grafana.integreatly.org</code> CRD for this purpose as shown below:</p>
+<div class="highlight"><pre><span></span><code>`cat ``&gt;`` amg_grafana``-``identity``.``json ``&lt;&lt;`` EOF`
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: external-grafana
+  labels:
+    dashboards: &quot;external-grafana&quot;
+spec:
+  external:
+    url: $GO_AMG_WORKSPACE_URL
+    apiKey:
+      name: grafana-admin-credentials
+      key: GF_SECURITY_ADMIN_APIKEY
+EOF
+kubectl apply -f amg_grafana-identity.yaml
+</code></pre></div>
+<p>Lets check if an identity to Amazon Managed Grafana is created fine using below command :</p>
+<div class="highlight"><pre><span></span><code>❯ kubectl get grafanas.grafana.integreatly.org  
+                                                                                                                                   ─╯
+NAME               AGE
+external-grafana   32s
+</code></pre></div>
+<p>Next, lets create Amazon Managed Service for Prometheus as a datasource to AMG from your Amazon EKS cluster. We will be using <code>grafanadatasources.grafana.integreatly.org</code> CRD for this purpose as shown below:</p>
+<div class="highlight"><pre><span></span><code>cat &gt; amg_grafana-amp-datasource.json &lt;&lt; EOF
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: grafanadatasource-sample-amp
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: &quot;external-grafana&quot;
+  datasource:
+    name: grafana-operator-amp-datasource
+    type: prometheus
+    access: proxy
+    url: $GO_AMP_ENDPOINT_URL
+    isDefault: true
+    jsonData:
+      &#39;tlsSkipVerify&#39;: false
+      &#39;timeInterval&#39;: &quot;5s&quot;
+      &#39;sigV4Auth&#39;: true
+      &#39;sigV4AuthType&#39;: &quot;ec2_iam_role&quot;
+      &#39;sigV4Region&#39;: $GO_AWS_REGION
+    editable: true 
+EOF
+kubectl apply -f amg_grafana-amp-datasource.yaml
+</code></pre></div>
+<p>Lets check if Amazon Managed Service for Prometheus is created as a datasource to AMG from your Amazon EKS cluster using below commands :</p>
+<div class="highlight"><pre><span></span><code>❯ kubectl get grafanadatasources.grafana.integreatly.org                                                                                                                                 ─╯
+
+NAME                           AGE
+grafanadatasource-sample-amp   2m26s
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>❯ kubectl logs grafana-operator-5cd6677459-56b4n --tail=5
+                                                                                                                                ─╯
+Defaulted container &quot;grafana-operator&quot; out of: grafana-operator, kube-rbac-proxy
+1.6790188337222888e+09    INFO    dashboard sync complete
+1.6790188337222807e+09    INFO    datasources sync complete
+1.6790188337222986e+09    INFO    folder sync complete
+1.679019065074347e+09    INFO    found matching Grafana instances for datasource    {&quot;controller&quot;: &quot;grafanadatasource&quot;, &quot;controllerGroup&quot;: &quot;grafana.integreatly.org&quot;, &quot;controllerKind&quot;: &quot;GrafanaDatasource&quot;, &quot;GrafanaDatasource&quot;: {&quot;name&quot;:&quot;grafanadatasource-sample-amp&quot;,&quot;namespace&quot;:&quot;default&quot;}, &quot;namespace&quot;: &quot;default&quot;, &quot;name&quot;: &quot;grafanadatasource-sample-amp&quot;, &quot;reconcileID&quot;: &quot;0e565db4-b332-4dbd-9181-429c9eefd0ab&quot;, &quot;count&quot;: 1}
+1.6790190652982466e+09    INFO    found matching Grafana instances for datasource    {&quot;controller&quot;: &quot;grafanadatasource&quot;, &quot;controllerGroup&quot;: &quot;grafana.integreatly.org&quot;, &quot;controllerKind&quot;: &quot;GrafanaDatasource&quot;, &quot;GrafanaDatasource&quot;: {&quot;name&quot;:&quot;grafanadatasource-sample-amp&quot;,&quot;namespace&quot;:&quot;default&quot;}, &quot;namespace&quot;: &quot;default&quot;, &quot;name&quot;: &quot;grafanadatasource-sample-amp&quot;, &quot;reconcileID&quot;: &quot;eb24f960-d026-4181-9b96-b7609146c524&quot;, &quot;count&quot;: 1}
+</code></pre></div>
+<p>Please check on <a href="https://github.com/aws-samples/containers-blog-maelstrom/tree/main/grafana-operator-AMG/grafana-operator-manifests">grafana-operator-manifests</a> if your looking for samples to Amazon CloudWatch and AWS X-Ray as a datasource to AMG from your Amazon EKS Cluster.</p>
+<p>Next lets navigate to AMG console and click on <code>Configuration</code> → <code>Data Sources</code> and click on the data source <code>grafana-operator-amp-datasource</code> as shown below :</p>
+<p><img alt="Image" src="../images/AMG-2.jpg" /> </p>
+<p>Next, lets click on <code>Save and Test</code> as shown to make sure the data source is working fine.</p>
+<p><img alt="Image" src="../images/AMG-3.jpg" /></p>
+<p>Finally lets create a Grafana Dashboard on AMG from your Amazon EKS Cluster. We will be using <code>grafanadashboards.grafana.integreatly.org</code> CRD for this purpose as shown below :</p>
+<div class="highlight"><pre><span></span><code>cat &gt; amg_grafana-dashboard.json &lt;&lt; EOF
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: external-grafanadashboard-url
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: &quot;external-grafana&quot;
+  url: &quot;https://raw.githubusercontent.com/aws-samples/containers-blog-maelstrom/main/grafana-operator-AMG/dashboards/nodeexporter-nodes.json&quot;
+EOF
+kubectl apply -f amg_grafana-dashboard.yaml
+</code></pre></div>
+<p>Lets now check if Grafana Dashboard on AMG is created from your Amazon EKS Cluster using below command :</p>
+<div class="highlight"><pre><span></span><code>❯ kubectl get grafanadashboards.grafana.integreatly.org    
+                                                                                                                              ─╯
+NAME                            AGE
+external-grafanadashboard-url   36s
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>❯ kubectl logs grafana-operator-5cd6677459-56b4n --tail=5                             
+                                                                                                   ─╯
+Defaulted container &quot;grafana-operator&quot; out of: grafana-operator, kube-rbac-proxy
+1.679019065074347e+09    INFO    found matching Grafana instances for datasource    {&quot;controller&quot;: &quot;grafanadatasource&quot;, &quot;controllerGroup&quot;: &quot;grafana.integreatly.org&quot;, &quot;controllerKind&quot;: &quot;GrafanaDatasource&quot;, &quot;GrafanaDatasource&quot;: {&quot;name&quot;:&quot;grafanadatasource-sample-amp&quot;,&quot;namespace&quot;:&quot;default&quot;}, &quot;namespace&quot;: &quot;default&quot;, &quot;name&quot;: &quot;grafanadatasource-sample-amp&quot;, &quot;reconcileID&quot;: &quot;0e565db4-b332-4dbd-9181-429c9eefd0ab&quot;, &quot;count&quot;: 1}
+1.6790190652982466e+09    INFO    found matching Grafana instances for datasource    {&quot;controller&quot;: &quot;grafanadatasource&quot;, &quot;controllerGroup&quot;: &quot;grafana.integreatly.org&quot;, &quot;controllerKind&quot;: &quot;GrafanaDatasource&quot;, &quot;GrafanaDatasource&quot;: {&quot;name&quot;:&quot;grafanadatasource-sample-amp&quot;,&quot;namespace&quot;:&quot;default&quot;}, &quot;namespace&quot;: &quot;default&quot;, &quot;name&quot;: &quot;grafanadatasource-sample-amp&quot;, &quot;reconcileID&quot;: &quot;eb24f960-d026-4181-9b96-b7609146c524&quot;, &quot;count&quot;: 1}
+1.6790193653035195e+09    INFO    found matching Grafana instances for datasource    {&quot;controller&quot;: &quot;grafanadatasource&quot;, &quot;controllerGroup&quot;: &quot;grafana.integreatly.org&quot;, &quot;controllerKind&quot;: &quot;GrafanaDatasource&quot;, &quot;GrafanaDatasource&quot;: {&quot;name&quot;:&quot;grafanadatasource-sample-amp&quot;,&quot;namespace&quot;:&quot;default&quot;}, &quot;namespace&quot;: &quot;default&quot;, &quot;name&quot;: &quot;grafanadatasource-sample-amp&quot;, &quot;reconcileID&quot;: &quot;f427a451-3400-4649-b662-8dba25866641&quot;, &quot;count&quot;: 1}
+1.6790195211297286e+09    INFO    found matching Grafana instances for dashboard    {&quot;controller&quot;: &quot;grafanadashboard&quot;, &quot;controllerGroup&quot;: &quot;grafana.integreatly.org&quot;, &quot;controllerKind&quot;: &quot;GrafanaDashboard&quot;, &quot;GrafanaDashboard&quot;: {&quot;name&quot;:&quot;external-grafanadashboard-url&quot;,&quot;namespace&quot;:&quot;default&quot;}, &quot;namespace&quot;: &quot;default&quot;, &quot;name&quot;: &quot;external-grafanadashboard-url&quot;, &quot;reconcileID&quot;: &quot;f9dcb08c-58ea-49a4-a3ad-7a9ced94d093&quot;, &quot;count&quot;: 1}
+1.679019521481265e+09    INFO    found matching Grafana instances for dashboard    {&quot;controller&quot;: &quot;grafanadashboard&quot;, &quot;controllerGroup&quot;: &quot;grafana.integreatly.org&quot;, &quot;controllerKind&quot;: &quot;GrafanaDashboard&quot;, &quot;GrafanaDashboard&quot;: {&quot;name&quot;:&quot;external-grafanadashboard-url&quot;,&quot;namespace&quot;:&quot;default&quot;}, &quot;namespace&quot;: &quot;default&quot;, &quot;name&quot;: &quot;external-grafanadashboard-url&quot;, &quot;reconcileID&quot;: &quot;0ff702f2-4332-4516-aef6-3da20fa80cc6&quot;, &quot;count&quot;: 1}
+</code></pre></div>
+<p>Finally lets navigate to AMG console, click on <code>Search Dashboards</code> and you will be able to see a Dashboard by name <code>Grafana Operator - Node Exporter/Nodes</code> and click on the same will show you the Grafana Dashboard created out of the box having all the metrics from Prometheus Node Exporter installed on your Amazon EKS Cluster.</p>
+<p><img alt="Image" src="../images/AMG-4.jpg" /></p>
+<h3 id="gitops-approach-with-grafana-operator">GitOps Approach with Grafana Operator<a class="headerlink" href="#gitops-approach-with-grafana-operator" title="Permanent link">&para;</a></h3>
+<p>GitOps is a way of managing application and infrastructure deployment so that the whole system is described declaratively in a Git repository. It is an operational model that offers you the ability to manage the state of multiple Kubernetes clusters leveraging the best practices of version control, immutable artifacts, and automation. <a href="https://fluxcd.io/">Flux</a> is a declarative, GitOps-based continuous delivery tool that can be integrated into any CI/CD pipeline. It gives users the flexibility of choosing their Git provider (GitHub, GitLab, BitBucket). <a href="https://docs.crossplane.io/latest">Crossplane</a> is an open-source Kubernetes add-on that enables platform teams to assemble cloud infrastructure resources, without having to write any code. Now, with <a href="https://github.com/grafana-operator/grafana-operator#:~:text=The%20grafana%2Doperator%20is%20a,an%20easy%20and%20scalable%20way.">grafana-operator</a>supporting the management of external Grafana instances such as Amazon Managed Grafana, operations personas can use GitOps mechanisms using CNCF projects such as Flux and Crossplane to create and manage the lifecyle of resources in Amazon Managed Grafana.</p>
+<h3 id="cleanup">Cleanup<a class="headerlink" href="#cleanup" title="Permanent link">&para;</a></h3>
+<p>You continue to incur cost until deleting the infrastructure that you created for this post. Use the commands below to delete resources created during this post:</p>
+<div class="highlight"><pre><span></span><code>kubectl delete -f amg_grafana-dashboard.yaml
+kubectl delete -f amg_grafana-amp-datasource.yaml
+kubectl delete -f amg_grafana-identity.yaml
+helm delete grafana-operator
+aws secretsmanager delete-secret \
+    --secret-id $GO_API_KEY_SECRET_ARN \
+    --recovery-window-in-days 7
+aws grafana delete-workspace-api-key \
+  --key-name &quot;grafana-operator-key&quot; \
+  `--``workspace``-``id $GO_AMG_WORKSPACE_ID`
+`cdk destroy ``&quot;*&quot;`
+</code></pre></div>
+<p>CDK will ask you <code>Are you sure you want to delete: grafana-operator-cluster (y/n)?</code> and enter <code>y</code> to delete.</p>
+<h3 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h3>
+<p>In this blog, we started talking about how organizations are leverage kubernetes as a control plane to create and manage Grafana implementations to managed services such as Amazon Managed Grafana. Further, we demonstrated on how to use Grafana Operator from your Kubernetes cluster to data sources such as Amazon Managed Service for Prometheus and create Grafana dashboards to external grafana instances such as Amazon Managed Grafana in a Kubernetes native way. We would high encourage to try this solution and also leverage GitOps mechanisms with Grafana Operator using CNCF projects such as <a href="https://fluxcd.io/">Flux</a> and <a href="https://docs.crossplane.io/latest">Crossplane</a> to create and manage the lifecyle of resources in Amazon Managed Grafana.</p>
+<p>For more information, see the following references:</p>
+<ul>
+<li><a href="https://grafana-operator.github.io/grafana-operator/">Grafana Operator</a></li>
+<li><a href="https://aws.amazon.com/blogs/containers/kubernetes-as-a-platform-vs-kubernetes-as-an-api-2/">Kubernetes as a platform vs. Kubernetes as an API</a></li>
+<li><a href="https://aws-quickstart.github.io/cdk-eks-blueprints/">Amazon EKS Blueprints</a></li>
+<li><a href="https://github.com/aws-samples/cdk-eks-blueprints-patterns">Amazon EKS Blueprints Patterns</a></li>
+<li><a href="https://aws.amazon.com/blogs/containers/gitops-model-for-provisioning-and-bootstrapping-amazon-eks-clusters-using-crossplane-and-flux/">GitOps model for provisioning and bootstrapping Amazon EKS clusters using Crossplane and Flux</a></li>
+</ul>
+<h2 id="authors">Authors<a class="headerlink" href="#authors" title="Permanent link">&para;</a></h2>
+<p><img alt="Ela" src="../images/Ela.jpg" /></p>
+<h3 id="elamaran-shanmugam">Elamaran Shanmugam<a class="headerlink" href="#elamaran-shanmugam" title="Permanent link">&para;</a></h3>
+<p>Elamaran (Ela) Shanmugam is a Sr. Container Specialist Solutions Architect with Amazon Web Services. Ela is a Container, Observability and Multi-Account Architecture SME and helps AWS partners and customers to design and build scalable, secure and optimized container workloads on AWS. His passion is building and automating Infrastructure to allow customers to focus more on their business. He is based out of Tampa, Florida and you can reach him on twitter @IamElaShan</p>
+<p><img alt="Mikhail" src="../images/Mikhail.jpg" /></p>
+<h3 id="mikhail-shapirov">Mikhail Shapirov<a class="headerlink" href="#mikhail-shapirov" title="Permanent link">&para;</a></h3>
+<p>Mikhail is a Principal Partner Solutions Architect at AWS, focusing on container services. Mikhail helps partners and customers drive their products and services on AWS, integrating with Amazon ECS, EKS and AppMesh. He is also a software engineer.</p>
+<p><img alt="Edvin" src="images/Edvin.jpg" /></p>
+<h3 id="edvin-norling"><strong>Edvin Norling</strong><a class="headerlink" href="#edvin-norling" title="Permanent link">&para;</a></h3>
+<p>Edvin Norling is a Platform Engineer at Kognic and creates a golden path for hes developers using Kubernetes and surrounding projects. Edvin is the maintainer of the grafana-opertor which is a Kubernetes operator to manage Grafana instances. He is based out of Gothenburg Sweden and you can reach him on Kubernetes slack <a href="https://kubernetes.slack.com/team/UD1QJL38Q">@Edvin N</a></p>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["tabs"], "search": "../assets/javascripts/workers/search.208ed371.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.19047be9.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -8,8 +8,14 @@
       
       
       
+      
+        <link rel="prev" href="../grafana-operator-AMG/">
+      
+      
+        <link rel="next" href="../capture-errors-k8s-slack/">
+      
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.3.1, mkdocs-material-8.3.9">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.1.4">
     
     
       
@@ -17,13 +23,13 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.1d29e8d0.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.240905d7.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.cbb835fc.min.css">
-        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.a0c5b2b5.min.css">
       
       
+
     
     
     
@@ -36,10 +42,11 @@
       
     
     
-    <script>__md_scope=new URL("..",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
+    
     
     
   </head>
@@ -50,7 +57,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="" data-md-color-primary="none" data-md-color-accent="none">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
   
     
     
@@ -72,7 +79,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="Amazon Containers Blog Maelstrom" class="md-header__button md-logo" aria-label="Amazon Containers Blog Maelstrom" data-md-component="logo">
       
@@ -116,7 +125,7 @@
       </label>
       <nav class="md-search__options" aria-label="Search">
         
-        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
         </button>
       </nav>
@@ -128,7 +137,7 @@
           <div class="md-search-result__meta">
             Initializing search
           </div>
-          <ol class="md-search-result__list"></ol>
+          <ol class="md-search-result__list" role="presentation"></ol>
         </div>
       </div>
     </div>
@@ -140,7 +149,7 @@
         <a href="https://github.com/aws-samples/containers-blog-maelstrom" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
   </div>
   <div class="md-source__repository">
     aws-samples/containers-blog-maelstrom
@@ -185,7 +194,7 @@
       <a href="https://github.com/aws-samples/containers-blog-maelstrom" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
   </div>
   <div class="md-source__repository">
     aws-samples/containers-blog-maelstrom
@@ -223,20 +232,21 @@
     <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
       
       
       
-      
-        <label class="md-nav__link" for="__nav_2">
-          Patterns
+        <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          Solutions
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" aria-label="Patterns" data-md-level="1">
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
         <label class="md-nav__title" for="__nav_2">
           <span class="md-nav__icon md-icon"></span>
-          Patterns
+          Solutions
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -246,8 +256,22 @@
   
   
     <li class="md-nav__item">
-      <a href="../aws-cdk-eks-multi-region-skeleton/" class="md-nav__link">
-        Multi Region EKS Clusters with CDK
+      <a href="../ALB-ingresssharing-tbg/" class="md-nav__link">
+        ALB Ingress Sharing and Target Group Binding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grafana-operator-AMG/" class="md-nav__link">
+        Managing AMG using Grafana Operator
       </a>
     </li>
   
@@ -263,7 +287,7 @@
   
     <li class="md-nav__item md-nav__item--active">
       
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
         
@@ -440,12 +464,53 @@
     Resources
   </a>
   
+    <nav class="md-nav" aria-label="Resources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hari-ohm-prasath" class="md-nav__link">
+    Hari Ohm Prasath
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#elamaran-shanmugam" class="md-nav__link">
+    Elamaran Shanmugam
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#re-alvarez-parmar" class="md-nav__link">
+    Re Alvarez Parmar
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
   
 </nav>
       
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../capture-errors-k8s-slack/" class="md-nav__link">
+        Capture Errors from K8s to Slack
+      </a>
     </li>
   
 
@@ -658,6 +723,33 @@
     Resources
   </a>
   
+    <nav class="md-nav" aria-label="Resources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hari-ohm-prasath" class="md-nav__link">
+    Hari Ohm Prasath
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#elamaran-shanmugam" class="md-nav__link">
+    Elamaran Shanmugam
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#re-alvarez-parmar" class="md-nav__link">
+    Re Alvarez Parmar
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -668,14 +760,14 @@
               </div>
             
           
-          <div class="md-content" data-md-component="content">
-            <article class="md-content__inner md-typeset">
-              
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
                 
-  <a href="https://github.com/aws-samples/containers-blog-maelstrom/edit/master/docs/batch-processing-with-k8s.md" title="Edit this page" class="md-content__button md-icon">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
-  </a>
+                  
 
+  
+  
 
 
 <h1 id="batch-processing-in-scale-using-k8s-jobs-and-step-functions">Batch processing in scale using K8s jobs and step functions<a class="headerlink" href="#batch-processing-in-scale-using-k8s-jobs-and-step-functions" title="Permanent link">&para;</a></h1>
@@ -755,7 +847,7 @@
 <p>A Job creates one or more Pods and will continue to retry execution of the Pods until a specified number of them successfully terminate. As pods complete, the job tracks the successful completions. When a specified number of successful completions is reached, the task (ie, job) is done. Read more about it <a href="https://kubernetes.io/docs/concepts/workloads/controllers/job/">here</a></p>
 <h3 id="sample-application">Sample application<a class="headerlink" href="#sample-application" title="Permanent link">&para;</a></h3>
 <p>To demonstrate this approach, we have implemented a sample application that can take in an input file, process it, save the data in <code>Dynamodb</code> and write the output file to <code>AWS S3</code>. The below image shows the high-level architecture of the application:</p>
-<p><img alt="arch" src="images/arch.svg" /></p>
+<p><img alt="arch" src="../images/arch.svg" /></p>
 <p>Here is the end to end flow of the application:</p>
 <p><code>AWS Step function</code> is invoked when the input file gets dropped into the <code>AWS S3</code> bucket. <code>AWS Cloudtrail</code> listens to all the write events of the input S3 bucket. <code>AWS Step functions</code> will execute the below steps, part of file processing:</p>
 <ol>
@@ -869,17 +961,17 @@
 <li>An AWS account with console and API access</li>
 <li>Docker desktop needs to be installed in the local laptop, you can read more about it <a href="https://www.docker.com/products/docker-desktop">here</a></li>
 </ul>
-<div class="highlight"><pre><span></span><code>yarn version
+<div class="highlight"><pre><span></span><code>yarn<span class="w"> </span>version
 </code></pre></div>
 <p><strong>Output</strong>
 1.22.10</p>
 <p>If <code>Yarn</code> is not installed, run the following command</p>
-<div class="highlight"><pre><span></span><code>npm install -g yarn
+<div class="highlight"><pre><span></span><code>npm<span class="w"> </span>install<span class="w"> </span>-g<span class="w"> </span>yarn
 </code></pre></div>
 <h3 id="build">Build<a class="headerlink" href="#build" title="Permanent link">&para;</a></h3>
 <p>Check out the code from this repository using this command:</p>
-<div class="highlight"><pre><span></span><code>mkdir batch-processing-with-k8s <span class="o">&amp;&amp;</span> <span class="nb">cd</span> batch-processing-with-k8s
-git clone git@ssh.gitlab.aws.dev:am3-app-modernization-gsp/eks/batch-processing-with-k8s.git .
+<div class="highlight"><pre><span></span><code>mkdir<span class="w"> </span>batch-processing-with-k8s<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>batch-processing-with-k8s
+git<span class="w"> </span>clone<span class="w"> </span>git@ssh.gitlab.aws.dev:am3-app-modernization-gsp/eks/batch-processing-with-k8s.git<span class="w"> </span>.
 </code></pre></div>
 <blockquote>
 <p>Note: Source code for all Kubernetes jobs and lambda functions are available under <a href="src">src</a> folder</p>
@@ -888,9 +980,9 @@ git clone git@ssh.gitlab.aws.dev:am3-app-modernization-gsp/eks/batch-processing-
 <p>Code for the sample application using this CDK construct is available in <code>src/integ.default.ts</code>. In order to deploy the application, first bootstrap a CDK environment (if you haven't done so already).</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Bootstrap CDK (ONLY ONCE, if you have already done this you can skip this part)</span>
 <span class="c1"># Subsitute your AWS Account Id and AWS region in the command below</span>
-cdk bootstrap <span class="se">\</span>
-    --cloudformation-execution-policies arn:aws:iam::aws:policy/AdministratorAccess <span class="se">\</span>
-    aws://&lt;AWS Account Id&gt;/&lt;AWS_REGION&gt;
+cdk<span class="w"> </span>bootstrap<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cloudformation-execution-policies<span class="w"> </span>arn:aws:iam::aws:policy/AdministratorAccess<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>aws://&lt;AWS<span class="w"> </span>Account<span class="w"> </span>Id&gt;/&lt;AWS_REGION&gt;
 </code></pre></div>
 <p>The code is created as a CDK construct, the following parameters can be customized as part of the deployment</p>
 <table>
@@ -935,21 +1027,21 @@ cdk bootstrap <span class="se">\</span>
 </tbody>
 </table>
 <p>Run the following command to start the deployment</p>
-<div class="highlight"><pre><span></span><code>cdk deploy --require-approval never
+<div class="highlight"><pre><span></span><code>cdk<span class="w"> </span>deploy<span class="w"> </span>--require-approval<span class="w"> </span>never
 </code></pre></div>
 <p>Once the deployment is successful, you will see the following output:</p>
-<div class="highlight"><pre><span></span><code> ✅  file-batch-stack
+<div class="highlight"><pre><span></span><code><span class="w"> </span>✅<span class="w">  </span>file-batch-stack
 
 Outputs:
-file-batch-stack.KubernetesFileBatchConstructInputBucketName610D8598 <span class="o">=</span> file-batch-stack-kubernetesfilebatchconstructinpu-1u3xbu9ycgorp
-file-batch-stack.KubernetesFileBatchConstructMultithreadedstepfuctionF3358A99 <span class="o">=</span> KubernetesFileBatchConstructfilebatchmultithreaded0B80AF5A-abBRhxEtxLig
-file-batch-stack.KubernetesFileBatchConstructfilebatchEFSFileSystemId9139F216 <span class="o">=</span> fs-696fb5dd
-file-batch-stack.KubernetesFileBatchConstructfilebatcheksclusterClusterName146E1BCB <span class="o">=</span> KubernetesFileBatchConstructfilebatchekscluster6B334C7D-7874a48b84604e20a0dc68ecd3715e27
-file-batch-stack.KubernetesFileBatchConstructfilebatcheksclusterConfigCommand3063A155 <span class="o">=</span> aws eks update-kubeconfig --name KubernetesFileBatchConstructfilebatchekscluster6B334C7D-7874a48b84604e20a0dc68ecd3715e27 --region us-east-1 --role-arn arn:aws:iam::775492342640:role/file-batch-stack-KubernetesFileBatchConstructfileb-146I0AN7L7JXW
-file-batch-stack.KubernetesFileBatchConstructfilebatcheksclusterGetTokenCommandAD6928E0 <span class="o">=</span> aws eks get-token --cluster-name KubernetesFileBatchConstructfilebatchekscluster6B334C7D-7874a48b84604e20a0dc68ecd3715e27 --region us-east-1 --role-arn arn:aws:iam::775492342640:role/file-batch-stack-KubernetesFileBatchConstructfileb-146I0AN7L7JXW
-file-batch-stack.KubernetesFileBatchConstructfilebatcheksclusterMastersRoleArn52BC348E <span class="o">=</span> arn:aws:iam::775492342640:role/file-batch-stack-KubernetesFileBatchConstructfileb-146I0AN7L7JXW
+file-batch-stack.KubernetesFileBatchConstructInputBucketName610D8598<span class="w"> </span><span class="o">=</span><span class="w"> </span>file-batch-stack-kubernetesfilebatchconstructinpu-1u3xbu9ycgorp
+file-batch-stack.KubernetesFileBatchConstructMultithreadedstepfuctionF3358A99<span class="w"> </span><span class="o">=</span><span class="w"> </span>KubernetesFileBatchConstructfilebatchmultithreaded0B80AF5A-abBRhxEtxLig
+file-batch-stack.KubernetesFileBatchConstructfilebatchEFSFileSystemId9139F216<span class="w"> </span><span class="o">=</span><span class="w"> </span>fs-696fb5dd
+file-batch-stack.KubernetesFileBatchConstructfilebatcheksclusterClusterName146E1BCB<span class="w"> </span><span class="o">=</span><span class="w"> </span>KubernetesFileBatchConstructfilebatchekscluster6B334C7D-7874a48b84604e20a0dc68ecd3715e27
+file-batch-stack.KubernetesFileBatchConstructfilebatcheksclusterConfigCommand3063A155<span class="w"> </span><span class="o">=</span><span class="w"> </span>aws<span class="w"> </span>eks<span class="w"> </span>update-kubeconfig<span class="w"> </span>--name<span class="w"> </span>KubernetesFileBatchConstructfilebatchekscluster6B334C7D-7874a48b84604e20a0dc68ecd3715e27<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span>--role-arn<span class="w"> </span>arn:aws:iam::775492342640:role/file-batch-stack-KubernetesFileBatchConstructfileb-146I0AN7L7JXW
+file-batch-stack.KubernetesFileBatchConstructfilebatcheksclusterGetTokenCommandAD6928E0<span class="w"> </span><span class="o">=</span><span class="w"> </span>aws<span class="w"> </span>eks<span class="w"> </span>get-token<span class="w"> </span>--cluster-name<span class="w"> </span>KubernetesFileBatchConstructfilebatchekscluster6B334C7D-7874a48b84604e20a0dc68ecd3715e27<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span>--role-arn<span class="w"> </span>arn:aws:iam::775492342640:role/file-batch-stack-KubernetesFileBatchConstructfileb-146I0AN7L7JXW
+file-batch-stack.KubernetesFileBatchConstructfilebatcheksclusterMastersRoleArn52BC348E<span class="w"> </span><span class="o">=</span><span class="w"> </span>arn:aws:iam::775492342640:role/file-batch-stack-KubernetesFileBatchConstructfileb-146I0AN7L7JXW
 
-Stack ARN:
+Stack<span class="w"> </span>ARN:
 arn:aws:cloudformation:us-east-1:775492342640:stack/file-batch-stack/886208f0-aeb2-11eb-9592-0e4dccb471bf
 </code></pre></div>
 <blockquote>
@@ -959,53 +1051,53 @@ arn:aws:cloudformation:us-east-1:775492342640:stack/file-batch-stack/886208f0-ae
 <h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
 <h3 id="unit-testing">Unit testing<a class="headerlink" href="#unit-testing" title="Permanent link">&para;</a></h3>
 <p>Unit testcases can be executed by running the following command from the root directory</p>
-<div class="highlight"><pre><span></span><code>yarn <span class="nb">test</span>
+<div class="highlight"><pre><span></span><code>yarn<span class="w"> </span><span class="nb">test</span>
 
-yarn run v1.22.10
-$ npx projen <span class="nb">test</span>
-🤖 <span class="nb">test</span> <span class="p">|</span> rm -fr lib/
-🤖 <span class="nb">test</span> » test:compile <span class="p">|</span> tsc --noEmit --project tsconfig.jest.json
-🤖 <span class="nb">test</span> <span class="p">|</span> jest --passWithNoTests --all --updateSnapshot
- PASS  test/index.test.ts <span class="o">(</span><span class="m">7</span>.722 s<span class="o">)</span>
-  ✓ create app <span class="o">(</span><span class="m">3181</span> ms<span class="o">)</span>
+yarn<span class="w"> </span>run<span class="w"> </span>v1.22.10
+$<span class="w"> </span>npx<span class="w"> </span>projen<span class="w"> </span><span class="nb">test</span>
+🤖<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>rm<span class="w"> </span>-fr<span class="w"> </span>lib/
+🤖<span class="w"> </span><span class="nb">test</span><span class="w"> </span>»<span class="w"> </span>test:compile<span class="w"> </span><span class="p">|</span><span class="w"> </span>tsc<span class="w"> </span>--noEmit<span class="w"> </span>--project<span class="w"> </span>tsconfig.jest.json
+🤖<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jest<span class="w"> </span>--passWithNoTests<span class="w"> </span>--all<span class="w"> </span>--updateSnapshot
+<span class="w"> </span>PASS<span class="w">  </span>test/index.test.ts<span class="w"> </span><span class="o">(</span><span class="m">7</span>.722<span class="w"> </span>s<span class="o">)</span>
+<span class="w">  </span>✓<span class="w"> </span>create<span class="w"> </span>app<span class="w"> </span><span class="o">(</span><span class="m">3181</span><span class="w"> </span>ms<span class="o">)</span>
 
 ----------<span class="p">|</span>---------<span class="p">|</span>----------<span class="p">|</span>---------<span class="p">|</span>---------<span class="p">|</span>-------------------
-File      <span class="p">|</span> % Stmts <span class="p">|</span> % Branch <span class="p">|</span> % Funcs <span class="p">|</span> % Lines <span class="p">|</span> Uncovered Line <span class="c1">#s</span>
+File<span class="w">      </span><span class="p">|</span><span class="w"> </span>%<span class="w"> </span>Stmts<span class="w"> </span><span class="p">|</span><span class="w"> </span>%<span class="w"> </span>Branch<span class="w"> </span><span class="p">|</span><span class="w"> </span>%<span class="w"> </span>Funcs<span class="w"> </span><span class="p">|</span><span class="w"> </span>%<span class="w"> </span>Lines<span class="w"> </span><span class="p">|</span><span class="w"> </span>Uncovered<span class="w"> </span>Line<span class="w"> </span><span class="c1">#s</span>
 ----------<span class="p">|</span>---------<span class="p">|</span>----------<span class="p">|</span>---------<span class="p">|</span>---------<span class="p">|</span>-------------------
-All files <span class="p">|</span>   <span class="m">95</span>.95 <span class="p">|</span>       <span class="m">75</span> <span class="p">|</span>   <span class="m">85</span>.71 <span class="p">|</span>   <span class="m">95</span>.95 <span class="p">|</span>
- index.ts <span class="p">|</span>   <span class="m">95</span>.95 <span class="p">|</span>       <span class="m">75</span> <span class="p">|</span>   <span class="m">85</span>.71 <span class="p">|</span>   <span class="m">95</span>.95 <span class="p">|</span> <span class="m">558</span>-642
+All<span class="w"> </span>files<span class="w"> </span><span class="p">|</span><span class="w">   </span><span class="m">95</span>.95<span class="w"> </span><span class="p">|</span><span class="w">       </span><span class="m">75</span><span class="w"> </span><span class="p">|</span><span class="w">   </span><span class="m">85</span>.71<span class="w"> </span><span class="p">|</span><span class="w">   </span><span class="m">95</span>.95<span class="w"> </span><span class="p">|</span>
+<span class="w"> </span>index.ts<span class="w"> </span><span class="p">|</span><span class="w">   </span><span class="m">95</span>.95<span class="w"> </span><span class="p">|</span><span class="w">       </span><span class="m">75</span><span class="w"> </span><span class="p">|</span><span class="w">   </span><span class="m">85</span>.71<span class="w"> </span><span class="p">|</span><span class="w">   </span><span class="m">95</span>.95<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="m">558</span>-642
 ----------<span class="p">|</span>---------<span class="p">|</span>----------<span class="p">|</span>---------<span class="p">|</span>---------<span class="p">|</span>-------------------
-Test Suites: <span class="m">1</span> passed, <span class="m">1</span> total
-Tests:       <span class="m">1</span> passed, <span class="m">1</span> total
-Snapshots:   <span class="m">0</span> total
-Time:        <span class="m">8</span>.56 s
-Ran all <span class="nb">test</span> suites.
-🤖 <span class="nb">test</span> » eslint <span class="p">|</span> eslint --ext .ts,.tsx --fix --no-error-on-unmatched-pattern src <span class="nb">test</span> build-tools .projenrc.js
-✨  Done <span class="k">in</span> <span class="m">24</span>.16s.
+Test<span class="w"> </span>Suites:<span class="w"> </span><span class="m">1</span><span class="w"> </span>passed,<span class="w"> </span><span class="m">1</span><span class="w"> </span>total
+Tests:<span class="w">       </span><span class="m">1</span><span class="w"> </span>passed,<span class="w"> </span><span class="m">1</span><span class="w"> </span>total
+Snapshots:<span class="w">   </span><span class="m">0</span><span class="w"> </span>total
+Time:<span class="w">        </span><span class="m">8</span>.56<span class="w"> </span>s
+Ran<span class="w"> </span>all<span class="w"> </span><span class="nb">test</span><span class="w"> </span>suites.
+🤖<span class="w"> </span><span class="nb">test</span><span class="w"> </span>»<span class="w"> </span>eslint<span class="w"> </span><span class="p">|</span><span class="w"> </span>eslint<span class="w"> </span>--ext<span class="w"> </span>.ts,.tsx<span class="w"> </span>--fix<span class="w"> </span>--no-error-on-unmatched-pattern<span class="w"> </span>src<span class="w"> </span><span class="nb">test</span><span class="w"> </span>build-tools<span class="w"> </span>.projenrc.js
+✨<span class="w">  </span>Done<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="m">24</span>.16s.
 </code></pre></div>
 <h3 id="integration-test">Integration test<a class="headerlink" href="#integration-test" title="Permanent link">&para;</a></h3>
 <p>Lets run a simple end to end integration test using a simple input file <a href="payload\test.csv">test.csv</a> under payload folder. Run the following command from the root directory:</p>
-<div class="highlight"><pre><span></span><code>&gt; aws s3api put-object --bucket &lt;&lt;input_bucket&gt;&gt; --key test.csv --body payload/test.csv
+<div class="highlight"><pre><span></span><code>&gt;<span class="w"> </span>aws<span class="w"> </span>s3api<span class="w"> </span>put-object<span class="w"> </span>--bucket<span class="w"> </span>&lt;&lt;input_bucket&gt;&gt;<span class="w"> </span>--key<span class="w"> </span>test.csv<span class="w"> </span>--body<span class="w"> </span>payload/test.csv
 </code></pre></div>
 <blockquote>
 <p>Note: Replace <code>input_bucket</code> with the actual input bucket available part of the CDK output</p>
 </blockquote>
 <p><strong>Output</strong></p>
 <div class="highlight"><pre><span></span><code><span class="o">{</span>
-    <span class="s2">&quot;ETag&quot;</span>: <span class="s2">&quot;\&quot;3ff3c83af2553279cd0f6f8fcf59980a\&quot;&quot;</span>
+<span class="w">    </span><span class="s2">&quot;ETag&quot;</span>:<span class="w"> </span><span class="s2">&quot;\&quot;3ff3c83af2553279cd0f6f8fcf59980a\&quot;&quot;</span>
 <span class="o">}</span>
 </code></pre></div>
 <p>Now the step function should get automatically triggered and see the updates in the execution details page. Navigate to the state machine <a href="https://console.aws.amazon.com/states/home?region=us-east-1#/statemachines">homepage</a> and select the state machine created by the CDK (available part of the CDK output). </p>
 <p>The step function should successfully get executed, and it should look like below in the execution details page:</p>
-<p><img alt="state-machine" src="images/state-machine.png" /></p>
+<p><img alt="state-machine" src="../images/state-machine.png" /></p>
 <p>The response file can be downloaded by running the following command:</p>
-<div class="highlight"><pre><span></span><code>aws s3 cp s3://&lt;&lt;input_bucket&gt;&gt;/test.csv_Output .
+<div class="highlight"><pre><span></span><code>aws<span class="w"> </span>s3<span class="w"> </span>cp<span class="w"> </span>s3://&lt;&lt;input_bucket&gt;&gt;/test.csv_Output<span class="w"> </span>.
 </code></pre></div>
 <blockquote>
 <p>Note: Replace <code>input_bucket</code> with the actual input bucket available part of the CDK output</p>
 </blockquote>
 <p><strong>Output</strong></p>
-<div class="highlight"><pre><span></span><code>download: s3://<span class="s">&lt;&lt;input_bucket&gt;&gt;/test.csv_Sin</span>gle_Output to ./test.csv_Single_Output
+<div class="highlight"><pre><span></span><code>download:<span class="w"> </span>s3://<span class="s">&lt;&lt;input_bucket&gt;&gt;/test.csv_Sin</span>gle_Output<span class="w"> </span>to<span class="w"> </span>./test.csv_Single_Output
 </code></pre></div>
 <h3 id="performance-testing">Performance testing<a class="headerlink" href="#performance-testing" title="Permanent link">&para;</a></h3>
 <ul>
@@ -1045,18 +1137,18 @@ Ran all <span class="nb">test</span> suites.
 </tbody>
 </table>
 <p>Once we plot the numbers in a chart, here is how it looks like:</p>
-<p><img alt="chart" src="images/chart.png" /></p>
+<p><img alt="chart" src="../images/chart.png" /></p>
 <p>As the load grows, we can see the "Parallel (map)" approach scales better compared to the "Sequential read" model.</p>
 <blockquote>
 <p>Note: All the payloads used in running these tests are available part of the <a href="payload">payload</a> folder in the root directory</p>
 </blockquote>
 <p>Here is how varying the value of <code>MAX_LINES_PER_BATCH</code> environment variable can fluctuate the overall performance of the system.</p>
-<p><img alt="max" src="images/max-variation.png" /></p>
+<p><img alt="max" src="../images/max-variation.png" /></p>
 <p>As highlighted above just setting the smallest value to <code>MAX_LINES_PER_BATCH</code> variable doesn't make the system to run automatically faster. As we have set <code>MaxConcurrency to zero</code> in the map state, AWS step function will try to provide maximum parallelism by running as many k8s jobs as possible in parallel. So all the k8s jobs will start competing for the same hardware resources (EKS worker nodes) which will make concurrency more a bottleneck rather than a value add. We can overcome this behavior by setting the right value to <code>MaxConcurrency</code> attribute and enabling autoscaling for EKS worker nodes. Scaling EKS worker are faster but they are not instantaneous so the whole scaling process by itself will definitely take sometime, eventually causing delays in the processing of workload.</p>
 <p>So its definitely essential to run some experiments and decide on right values for both <code>MAX_LINES_PER_BATCH</code> environment variable and <code>MaxConcurrency</code> attribute in Map state</p>
 <h2 id="cleanup">Cleanup<a class="headerlink" href="#cleanup" title="Permanent link">&para;</a></h2>
 <p>Run the following command from the root directory to delete the stack</p>
-<div class="highlight"><pre><span></span><code>cdk destroy
+<div class="highlight"><pre><span></span><code>cdk<span class="w"> </span>destroy
 </code></pre></div>
 <h2 id="resources">Resources<a class="headerlink" href="#resources" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1067,52 +1159,30 @@ Ran all <span class="nb">test</span> suites.
 <li><a href="https://kb.iu.edu/d/afar">Unix split command</a></li>
 <li><a href="https://redis.io/commands/set">Redis set commands</a></li>
 </ul>
+<p><img alt="Hari" src="../images/Hari.jpg" /></p>
+<h3 id="hari-ohm-prasath">Hari Ohm Prasath<a class="headerlink" href="#hari-ohm-prasath" title="Permanent link">&para;</a></h3>
+<p>Hari is a Senior Software Development Engineer with App Runner and Elastic Beanstalk, working on new ways for customers to modernize their web applications on AWS. Hari loves to code and actively contributes to the open source initiatives. You can find him in Medium, Github &amp; Twitter @hariohmprasath</p>
+<p><img alt="Ela" src="../images/Ela.jpg" /></p>
+<h3 id="elamaran-shanmugam">Elamaran Shanmugam<a class="headerlink" href="#elamaran-shanmugam" title="Permanent link">&para;</a></h3>
+<p>Elamaran (Ela) Shanmugam is a Sr. Container Specialist Solutions Architect with Amazon Web Services. Ela is a Container, Observability and Multi-Account Architecture SME and helps AWS partners and customers to design and build scalable, secure and optimized container workloads on AWS. His passion is building and automating Infrastructure to allow customers to focus more on their business. He is based out of Tampa, Florida and you can reach him on twitter @IamElaShan</p>
+<p><img alt="Re" src="../images/Re.jpg" /></p>
+<h3 id="re-alvarez-parmar">Re Alvarez Parmar<a class="headerlink" href="#re-alvarez-parmar" title="Permanent link">&para;</a></h3>
+<p>In his role as Containers Specialist Solutions Architect at Amazon Web Services. Re advises engineering teams with modernizing and building distributed services in the cloud. Prior to joining AWS, he spent over 15 years as Enterprise and Software Architect. He is based out of Seattle. You can connect with him on LinkedIn linkedin.com/in/realvarez/</p>
 
-              
-            </article>
-            
-          </div>
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
         </div>
         
       </main>
       
         <footer class="md-footer">
-  
-    
-    <nav class="md-footer__inner md-grid" aria-label="Footer" >
-      
-        
-        <a href="../aws-cdk-eks-multi-region-skeleton/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Multi Region EKS Clusters with CDK" rel="prev">
-          <div class="md-footer__button md-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
-          </div>
-          <div class="md-footer__title">
-            <div class="md-ellipsis">
-              <span class="md-footer__direction">
-                Previous
-              </span>
-              Multi Region EKS Clusters with CDK
-            </div>
-          </div>
-        </a>
-      
-      
-        
-        <a href="../prefetch-data-to-eks-nodes/" class="md-footer__link md-footer__link--next" aria-label="Next: Prefetch Images to EKS nodes" rel="next">
-          <div class="md-footer__title">
-            <div class="md-ellipsis">
-              <span class="md-footer__direction">
-                Next
-              </span>
-              Prefetch Images to EKS nodes
-            </div>
-          </div>
-          <div class="md-footer__button md-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
-          </div>
-        </a>
-      
-    </nav>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
@@ -1134,10 +1204,11 @@ Ran all <span class="nb">test</span> suites.
     <div class="md-dialog" data-md-component="dialog">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
-    <script id="__config" type="application/json">{"base": "..", "features": ["tabs"], "search": "../assets/javascripts/workers/search.b97dbffb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["tabs"], "search": "../assets/javascripts/workers/search.208ed371.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.6c7ad80a.min.js"></script>
+      <script src="../assets/javascripts/bundle.19047be9.min.js"></script>
       
     
   </body>

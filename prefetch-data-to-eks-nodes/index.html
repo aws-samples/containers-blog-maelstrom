@@ -8,8 +8,14 @@
       
       
       
+      
+        <link rel="prev" href="../capture-errors-k8s-slack/">
+      
+      
+        <link rel="next" href="../semantic-versioning-app-runner/">
+      
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.3.1, mkdocs-material-8.3.9">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.1.4">
     
     
       
@@ -17,13 +23,13 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.1d29e8d0.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.240905d7.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.cbb835fc.min.css">
-        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.a0c5b2b5.min.css">
       
       
+
     
     
     
@@ -36,10 +42,11 @@
       
     
     
-    <script>__md_scope=new URL("..",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
+    
     
     
   </head>
@@ -50,7 +57,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="" data-md-color-primary="none" data-md-color-accent="none">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
   
     
     
@@ -60,7 +67,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#grab-the-instance-id" class="md-skip">
+        <a href="#event-driven-process-to-prefetch-data-to-eks-nodes-using-ssm-automation" class="md-skip">
           Skip to content
         </a>
       
@@ -72,7 +79,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="Amazon Containers Blog Maelstrom" class="md-header__button md-logo" aria-label="Amazon Containers Blog Maelstrom" data-md-component="logo">
       
@@ -116,7 +125,7 @@
       </label>
       <nav class="md-search__options" aria-label="Search">
         
-        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
         </button>
       </nav>
@@ -128,7 +137,7 @@
           <div class="md-search-result__meta">
             Initializing search
           </div>
-          <ol class="md-search-result__list"></ol>
+          <ol class="md-search-result__list" role="presentation"></ol>
         </div>
       </div>
     </div>
@@ -140,7 +149,7 @@
         <a href="https://github.com/aws-samples/containers-blog-maelstrom" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
   </div>
   <div class="md-source__repository">
     aws-samples/containers-blog-maelstrom
@@ -185,7 +194,7 @@
       <a href="https://github.com/aws-samples/containers-blog-maelstrom" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
   </div>
   <div class="md-source__repository">
     aws-samples/containers-blog-maelstrom
@@ -223,20 +232,21 @@
     <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
       
       
       
-      
-        <label class="md-nav__link" for="__nav_2">
-          Patterns
+        <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          Solutions
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" aria-label="Patterns" data-md-level="1">
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
         <label class="md-nav__title" for="__nav_2">
           <span class="md-nav__icon md-icon"></span>
-          Patterns
+          Solutions
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -246,8 +256,22 @@
   
   
     <li class="md-nav__item">
-      <a href="../aws-cdk-eks-multi-region-skeleton/" class="md-nav__link">
-        Multi Region EKS Clusters with CDK
+      <a href="../ALB-ingresssharing-tbg/" class="md-nav__link">
+        ALB Ingress Sharing and Target Group Binding
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grafana-operator-AMG/" class="md-nav__link">
+        Managing AMG using Grafana Operator
       </a>
     </li>
   
@@ -272,20 +296,201 @@
               
   
   
+  
+    <li class="md-nav__item">
+      <a href="../capture-errors-k8s-slack/" class="md-nav__link">
+        Capture Errors from K8s to Slack
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
     
   
   
     <li class="md-nav__item md-nav__item--active">
       
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Prefetch Images to EKS nodes
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         Prefetch Images to EKS nodes
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-overview" class="md-nav__link">
+    Solution Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-walkthrough" class="md-nav__link">
+    Solution Walkthrough
+  </a>
+  
+    <nav class="md-nav" aria-label="Solution Walkthrough">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#source-code" class="md-nav__link">
+    Source Code
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementation-steps" class="md-nav__link">
+    Implementation Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    Validation
+  </a>
+  
+    <nav class="md-nav" aria-label="Validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#first-test" class="md-nav__link">
+    First test
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#second-test" class="md-nav__link">
+    Second Test
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#final-test" class="md-nav__link">
+    Final Test
+  </a>
+  
+    <nav class="md-nav" aria-label="Final Test">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#final-test-a" class="md-nav__link">
+    Final Test A
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#final-test-b" class="md-nav__link">
+    Final Test B
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanup" class="md-nav__link">
+    Cleanup
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    Conclusion
+  </a>
+  
+    <nav class="md-nav" aria-label="Conclusion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#elamaran-shanmugam" class="md-nav__link">
+    Elamaran Shanmugam
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#re-alvarez-parmar" class="md-nav__link">
+    Re Alvarez Parmar
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#naveen-kumar-bathula" class="md-nav__link">
+    Naveen Kumar Bathula
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -332,285 +537,596 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-overview" class="md-nav__link">
+    Solution Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-walkthrough" class="md-nav__link">
+    Solution Walkthrough
+  </a>
+  
+    <nav class="md-nav" aria-label="Solution Walkthrough">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#source-code" class="md-nav__link">
+    Source Code
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementation-steps" class="md-nav__link">
+    Implementation Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    Validation
+  </a>
+  
+    <nav class="md-nav" aria-label="Validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#first-test" class="md-nav__link">
+    First test
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#second-test" class="md-nav__link">
+    Second Test
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#final-test" class="md-nav__link">
+    Final Test
+  </a>
+  
+    <nav class="md-nav" aria-label="Final Test">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#final-test-a" class="md-nav__link">
+    Final Test A
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#final-test-b" class="md-nav__link">
+    Final Test B
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanup" class="md-nav__link">
+    Cleanup
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    Conclusion
+  </a>
+  
+    <nav class="md-nav" aria-label="Conclusion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#elamaran-shanmugam" class="md-nav__link">
+    Elamaran Shanmugam
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#re-alvarez-parmar" class="md-nav__link">
+    Re Alvarez Parmar
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#naveen-kumar-bathula" class="md-nav__link">
+    Naveen Kumar Bathula
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
               </div>
             
           
-          <div class="md-content" data-md-component="content">
-            <article class="md-content__inner md-typeset">
-              
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
                 
-  <a href="https://github.com/aws-samples/containers-blog-maelstrom/edit/master/docs/prefetch-data-to-eks-nodes.md" title="Edit this page" class="md-content__button md-icon">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
-  </a>
+                  
+
+  
+  
 
 
-
-<p>This code is to validate benefits of Event Driven process to prefetch data to EKS Nodes using SSM Automation</p>
-<p>Solution Walkthrough</p>
-<p>Prerequisites</p>
+<h1 id="event-driven-process-to-prefetch-data-to-eks-nodes-using-ssm-automation">Event Driven process to prefetch data to EKS Nodes using SSM Automation<a class="headerlink" href="#event-driven-process-to-prefetch-data-to-eks-nodes-using-ssm-automation" title="Permanent link">&para;</a></h1>
+<h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h2>
+<p>To-Do</p>
+<p>Benefits of Event-Driven Data Prefetching Event-driven data prefetching provides several benefits, including:</p>
+<p>Improved performance: By fetching data in anticipation of future requests, you can reduce the latency and improve the overall user experience.</p>
+<p>Reduced server load: By fetching data ahead of time, you can reduce the load on your servers, allowing them to handle more requests.</p>
+<p>Increased reliability: By automating the process of fetching data, you can reduce the risk of errors and improve the reliability of your system.</p>
+<p>In this blog, we will demonstrate the usage of AWS Systems Manager SSM Automation and State Manager to prefetch container images to your existing and newer worker nodes of your Amazon EKS Cluster.</p>
+<h2 id="solution-overview">Solution Overview<a class="headerlink" href="#solution-overview" title="Permanent link">&para;</a></h2>
+<p>Below is the overall architecture for setting up <strong>Event Driven process to prefetch data to EKS Nodes using SSM Automation</strong></p>
+<p><img alt="Image" src="../images/EDP-1.jpg" /></p>
+<p>The process for implementing this solution is as follows:</p>
+<ul>
+<li>The first step is to identify the image repository to fetch the container image. The container image repository could be Amazon Elastic Container Registry (Amazon ECR), DockerHub or others. For this demonstration we are using Amazon ECR as the image source.</li>
+<li>Next, when a container image gets pushed to Amazon ECR, an event based rule is triggered  by Amazon EventBridge to trigger an AWS SSM automation to prefetch container images from Amazon ECR to your existing Amazon EKS worker nodes.</li>
+<li>Whenever a newer worker node gets added to your Amazon EKS cluster, based on the tags on the worker node, Systems Manager State Manager Association on tags acts on to prefetch container images to newly created worker nodes.</li>
+</ul>
+<h2 id="solution-walkthrough">Solution Walkthrough<a class="headerlink" href="#solution-walkthrough" title="Permanent link">&para;</a></h2>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
 <p>To run this solution, you must have the following prerequisites:</p>
 <ul>
-<li>AWS CLI version 2.10 or higher (https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) to interact with AWS services</li>
-<li>eksctl (https://eksctl.io/) for creating and managing your Amazon EKS cluster</li>
-<li>kubectl (https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html) for running kubectl commands on your Amazon EKS cluster</li>
-<li>envsubst (https://pkg.go.dev/github.com/a8m/envsubst#section-readme) for environment variables substitution for Go.</li>
-<li>jq (https://stedolan.github.io/jq/download/) for command-line JSON processing</li>
+<li><a href="https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html">AWS CLI version 2.10 or higher</a> to interact with AWS services</li>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/eksctl.html">eksctl</a> for creating and managing your Amazon EKS cluster</li>
+<li><a href="https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html">kubectl</a> for running kubectl commands on your Amazon EKS cluster</li>
+<li><a href="https://yum-info.contradodigital.com/view-package/base/gettext/">envsubst</a> for environment variables substitution (envsubst is included in gettext package)</li>
+<li><a href="https://stedolan.github.io/jq/download/">jq</a> for command-line JSON processing</li>
 </ul>
-<p>The source code for this blog is available in AWS-Samples on GitHub (https://github.com/aws-samples/containers-blog-maelstrom/tree/main/aws-eks-edp).</p>
-<p>Let’s start by setting a few environment variables:</p>
-<p>export EDP_AWS_REGION=us-east-1
-export EDP_AWS_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text)
-export EDP_NAME=prefetching-data-automation</p>
-<p>Next, lets create Amazon Elastic Container Registry repository for your AWS account :</p>
-<p>aws ecr create-repository --cli-input-json file://EDP-Repo.json  --repository-name ${EDP_NAME}</p>
-<p>Next, lets create an Amazon EKS Cluster using the below commands. Using envsubst utility we will be replacing the variables in the Yaml Config file and the eksctl CLI tool will deploy the cluster using the EDP-Cluster-Config.yaml file:</p>
-<p>envsubst &lt; EDP-Cluster-Config.yaml | eksctl create cluster -f -</p>
-<p>Next, Build a large docker image size of approximately 1 GB to test this solution by running shell script EDP-Build-Docker-Image.sh:</p>
-<p>./EDP-Build-Docker-Image.sh</p>
-<p>we will create prefetching-data-automation-role with trust policy  EDP-Events-Trust-Policy.json which will be assumed by Amazon EventBridge service:</p>
-<p>aws iam create-role --role-name $EDP_NAME-role --assume-role-policy-document file://EDP-Events-Trust-Policy.json</p>
-<p>we will run the below command to replace variables in EDP-Events-Policy.json policy file by using envsubst utility and attach the policy to the above created `prefetching-data-automation-role :</p>
-<p>aws iam put-role-policy --role-name ${EDP_NAME}-role --policy-name ${EDP_NAME}-policy --policy-document "$(envsubst &lt; EDP-Events-Policy.json)"</p>
-<p>Next, lets create Amazon EventBridge Rule to trigger SSM Run Command on successful ECR Image push, using envsubst we will be replacing the variables in the EDP-Events-Rule.json:</p>
-<p>envsubst &lt; EDP-Events-Rule.json &gt; EDP-Events-Rule-updated.json &amp;&amp; aws events put-rule --cli-input-json file://EDP-Events-Rule-updated.json &amp;&amp; rm EDP-Events-Rule-updated.json</p>
-<p>Next, lets Attach the Target as AWS Systems Manager Run Command to AWS EventBridge Rule created above, using envsubst we will be replacing the variables in the EDP-Events-Target.json :</p>
-<p>envsubst '$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME' &lt; EDP-Events-Target.json &gt; EDP-Events-Target-updated.json &amp;&amp; aws events put-targets --rule $EDP_NAME --cli-input-json file://EDP-Events-Target-updated.json &amp;&amp; rm EDP-Events-Target-updated.json </p>
-<p>Next, lets create AWS Systems Manager State Manager Association for new worker nodes to prefetch container images, using envsubst we will be replacing the variables in the EDP-StateManager-Association.json:</p>
-<p>envsubst '$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME' &lt; EDP-StateManager-Association.json &gt; EDP-StateManager-Association-updated.json &amp;&amp; aws ssm create-association --cli-input-json file://EDP-StateManager-Association-updated.json &amp;&amp; rm EDP-StateManager-Association-updated.json</p>
-<p>Note: Status might show failed for the AWS SSM State Manager association as there is no image present in ECR yet.</p>
-<p>Validation</p>
-<p>Now the setup is complete, let’s run some validations on the setup for Event Driven process to prefetch data to EKS Nodes,</p>
-<p><em>First test</em> is to verify if the container images are getting fetched to existing worker nodes automatically upon a container image push. </p>
-<p>Lets run the following command to get authenticated with ECR repository and push the created container image to Amazon ECR :</p>
-<p>aws ecr get-login-password --region $EDP_AWS_REGION | docker login --username AWS --password-stdin $EDP_AWS_ACCOUNT.dkr.ecr.$EDP_AWS_REGION.amazonaws.com</p>
-<p>docker push $EDP_AWS_ACCOUNT.dkr.ecr.$EDP_AWS_REGION.amazonaws.com/$EDP_NAME</p>
-<p>Now lets check if the event rule we created on the Amazon EventBridge has been triggered. In your Amazon EventBridge console, Navigate to <em>TriggeredRules</em> under <em>Monitoring</em> tab. If there are no <em>FailedInvocations</em> datapoints, then EventBridge has delivered the event to the target successfully which in this case is AWS Systems Manager Run Command (Note: It might take 3 to 5 mins for the data points to be published in the Monitoring graphs)
-[Image: Image.jpg]Next lets verify if AWS Systems Manager Run Command is triggered by Amazon EventBridge. Run the below command to see the invocations. Look for DocumentName which should be AWS-RunShellScript, RequestedDateTime to identify corresponding run, and then status to make sure if the Run Command executed Successfully or not.</p>
-<blockquote>
-<p>aws ssm list-command-invocations --details --filter "[{\"key\": \"DocumentName\", \"value\": \"arn:aws:ssm:us-east-1::document/AWS-RunShellScript\"}]"</p>
-</blockquote>
-<p>Output:</p>
-<p>{
-    "CommandInvocations": [
-        {
-            "CommandId": "eeb9d869-421d-488f-b1ba-ce93a69db2b0",
-            "InstanceId": "i-0e1a4977c389<strong>*</strong>",
-            "InstanceName": "ip-192-168-29-214.ec2.internal",
-            "Comment": "",
-            "DocumentName": "arn:aws:ssm:us-east-1::document/AWS-RunShellScript",
-            "DocumentVersion": "$DEFAULT",
-            "RequestedDateTime": "2023-02-17T17:35:48.520000-06:00",
-            "Status": "Success",
-            "StatusDetails": "Success",
-            .......
-            .......</p>
-<p>Next, lets verify if the Image has been copied in to worker node of your Amazon EKS Cluster using the below command:</p>
-<blockquote>
-<p>aws ec2 describe-instances \
---filters "Name=tag:eks:cluster-name,Values=$EDP_NAME" "Name=tag:eks:nodegroup-name,Values=nodegroup" \
---query "Reservations[<em>].Instances[</em>].InstanceId" \
---output text | xargs -I {} aws ssm start-session \
-    --target {} \
-    --document-name AWS-StartInteractiveCommand \
-    --parameters "command=echo \$(curl -s http://169.254.169.254/latest/meta-data/instance-id) &amp;&amp; sudo docker images" \
-    --region $EDP_AWS_REGION</p>
-</blockquote>
-<p>Output:</p>
-<p>Starting session with SessionId: nbbat-0cf87cdf534<strong><em>*</em>
-........
-REPOSITORY                                                                 TAG                  IMAGE ID       CREATED          SIZE
-0266528</strong>***.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation   latest               d50f7ccece64   50 minutes ago   1.23GB
-.......</p>
-<p><em>Second Test</em> is to validate the container image getting copied to new worker node for any newly added Amazon EKS worker node</p>
-<p>Lets create new worker node as part of EKS Cluster using below command :</p>
-<p>eksctl scale nodegroup --cluster $EDP_NAME --name nodegroup --nodes 2 --nodes-min 1 --nodes-max 3</p>
-<p>Next, lets verify if the AWS System Manager State Manager Association has been triggered and association execution is successful. Note: Please wait for for few minutes for new worker node to come up and run below command</p>
-<p>aws ssm list-associations \
---association-filter-list "key=AssociationName,value=$EDP_NAME"</p>
-<p>Output:</p>
-<p>{
-    "Associations": [
-        {
-            "Name": "AWS-RunShellScript",
-            "AssociationId": "d9c82d84-0ceb-4f0f-a8d8-35cd67d1a66e",
-......
-                "AssociationStatusAggregatedCount": {
-                    "Failed": 1,
-                    "Success": 1
-                }
-            },
-            "AssociationName": "prefetching-data-automation"
-        }
-    ]
-}</p>
-<p>Next, lets verify if the Image has been copied in to worker node of your Amazon EKS Cluster using the below command:</p>
-<p>aws ec2 describe-instances \
---filters "Name=tag:eks:cluster-name,Values=$EDP_NAME" "Name=tag:eks:nodegroup-name,Values=nodegroup" \
---query "Reservations[<em>].Instances[</em>].InstanceId" \
---output text | xargs -I {} aws ssm start-session \
-    --target {} \
-    --document-name AWS-StartInteractiveCommand \
-    --parameters "command=echo \$(curl -s http://169.254.169.254/latest/meta-data/instance-id) &amp;&amp; sudo docker images" \
-    --region $EDP_AWS_REGION</p>
-<p>Output:</p>
-<p>Starting session with SessionId: nbbat-0cf87cdf5347<strong><em>*</em>
-........
-REPOSITORY                                                                 TAG                  IMAGE ID       CREATED          SIZE
-0266528</strong>***.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation   latest               d50f7ccece64   50 minutes ago   1.23GB
-.......</p>
-<p><em>Final Test</em> is identify the time difference for a Kubernetes pod to get to running with a Container Image pulled from Amazon ECR vs Image pulled locally</p>
-<p><em>Final Test A</em></p>
-<p>Delete the locally cached/copied image from one of the worker nodes using the following commands</p>
-<h1 id="grab-the-instance-id">Grab the instance ID<a class="headerlink" href="#grab-the-instance-id" title="Permanent link">&para;</a></h1>
-<p>InstanceID=$(kubectl get nodes -o jsonpath='{.items[*].spec.providerID}' | awk -F/ '{print $NF}')</p>
-<h1 id="ssh-to-the-instance">SSH to the instance<a class="headerlink" href="#ssh-to-the-instance" title="Permanent link">&para;</a></h1>
-<p>aws ssm start-session \
-    --target $InstanceID \
-    --region $EDP_AWS_REGION</p>
-<h1 id="list-the-locally-cached-image-that-you-pushed-in-one-of-the-above-step">List the locally cached image that you pushed in one of the above step<a class="headerlink" href="#list-the-locally-cached-image-that-you-pushed-in-one-of-the-above-step" title="Permanent link">&para;</a></h1>
-<p>sudo su
-docker images</p>
-<h1 id="delete-the-locally-cached-images">Delete the locally cached images<a class="headerlink" href="#delete-the-locally-cached-images" title="Permanent link">&para;</a></h1>
-<p>docker rmi <docker image id identified above></p>
-<p>Exit out of the SSM session</p>
-<p>Next, lets pull the latest container image and create a Kubernetes Pod :</p>
-<p>sh EDP_Pod.sh</p>
-<p>kubectl apply -f EDP-Pod.yaml </p>
-<p>Now lets run below command to check how long it took for pod to get in to running state</p>
-<p>kubectl describe pod $EDP_NAME</p>
-<p>Output:</p>
-<p>nbbathul@88665a1f8bb5 EDP_Working % kubectl describe pod prefetching-data-automation
-Name:         prefetching-data-automation
-Namespace:    default
-Priority:     0
-Node:         ip-192-168-19-136.ec2.internal/192.168.19.136
-Start Time:   Thu, 09 Mar 2023 23:03:52 -0600
-Labels:       <none>
-Annotations:  kubernetes.io/psp: eks.privileged
-Status:       Running
-IP:           192.168.23.89
-IPs:
-  IP:  192.168.23.89
-Containers:
-  prefetching-data-automation:
-    Container ID:  containerd://29579b61aaca8597bade857458e95b669ab7fca142c1e8f733cfec07d15d9d4d
-    Image:         022435809194.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation:latest
-    Image ID:      022435809194.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation@sha256:d7a93473bd682ed53acbaba18405532e6c1026c35b7d04ffc96ad89d2221736c
-    Port:          <none>
-    Host Port:     <none>
-    Command:
-      sleep
-      3600
-    State:          Running
-      Started:      Thu, 09 Mar 2023 23:04:52 -0600
-    Ready:          True
-    Restart Count:  0
-    Environment:    <none></p>
-<p>Next, lets also validate time take by pod to get in to running state by running below commands</p>
-<p>chmod +x EDP-Get-Pod-Boot-Time.sh</p>
-<p>for pod in $(kubectl get --no-headers=true pods -o name | awk -F "/" '{print $2}'); do ./EDP-Get-Pod-Boot-Time.sh $pod ; done &gt;&gt; EDP-Pod-Up-Time-With-Image-From-ECR.txt</p>
-<p>cat EDP-Pod-Up-Time-With-Image-From-ECR.txt</p>
-<p>Output :</p>
-<p>It took 60 seconds for test to boot up</p>
-<p><em>Final Test B</em></p>
-<p>Next, delete the Kubernetes Pod, create another pod by using sample pod definition file created in above and calculated the time it took to get to running state, since the image is cached locally this time it shouldn’t take long to start the pod :</p>
-<p>kubectl delete pod $EDP_NAME
-kubectl apply -f EDP-Pod.yaml </p>
-<p>Now lets run below command to check how long it took for pod to get in to running state</p>
-<p>kubectl describe pod $EDP_NAME</p>
-<p>Output:</p>
-<p>nbbathul@88665a1f8bb5 EDP_Working % kubectl describe pod prefetching-data-automation                                                                                                                      <br />
-Name:         prefetching-data-automation
-Namespace:    default
-Priority:     0
-Node:         ip-192-168-19-136.ec2.internal/192.168.19.136
-Start Time:   Thu, 09 Mar 2023 23:20:05 -0600
-Labels:       <none>
-Annotations:  kubernetes.io/psp: eks.privileged
-Status:       Running
-IP:           192.168.10.39
-IPs:
-  IP:  192.168.10.39
-Containers:
-  prefetching-data-automation:
-    Container ID:  containerd://fc06a2c5f5ee7734b2a9c4fd893acd1aca7c314ba035b6a01fa9954ae48a69fb
-    Image:         022435809194.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation:latest
-    Image ID:      022435809194.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation@sha256:d7a93473bd682ed53acbaba18405532e6c1026c35b7d04ffc96ad89d2221736c
-    Port:          <none>
-    Host Port:     <none>
-    Command:
-      sleep
-      3600
-    State:          Running
-      Started:      Thu, 09 Mar 2023 23:20:06 -0600
-    Ready:          True
-    Restart Count:  0
-    Environment:    <none></p>
-<p>Next, lets also validate time take by pod to get in to running state by running below commands</p>
-<p>for pod in $(kubectl get --no-headers=true pods -o name | awk -F "/" '{print $2}'); do ./EDP-Get-Pod-Boot-Time.sh $pod ; done &gt;&gt; EDP-Pod-Up-Time-With-Image-From-Workernode.txt</p>
-<p>cat EDP-Pod-Up-Time-With-Image-From-Workernode.txt</p>
-<p>Output:</p>
-<p>It took 1 second for test to boot up</p>
-<p>Below table shows  time it took for Pod that has been created with locally cached image is drastically less when compared to Pod that has been created with image that got pulled from ECR repository.</p>
-<div class="highlight"><pre><span></span><code>Final Test A    Final Test B
+<h3 id="source-code">Source Code<a class="headerlink" href="#source-code" title="Permanent link">&para;</a></h3>
+<p>Checkout the source code, the source code for this blog is available in AWS-Samples on [GitHub] (https://github.com/aws-samples/containers-blog-maelstrom/tree/main/prefetch-data-to-EKSnodes)</p>
+<div class="highlight"><pre><span></span><code>mkdir<span class="w"> </span>aws-prefetch-data-to-EKSnodes<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>aws-prefetch-data-to-EKSnodes
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/aws-samples/containers-blog-maelstrom/tree/main/prefetch-data-to-EKSnodes<span class="w"> </span>.
 </code></pre></div>
-<p>Pod Start Time  23:03:52 -0600  23:20:05 -0600
-Pod Running Time    23:04:52 -0600  23:20:06 -0600
-Total Time Taken    60 Seconds  1 Second</p>
-<p>Final Test A: Created Pod by pulling image from ECR repo
-Final Test B: Created Pod by pulling locally cached Image</p>
-<p>Cleanup</p>
-<p>chmod +x EDP-Cleanup.sh</p>
-<p>./EDP-Cleanup.sh</p>
+<h3 id="implementation-steps">Implementation Steps<a class="headerlink" href="#implementation-steps" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p>Let’s start by setting a few environment variables.</p>
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">EDP_AWS_REGION</span><span class="o">=</span>us-east-1
+<span class="nb">export</span><span class="w"> </span><span class="nv">EDP_AWS_ACCOUNT</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>sts<span class="w"> </span>get-caller-identity<span class="w"> </span>--query<span class="w"> </span><span class="s1">&#39;Account&#39;</span><span class="w"> </span>--output<span class="w"> </span>text<span class="k">)</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">EDP_NAME</span><span class="o">=</span>prefetching-data-automation
+</code></pre></div>
+</li>
+<li>
+<p>Create Amazon Elastic Container Registry repository.</p>
+<div class="highlight"><pre><span></span><code>aws<span class="w"> </span>ecr<span class="w"> </span>create-repository<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--cli-input-json<span class="w"> </span>file://repo.json<span class="w">  </span><span class="se">\</span>
+<span class="w">   </span>--repository-name<span class="w"> </span><span class="si">${</span><span class="nv">EDP_NAME</span><span class="si">}</span><span class="w"> </span>
+</code></pre></div>
+</li>
+<li>
+<p>Create an Amazon EKS Cluster using the below commands. Using envsubst utility we will be replacing the variables in the Yaml Config file and using the eksctl CLI tool will deploy the cluster.</p>
+<div class="highlight"><pre><span></span><code>envsubst<span class="w"> </span>&lt;<span class="w"> </span>cluster-config.yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span>eksctl<span class="w"> </span>create<span class="w"> </span>cluster<span class="w"> </span>-f<span class="w"> </span>-
+</code></pre></div>
+</li>
+<li>
+<p>Build a large docker image size of approximately 1 GB to test this solution by running below shell script.</p>
+<div class="highlight"><pre><span></span><code>./build-docker-image.sh
+</code></pre></div>
+</li>
+<li>
+<p>Create prefetching-data-automation-role with trust policy events-trust-policy.json which will be assumed by Amazon EventBridge service.</p>
+<div class="highlight"><pre><span></span><code>aws<span class="w"> </span>iam<span class="w"> </span>create-role<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--role-name<span class="w"> </span><span class="nv">$EDP_NAME</span>-role<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--assume-role-policy-document<span class="w"> </span>file://events-trust-policy.json
+</code></pre></div>
+</li>
+<li>
+<p>Run the below command to replace variables in events-policy.json policy file by using envsubst utility and attach the policy to the above created 'prefetching-data-automation-role' role.</p>
+<div class="highlight"><pre><span></span><code>aws<span class="w"> </span>iam<span class="w"> </span>put-role-policy<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--role-name<span class="w"> </span><span class="si">${</span><span class="nv">EDP_NAME</span><span class="si">}</span>-role<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--policy-name<span class="w"> </span><span class="si">${</span><span class="nv">EDP_NAME</span><span class="si">}</span>-policy<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--policy-document<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>envsubst<span class="w"> </span>&lt;<span class="w"> </span>events-policy.json<span class="k">)</span><span class="s2">&quot;</span>
+</code></pre></div>
+</li>
+<li>
+<p>Create Amazon EventBridge Rule to trigger SSM Run Command on successful ECR Image push, using envsubst we will be replacing the variables in the events-rule.json file.</p>
+<div class="highlight"><pre><span></span><code>envsubst<span class="w"> </span>&lt;<span class="w"> </span>events-rule.json<span class="w"> </span>&gt;<span class="w"> </span>events-rule-updated.json<span class="w"> </span><span class="se">\</span>
+<span class="o">&amp;&amp;</span><span class="w"> </span>aws<span class="w"> </span>events<span class="w"> </span>put-rule<span class="w"> </span>--cli-input-json<span class="w"> </span>file://events-rule-updated.json<span class="w"> </span><span class="se">\</span>
+<span class="o">&amp;&amp;</span><span class="w"> </span>rm<span class="w"> </span>events-rule-updated.json
+</code></pre></div>
+</li>
+<li>
+<p>Attach the Target as AWS Systems Manager Run Command to AWS EventBridge Rule created above, using envsubst we will be replacing the variables in the events-target.json file.</p>
+<div class="highlight"><pre><span></span><code>envsubst<span class="w"> </span><span class="s1">&#39;$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME&#39;</span><span class="w"> </span>&lt;<span class="w"> </span>events-target.json<span class="w"> </span>&gt;<span class="w"> </span>events-target-updated.json<span class="w"> </span><span class="se">\</span>
+<span class="o">&amp;&amp;</span><span class="w"> </span>aws<span class="w"> </span>events<span class="w"> </span>put-targets<span class="w"> </span>--rule<span class="w"> </span><span class="nv">$EDP_NAME</span><span class="w"> </span>--cli-input-json<span class="w"> </span>file://events-target-updated.json<span class="w"> </span><span class="se">\</span>
+<span class="o">&amp;&amp;</span><span class="w"> </span>rm<span class="w"> </span>events-target-updated.json<span class="w">   </span>
+</code></pre></div>
+</li>
+<li>
+<p>Create AWS Systems Manager State Manager Association for new worker nodes to prefetch container images, using envsubst we will be replacing the variables in the statemanager-association.json file.</p>
+<div class="highlight"><pre><span></span><code>envsubst<span class="w"> </span><span class="s1">&#39;$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME&#39;</span><span class="w"> </span>&lt;<span class="w"> </span>statemanager-association.json<span class="w"> </span>&gt;<span class="w"> </span>statemanager-association-updated.json<span class="w"> </span><span class="se">\</span>
+<span class="o">&amp;&amp;</span><span class="w"> </span>aws<span class="w"> </span>ssm<span class="w"> </span>create-association<span class="w"> </span>--cli-input-json<span class="w"> </span>file://statemanager-association-updated.json<span class="w"> </span><span class="se">\</span>
+<span class="o">&amp;&amp;</span><span class="w"> </span>rm<span class="w"> </span>statemanager-association-updated.json<span class="w">   </span>
+</code></pre></div>
+<p>Note: Status might show failed for the AWS SSM State Manager association as there is no image present in ECR yet.</p>
+</li>
+</ol>
+<h2 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
+<p>Now the setup is complete, let’s run some validations on the setup for Event Driven process to prefetch data to EKS Nodes.</p>
+<h3 id="first-test">First test<a class="headerlink" href="#first-test" title="Permanent link">&para;</a></h3>
+<p>Verify if the container images are getting fetched to existing worker nodes automatically upon a container image push. </p>
+<ol>
+<li>
+<p>Run the following command to get authenticated with ECR repository.</p>
+<div class="highlight"><pre><span></span><code>aws<span class="w"> </span>ecr<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span><span class="nv">$EDP_AWS_REGION</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
+docker<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span><span class="nv">$EDP_AWS_ACCOUNT</span>.dkr.ecr.<span class="nv">$EDP_AWS_REGION</span>.amazonaws.com
+</code></pre></div>
+</li>
+<li>
+<p>Push the container image created in step 4 of Implementations step to Amazon ECR</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>push<span class="w"> </span><span class="nv">$EDP_AWS_ACCOUNT</span>.dkr.ecr.<span class="nv">$EDP_AWS_REGION</span>.amazonaws.com/<span class="nv">$EDP_NAME</span>
+</code></pre></div>
+</li>
+<li>
+<p>Check if the event rule we created on the Amazon EventBridge has been triggered. In your Amazon EventBridge console, Navigate to <strong>TriggeredRules</strong> under <strong>Monitoring</strong> tab. If there are no <strong>FailedInvocations</strong> 
+   datapoints, then EventBridge has delivered the event to the target successfully which in this case is AWS Systems Manager Run Command. </p>
+<p><img alt="Image" src="../images/EDP-2.jpg" /></p>
+<p>Note: It might take 3 to 5 mins for the data points to be published in the Monitoring graphs.</p>
+</li>
+<li>
+<p>Verify if AWS Systems Manager Run Command is triggered by Amazon EventBridge. Run the below command to see the invocations. Look for DocumentName which should be AWS-RunShellScript, RequestedDateTime to identify 
+   corresponding run, and then status to make sure if the Run Command executed Successfully or not.</p>
+<div class="highlight"><pre><span></span><code>aws<span class="w"> </span>ssm<span class="w"> </span>list-command-invocations<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--details<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--filter<span class="w"> </span><span class="s2">&quot;[{\&quot;key\&quot;: \&quot;DocumentName\&quot;, \&quot;value\&quot;: \&quot;arn:aws:ssm:us-east-1::document/AWS-RunShellScript\&quot;}]&quot;</span>
+</code></pre></div>
+<p><strong>Output</strong></p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;CommandInvocations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">         </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;CommandId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eeb9d869-421d-488f-b1ba-ce93a69db2b0&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;InstanceId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;i-0e1a4977c389*****&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;InstanceName&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ip-192-168-29-214.ec2.internal&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;Comment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;DocumentName&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;arn:aws:ssm:us-east-1::document/AWS-RunShellScript&lt;/span&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;DocumentVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;$DEFAULT&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;RequestedDateTime&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2023-02-17T17:35:48.520000-06:00&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;Status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Success&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;StatusDetails&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Success&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="err">.......</span>
+<span class="w">            </span><span class="err">.......</span>
+<span class="w">         </span><span class="p">}</span>
+<span class="w">      </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+</li>
+<li>
+<p>Verify if the Image has been copied in to worker node of your Amazon EKS Cluster using the below command.</p>
+<div class="highlight"><pre><span></span><code>aws<span class="w"> </span>ec2<span class="w"> </span>describe-instances<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--filters<span class="w"> </span><span class="s2">&quot;Name=tag:eks:cluster-name,Values=</span><span class="nv">$EDP_NAME</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;Name=tag:eks:nodegroup-name,Values=nodegroup&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--query<span class="w"> </span><span class="s2">&quot;Reservations[*].Instances[*].InstanceId&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--output<span class="w"> </span>text<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>-I<span class="w"> </span><span class="o">{}</span><span class="w"> </span>aws<span class="w"> </span>ssm<span class="w"> </span>start-session<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--target<span class="w"> </span><span class="o">{}</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--document-name<span class="w"> </span>AWS-StartInteractiveCommand<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--parameters<span class="w"> </span><span class="s2">&quot;command=echo \$(curl -s http://169.254.169.254/latest/meta-data/instance-id) &amp;&amp; sudo docker images&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--region<span class="w"> </span><span class="nv">$EDP_AWS_REGION</span>
+</code></pre></div>
+<p><strong>Output</strong></p>
+<div class="highlight"><pre><span></span><code>Starting<span class="w"> </span>session<span class="w"> </span>with<span class="w"> </span>SessionId:<span class="w"> </span>nbbat-0cf87cdf534*****
+........
+REPOSITORY<span class="w">                                                                 </span>TAG<span class="w">                  </span>IMAGE<span class="w"> </span>ID<span class="w">       </span>CREATED<span class="w">          </span>SIZE<span class="w"> </span>
+<span class="m">0266528</span>*****.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation<span class="w">   </span>latest<span class="w">               </span>d50f7ccece64<span class="w">   </span><span class="m">50</span><span class="w"> </span>minutes<span class="w"> </span>ago<span class="w">   </span><span class="m">1</span>.23GB
+.......
+</code></pre></div>
+</li>
+</ol>
+<h3 id="second-test">Second Test<a class="headerlink" href="#second-test" title="Permanent link">&para;</a></h3>
+<p>Validate the container image getting copied to new worker node for any newly added Amazon EKS worker node.</p>
+<ol>
+<li>
+<p>Lets create new worker node as part of EKS Cluster using below command.</p>
+<div class="highlight"><pre><span></span><code>eksctl<span class="w"> </span>scale<span class="w"> </span>nodegroup<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--cluster<span class="w"> </span><span class="nv">$EDP_NAME</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--name<span class="w"> </span>nodegroup<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--nodes<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--nodes-min<span class="w"> </span><span class="m">1</span><span class="se">\</span>
+<span class="w">   </span>--nodes-max<span class="w"> </span><span class="m">3</span>
+</code></pre></div>
+</li>
+<li>
+<p>Verify if the AWS System Manager State Manager Association has been triggered and association execution is successful. </p>
+<div class="highlight"><pre><span></span><code>aws<span class="w"> </span>ssm<span class="w"> </span>list-associations<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--association-filter-list<span class="w"> </span><span class="s2">&quot;key=AssociationName,value=</span><span class="nv">$EDP_NAME</span><span class="s2">&quot;</span>
+</code></pre></div>
+<p>Note: Please wait for for few minutes for new worker node to come up and run above command</p>
+<p><strong>Output</strong></p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">   </span><span class="nt">&quot;Associations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;Name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AWS-RunShellScript&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;AssociationId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;d9c82d84-0ceb-4f0f-a8d8-35cd67d1a66e&quot;</span><span class="p">,</span>
+<span class="err">......</span>
+<span class="w">               </span><span class="nt">&quot;AssociationStatusAggregatedCount&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                  </span><span class="nt">&quot;Failed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">                  </span><span class="nt">&quot;Success&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">               </span><span class="p">}</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;AssociationName&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;prefetching-data-automation&quot;</span>
+<span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+</li>
+<li>
+<p>Verify if the Image has been copied in to worker node of your Amazon EKS Cluster using the below command.</p>
+<div class="highlight"><pre><span></span><code>aws<span class="w"> </span>ec2<span class="w"> </span>describe-instances<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--filters<span class="w"> </span><span class="s2">&quot;Name=tag:eks:cluster-name,Values=</span><span class="nv">$EDP_NAME</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;Name=tag:eks:nodegroup-name,Values=nodegroup&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--query<span class="w"> </span><span class="s2">&quot;Reservations[*].Instances[*].InstanceId&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--output<span class="w"> </span>text<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>-I<span class="w"> </span><span class="o">{}</span><span class="w"> </span>aws<span class="w"> </span>ssm<span class="w"> </span>start-session<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--target<span class="w"> </span><span class="o">{}</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--document-name<span class="w"> </span>AWS-StartInteractiveCommand<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--parameters<span class="w"> </span><span class="s2">&quot;command=echo \$(curl -s http://169.254.169.254/latest/meta-data/instance-id) &amp;&amp; sudo docker images&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--region<span class="w"> </span><span class="nv">$EDP_AWS_REGION</span>
+</code></pre></div>
+<p><strong>Output</strong></p>
+<div class="highlight"><pre><span></span><code>Starting<span class="w"> </span>session<span class="w"> </span>with<span class="w"> </span>SessionId:<span class="w"> </span>nbbat-0cf87cdf5347*****
+........
+REPOSITORY<span class="w">                                                                 </span>TAG<span class="w">                  </span>IMAGE<span class="w"> </span>ID<span class="w">       </span>CREATED<span class="w">          </span>SIZE
+<span class="m">0266528</span>*****.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation<span class="w">   </span>latest<span class="w">               </span>d50f7ccece64<span class="w">   </span><span class="m">50</span><span class="w"> </span>minutes<span class="w"> </span>ago<span class="w">   </span><span class="m">1</span>.23GB
+.......
+</code></pre></div>
+</li>
+</ol>
+<h3 id="final-test">Final Test<a class="headerlink" href="#final-test" title="Permanent link">&para;</a></h3>
+<p>Lets identify the time difference for a Kubernetes pod to get in to running state with a Container Image pulled from Amazon ECR vs Image pulled locally</p>
+<h4 id="final-test-a">Final Test A<a class="headerlink" href="#final-test-a" title="Permanent link">&para;</a></h4>
+<ol>
+<li>
+<p>Delete the locally cached/copied image from one of the worker nodes using the following commands.</p>
+<p>Grab the Instance ID</p>
+<div class="highlight"><pre><span></span><code><span class="nv">InstanceID</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>nodes<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.items[*].spec.providerID}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span>-F/<span class="w"> </span><span class="s1">&#39;{print $NF}&#39;</span><span class="k">)</span>
+</code></pre></div>
+</li>
+<li>
+<p>SSH in to the Instance.</p>
+<div class="highlight"><pre><span></span><code>aws<span class="w"> </span>ssm<span class="w"> </span>start-session<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--target<span class="w"> </span><span class="nv">$InstanceID</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--region<span class="w"> </span><span class="nv">$EDP_AWS_REGION</span>
+</code></pre></div>
+</li>
+<li>
+<p>List the locally cached image that you pushed in one of the above step.</p>
+<div class="highlight"><pre><span></span><code>sudo<span class="w"> </span>su
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="nv">IMAGE_ID</span><span class="o">=</span><span class="k">$(</span>docker<span class="w"> </span>images<span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">&#39;NR==2{print $3}&#39;</span><span class="k">)</span>
+</code></pre></div>
+</li>
+<li>
+<p>Delete the locally cached image.</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>rmi<span class="w"> </span><span class="nv">$IMAGE_ID</span>
+</code></pre></div>
+<p>Exit out of root and exit out of the SSM session</p>
+</li>
+<li>
+<p>Pull the latest container image and create a Kubernetes Pod.</p>
+<div class="highlight"><pre><span></span><code>sh<span class="w"> </span>pod.sh
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>pod.yaml
+</code></pre></div>
+</li>
+<li>
+<p>Run below command to check how long it took for pod to get in to running state.</p>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>describe<span class="w"> </span>pod<span class="w"> </span><span class="nv">$EDP_NAME</span>
+</code></pre></div>
+<p><strong>Output</strong></p>
+<div class="highlight"><pre><span></span><code>nbbathul@88665a1f8bb5<span class="w"> </span>EDP_Working<span class="w"> </span>%<span class="w"> </span>kubectl<span class="w"> </span>describe<span class="w"> </span>pod<span class="w"> </span>prefetching-data-automation
+Name:<span class="w">         </span>prefetching-data-automation
+Namespace:<span class="w">    </span>default
+Priority:<span class="w">     </span><span class="m">0</span>
+Node:<span class="w">         </span>ip-192-168-19-136.ec2.internal/192.168.19.136
+Start<span class="w"> </span>Time:<span class="w">   </span>Thu,<span class="w"> </span><span class="m">09</span><span class="w"> </span>Mar<span class="w"> </span><span class="m">2023</span><span class="w"> </span><span class="m">23</span>:03:52<span class="w"> </span>-0600
+Labels:<span class="w">       </span>&lt;none&gt;
+Annotations:<span class="w">  </span>kubernetes.io/psp:<span class="w"> </span>eks.privileged
+Status:<span class="w">       </span>Running
+IP:<span class="w">           </span><span class="m">192</span>.168.23.89
+IPs:
+IP:<span class="w">  </span><span class="m">192</span>.168.23.89
+Containers:
+prefetching-data-automation:<span class="w">  </span>
+<span class="w">   </span>Container<span class="w"> </span>ID:<span class="w">  </span>containerd://29579b61aaca8597bade857458e95b669ab7fca142c1e8f733cfec07d15d9d4d
+<span class="w">   </span>Image:<span class="w">         </span><span class="m">022435809194</span>.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation:latest
+<span class="w">   </span>Image<span class="w"> </span>ID:<span class="w">      </span><span class="m">022435809194</span>.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation@sha256:d7a93473bd682ed53acbaba18405532e6c1026c35b7d04ffc96ad89d2221736c
+<span class="w">   </span>Port:<span class="w">          </span>&lt;none&gt;
+<span class="w">   </span>Host<span class="w"> </span>Port:<span class="w">     </span>&lt;none&gt;
+<span class="w">   </span>Command:
+<span class="w">   </span>sleep
+<span class="w">   </span><span class="m">3600</span><span class="w"> </span>
+<span class="w">   </span>State:<span class="w">          </span>Running
+<span class="w">   </span>Started:<span class="w">      </span>Thu,<span class="w"> </span><span class="m">09</span><span class="w"> </span>Mar<span class="w"> </span><span class="m">2023</span><span class="w"> </span><span class="m">23</span>:04:52<span class="w"> </span>-0600
+<span class="w">   </span>Ready:<span class="w">          </span>True
+<span class="w">   </span>Restart<span class="w"> </span>Count:<span class="w">  </span><span class="m">0</span>
+<span class="w">   </span>Environment:<span class="w">    </span>&lt;none&gt;
+</code></pre></div>
+<p>Notice time difference between Start Time and Started Time</p>
+</li>
+<li>
+<p>Also validate time taken by pod to get in to running state by running below commands.</p>
+<div class="highlight"><pre><span></span><code>chmod<span class="w"> </span>+x<span class="w"> </span>get-pod-boot-time.sh
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="k">for</span><span class="w"> </span>pod<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>--no-headers<span class="o">=</span><span class="nb">true</span><span class="w"> </span>pods<span class="w"> </span>-o<span class="w"> </span>name<span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span>-F<span class="w"> </span><span class="s2">&quot;/&quot;</span><span class="w"> </span><span class="s1">&#39;{print $2}&#39;</span><span class="k">)</span><span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>./get-pod-boot-time.sh<span class="w"> </span><span class="nv">$pod</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="k">done</span><span class="w"> </span><span class="se">\</span>
+&gt;&gt;<span class="w"> </span>pod-up-time-with-image-from-ecr.txt
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>cat<span class="w"> </span>pod-up-time-with-image-from-ecr.txt
+</code></pre></div>
+<p><strong>Output</strong></p>
+<div class="highlight"><pre><span></span><code>It<span class="w"> </span>took<span class="w"> </span>approximately<span class="w"> </span><span class="m">60</span><span class="w"> </span>seconds<span class="w"> </span><span class="k">for</span><span class="w"> </span>pod<span class="w"> </span>get<span class="w"> </span><span class="k">in</span><span class="w"> </span>to<span class="w"> </span>running<span class="w"> </span>state
+</code></pre></div>
+</li>
+</ol>
+<h4 id="final-test-b">Final Test B<a class="headerlink" href="#final-test-b" title="Permanent link">&para;</a></h4>
+<ol>
+<li>
+<p>Delete the Kubernetes Pod, create another pod by using sample pod definition file created above and calculate the time pod take to get to running state, since the image is cached locally this time it shouldn’t take 
+    long to start the pod.</p>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>delete<span class="w"> </span>pod<span class="w"> </span><span class="nv">$EDP_NAME</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>pod.yaml
+</code></pre></div>
+</li>
+<li>
+<p>Run below command to check how long it took for pod to get in to running state.</p>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>describe<span class="w"> </span>pod<span class="w"> </span><span class="nv">$EDP_NAME</span>
+</code></pre></div>
+<p><strong>Output</strong></p>
+<div class="highlight"><pre><span></span><code>nbbathul@88665a1f8bb5<span class="w"> </span>EDP_Working<span class="w"> </span>%<span class="w"> </span>kubectl<span class="w"> </span>describe<span class="w"> </span>pod<span class="w"> </span>prefetching-data-automation
+Name:<span class="w">         </span>prefetching-data-automation
+Namespace:<span class="w">    </span>default
+Priority:<span class="w">     </span><span class="m">0</span>
+Node:<span class="w">         </span>ip-192-168-19-136.ec2.internal/192.168.19.136
+Start<span class="w"> </span>Time:<span class="w">   </span>Thu,<span class="w"> </span><span class="m">09</span><span class="w"> </span>Mar<span class="w"> </span><span class="m">2023</span><span class="w"> </span><span class="m">23</span>:20:05<span class="w"> </span>-0600
+Labels:<span class="w">       </span>&lt;none&gt;
+Annotations:<span class="w">  </span>kubernetes.io/psp:<span class="w"> </span>eks.privileged
+Status:<span class="w">       </span>Running
+IP:<span class="w">           </span><span class="m">192</span>.168.10.39
+IPs:
+IP:<span class="w">  </span><span class="m">192</span>.168.10.39
+Containers:
+prefetching-data-automation:
+Container<span class="w"> </span>ID:<span class="w">  </span>containerd://fc06a2c5f5ee7734b2a9c4fd893acd1aca7c314ba035b6a01fa9954ae48a69fb
+Image:<span class="w">         </span><span class="m">022435809194</span>.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation:latest
+Image<span class="w"> </span>ID:<span class="w">      </span><span class="m">022435809194</span>.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation@sha256:d7a93473bd682ed53acbaba18405532e6c1026c35b7d04ffc96ad89d2221736c
+Port:<span class="w">          </span>&lt;none&gt;
+Host<span class="w"> </span>Port:<span class="w">     </span>&lt;none&gt;
+Command:
+<span class="w">   </span>sleep
+<span class="w">   </span><span class="m">3600</span>
+State:<span class="w">          </span>Running
+<span class="w">   </span>Started:<span class="w">      </span>Thu,<span class="w"> </span><span class="m">09</span><span class="w"> </span>Mar<span class="w"> </span><span class="m">2023</span><span class="w"> </span><span class="m">23</span>:20:06<span class="w"> </span>-0600
+Ready:<span class="w">          </span>True
+Restart<span class="w"> </span>Count:<span class="w">  </span><span class="m">0</span>
+Environment:<span class="w">    </span>&lt;none&gt;
+</code></pre></div>
+<p>Notice time difference between Start Time and Started Time</p>
+</li>
+<li>
+<p>Also validate time take by pod to get in to running state by running below commands.</p>
+<div class="highlight"><pre><span></span><code><span class="k">for</span><span class="w"> </span>pod<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>--no-headers<span class="o">=</span><span class="nb">true</span><span class="w"> </span>pods<span class="w"> </span>-o<span class="w"> </span>name<span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span>-F<span class="w"> </span><span class="s2">&quot;/&quot;</span><span class="w"> </span><span class="s1">&#39;{print $2}&#39;</span><span class="k">)</span><span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>./get-pod-boot-time.sh<span class="w"> </span><span class="nv">$pod</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="k">done</span><span class="w"> </span><span class="se">\</span>
+&gt;&gt;<span class="w"> </span>pod-up-time-with-image-from-workernode.txt
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>cat<span class="w"> </span>pod-up-time-with-image-from-workernode.txt
+</code></pre></div>
+<p><strong>Output</strong></p>
+<div class="highlight"><pre><span></span><code>It<span class="w"> </span>took<span class="w"> </span><span class="m">1</span><span class="w"> </span>second<span class="w"> </span><span class="k">for</span><span class="w"> </span>pod<span class="w"> </span>to<span class="w"> </span>get<span class="w"> </span><span class="k">in</span><span class="w"> </span>to<span class="w"> </span>running<span class="w"> </span>state
+</code></pre></div>
+</li>
+</ol>
+<p>Below table shows  time it took for Pod that has been created with locally cached image is drastically less when compared to Pod that has been created with image that got pulled from ECR repository.</p>
+<table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Final Test A (Created Pod by pulling image from ECR repo)</th>
+<th>Final Test B (Created Pod by pulling locally cached Image)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pod Start Time</td>
+<td>23:03:52 -0600</td>
+<td>23:20:05 -0600</td>
+</tr>
+<tr>
+<td>Pod Running Time</td>
+<td>23:04:52 -0600</td>
+<td>23:20:06 -0600</td>
+</tr>
+<tr>
+<td>Total Time Taken</td>
+<td>60 Seconds</td>
+<td>1 Second</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cleanup">Cleanup<a class="headerlink" href="#cleanup" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>chmod<span class="w"> </span>+x<span class="w"> </span>cleanup.sh
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>./cleanup.sh
+</code></pre></div>
+<h2 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h2>
+<p>In this blog, we demonstrated the usage of AWS Systems Manager SSM Automation and State Manager to prefetch container images to your existing and newer worker nodes of your Amazon EKS Cluster. We clearly demonstrated a clear differentiation in run times when your container images are prefetched to worker nodes. This solution will be very effective for run machine learning, analytics and other complex containerized workloads having large container images which otherwise needs lot of time to cache locally.</p>
+<p>For more information, see the following references:</p>
+<p><img alt="Ela" src="../images/Ela.jpg" /></p>
+<h3 id="elamaran-shanmugam">Elamaran Shanmugam<a class="headerlink" href="#elamaran-shanmugam" title="Permanent link">&para;</a></h3>
+<p>Elamaran (Ela) Shanmugam is a Sr. Container Specialist Solutions Architect with Amazon Web Services. Ela is a Container, Observability and Multi-Account Architecture SME and helps AWS partners and customers to design and build scalable, secure and optimized container workloads on AWS. His passion is building and automating Infrastructure to allow customers to focus more on their business. He is based out of Tampa, Florida and you can reach him on twitter @IamElaShan</p>
+<p><img alt="Re" src="../images/Re.jpg" /></p>
+<h3 id="re-alvarez-parmar">Re Alvarez Parmar<a class="headerlink" href="#re-alvarez-parmar" title="Permanent link">&para;</a></h3>
+<p>In his role as Containers Specialist Solutions Architect at Amazon Web Services. Re advises engineering teams with modernizing and building distributed services in the cloud. Prior to joining AWS, he spent over 15 years as Enterprise and Software Architect. He is based out of Seattle. You can connect with him on LinkedIn linkedin.com/in/realvarez/</p>
+<p><img alt="Re" src="../images/Naveen.jpeg" /></p>
+<h3 id="naveen-kumar-bathula">Naveen Kumar Bathula<a class="headerlink" href="#naveen-kumar-bathula" title="Permanent link">&para;</a></h3>
+<p>Naveen Bathula is a Partners Solutions Architect with Amazon Web Services. Naveen works with Systems Integrator Partners, being their primary contact for technical questions related to AWS services and solutions and providing best practice guidance to operate on AWS Cloud. Prior to joining AWS, he spent over 5 years as DevOPs Engineer. He is based out of Dallas, TX. You can connect with him on Linkedin linkedin.com/in/naveen-bathula</p>
 
-              
-            </article>
-            
-          </div>
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
         </div>
         
       </main>
       
         <footer class="md-footer">
-  
-    
-    <nav class="md-footer__inner md-grid" aria-label="Footer" >
-      
-        
-        <a href="../batch-processing-with-k8s/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Batch Processing with K8s" rel="prev">
-          <div class="md-footer__button md-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
-          </div>
-          <div class="md-footer__title">
-            <div class="md-ellipsis">
-              <span class="md-footer__direction">
-                Previous
-              </span>
-              Batch Processing with K8s
-            </div>
-          </div>
-        </a>
-      
-      
-        
-        <a href="../semantic-versioning-app-runner/" class="md-footer__link md-footer__link--next" aria-label="Next: Semantic Versioning App Runner" rel="next">
-          <div class="md-footer__title">
-            <div class="md-ellipsis">
-              <span class="md-footer__direction">
-                Next
-              </span>
-              Semantic Versioning App Runner
-            </div>
-          </div>
-          <div class="md-footer__button md-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
-          </div>
-        </a>
-      
-    </nav>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
@@ -632,10 +1148,11 @@ Final Test B: Created Pod by pulling locally cached Image</p>
     <div class="md-dialog" data-md-component="dialog">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
-    <script id="__config" type="application/json">{"base": "..", "features": ["tabs"], "search": "../assets/javascripts/workers/search.b97dbffb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["tabs"], "search": "../assets/javascripts/workers/search.208ed371.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.6c7ad80a.min.js"></script>
+      <script src="../assets/javascripts/bundle.19047be9.min.js"></script>
       
     
   </body>
