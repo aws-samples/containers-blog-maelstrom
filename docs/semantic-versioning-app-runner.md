@@ -231,12 +231,13 @@ cat > config/config.json<< EOF
 EOF
 ```
 
-3. If you’re running AWS CDK for the first time, run the following command to bootstrap the AWS CDK environment (provide your AWS account ID and AWS Region):
+3. If you’re running AWS CDK for the first time, [bootstrap] (https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html) the AWS CDK environment (provide your AWS account ID and AWS Region):
 
 ```bash
+npm i
 cdk bootstrap \
-    --cloudformation-execution-policies arn:aws:iam::aws:policy/AdministratorAccess \
-    aws://<AWS Account Id>/<AWS_REGION>
+    --template bootstrap-template.yaml \
+    aws://${AWS_ACCOUNT_ID}/${AWS_REGION}
 ```
 
 > Note: You only need to bootstrap the AWS CDK one time (skip this step if you have already done this).
@@ -244,6 +245,7 @@ cdk bootstrap \
 4. Run the following command to deploy the code:
 
 ```bash
+npm i
 cdk deploy --requires-approval
 ```
 
