@@ -17,6 +17,6 @@ managedNodeGroups:
       withAddonPolicies:
         certManager: true
         cloudWatch: true
-    preBootstrapCommands: 
-      - 'sudo systemctl start docker'
-      - 'sudo systemctl enable docker'
+          #preBootstrapCommands: 
+          #- 'sudo systemctl start docker'
+          #- 'sudo systemctl enable docker'

@@ -3,7 +3,7 @@
         "Id": "Id4000985d-1b4b-4e14-8a45-b04103f9871b",
         "Arn": "arn:aws:ssm:$EDP_AWS_REGION::document/AWS-RunShellScript",
         "RoleArn": "arn:aws:iam::$EDP_AWS_ACCOUNT:role/$EDP_NAME-role",
-        "Input": "{\"commands\":[\"sudo su\",\"aws ecr get-login-password --region $EDP_AWS_REGION | docker login --username AWS --password-stdin $EDP_AWS_ACCOUNT.dkr.ecr.$EDP_AWS_REGION.amazonaws.com\",\"tag=$(aws ecr describe-images --repository-name $EDP_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)\",\"echo $tag\",\"docker pull $EDP_AWS_ACCOUNT.dkr.ecr.$EDP_AWS_REGION.amazonaws.com/$EDP_NAME:$tag\"]}",
+        "Input": "{\"commands\":[\"tag=$(aws ecr describe-images --repository-name $EDP_NAME --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)\",\"sudo ctr -n k8s.io images pull -u AWS:$(aws ecr get-login-password) $EDP_AWS_ACCOUNT.dkr.ecr.$EDP_AWS_REGION.amazonaws.com/$EDP_NAME:$tag\"]}",
         "RunCommandParameters": {
             "RunCommandTargets": [{
                 "Key": "tag:Name",

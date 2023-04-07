@@ -1,0 +1,14 @@
+{
+    "Targets": [{
+        "Id": "Id4000985d-1b4b-4e14-8a45-b04103f9871b",
+        "Arn": "arn:aws:ssm:us-east-2::document/AWS-RunShellScript",
+        "RoleArn": "arn:aws:iam::096198301477:role/prefetching-data-automation-role",
+        "Input": "{\"commands\":[\"tag=$(aws ecr describe-images --repository-name prefetching-data-automation --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)\",\"sudo ctr -n k8s.io images pull -u AWS:$(aws ecr get-login-password) 096198301477.dkr.ecr.us-east-2.amazonaws.com/prefetching-data-automation:$tag\"]}",
+        "RunCommandParameters": {
+            "RunCommandTargets": [{
+                "Key": "tag:Name",
+                "Values": ["prefetching-data-automation-nodegroup-Node"]
+            }]
+        }
+    }]
+}
