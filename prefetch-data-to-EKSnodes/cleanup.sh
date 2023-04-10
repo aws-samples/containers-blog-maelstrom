@@ -56,3 +56,9 @@ aws iam delete-role --role-name ${EDP_NAME}-role
 
 # Delete ECR Repo
 aws ecr delete-repository --repository-name $EDP_NAME --force
+
+# Delete Docker Image
+
+docker rmi $EDP_NAME
+docker rmi $EDP_AWS_ACCOUNT.dkr.ecr.$EDP_AWS_REGION.amazonaws.com/$EDP_NAME
+rm -rf files
