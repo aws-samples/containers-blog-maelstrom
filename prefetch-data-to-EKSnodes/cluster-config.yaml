@@ -4,7 +4,6 @@ metadata:
   name: $EDP_NAME
   region: $EDP_AWS_REGION
   version: '1.24'
-#nodeGroups:
 managedNodeGroups:
   - name: nodegroup
     instanceType: t3.medium
@@ -13,10 +12,4 @@ managedNodeGroups:
     amiFamily: AmazonLinux2
     ssh:
       enableSsm: true
-    iam:
-      withAddonPolicies:
-        certManager: true
-        cloudWatch: true
-    preBootstrapCommands: 
-      - 'sudo systemctl start docker'
-      - 'sudo systemctl enable docker'
+    

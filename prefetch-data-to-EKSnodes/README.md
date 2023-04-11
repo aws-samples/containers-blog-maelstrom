@@ -460,13 +460,13 @@ Below table shows  time it took for Pod that has been created with locally cache
 
 ## Cleanup
 
-      ```bash
-      chmod +x cleanup.sh
-      ```
+   ```bash
+   chmod +x cleanup.sh
+   ```
 
-      ```bash
-      ./cleanup.sh
-      ```
+   ```bash
+   ./cleanup.sh
+   ```
 
 ## Conclusion
 
