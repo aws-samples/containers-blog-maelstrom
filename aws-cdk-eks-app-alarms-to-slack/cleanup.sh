@@ -47,7 +47,7 @@ aws kms schedule-key-deletion --region ${CAP_CLUSTER_REGION} --key-id ${CAP_KMS_
 
 #delete metric filter
 log 'O' "deleting metric filter"
-aws logs delete-metric-filter --region ${CAP_CLUSTER_REGION} --log-group-name /aws/eks/fluentbit-cloudwatch/${CAP_CLUSTER_NAME}/workload/sample-app \ --filter-name 'Response Count by Status Code'
+aws logs delete-metric-filter --region ${CAP_CLUSTER_REGION} --log-group-name /aws/eks/fluentbit-cloudwatch/${CAP_CLUSTER_NAME}/workload/sample-app \ --filter-name 'Counts by Status Code'
 
 #delete sample application deployed
 log 'O' "deleting sample application"

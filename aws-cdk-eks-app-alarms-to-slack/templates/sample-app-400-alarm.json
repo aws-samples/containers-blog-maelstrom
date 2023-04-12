@@ -3,7 +3,7 @@
     "AlarmDescription": "Alarm from **HTTP Handler in sample-app namespace** - Error threshold breached for **HTTP status code 400**",
     "ActionsEnabled": true,
     "MetricName": "response_count",
-    "Namespace": "HTTPHandlerMetrics",
+    "Namespace": "SampleAppMetrics",
     "Statistic": "Sum",
     "Dimensions": [
         {

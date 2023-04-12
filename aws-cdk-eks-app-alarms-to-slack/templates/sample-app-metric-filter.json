@@ -1,10 +1,10 @@
 {
-    "filterName": "Response Count by Status Code",
+    "filterName": "Counts by Status Code",
     "filterPattern": "[dttm, mode, field, curlpodip, user, id, timestamp, request, statuscode>=200, size]",
     "metricTransformations": [
         {
             "metricName": "response_count",
-            "metricNamespace": "HTTPHandlerMetrics",
+            "metricNamespace": "SampleAppMetrics",
             "metricValue": "$size",
             "dimensions": {
                 "HTTPStatusCode": "$statuscode"
