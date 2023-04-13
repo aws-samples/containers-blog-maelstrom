@@ -1,56 +1,56 @@
-# Event Driven process to prefetch data to EKS Nodes using SSM Automation
+# Improve container startup time by caching images
+
+Many AWS customers use Amazon EKS to run machine learning workloads. Containerization allows machine learning engineers to package and distribute models easily, while Kubernetes helps in deploying, scaling, and improving. When working with customers that run machine learning training jobs in Kubernetes, we have seen that as the data set and model size grows, so does the container image size, which results in slow containers startup. 
+
+The slow container startup problem isn’t unique to machine learning and artificial intelligence. We have seen similar issues in build environments and data analytics workloads. The container images for these workloads include data, libraries, and dependencies. As a result, these images can vary from a few hundred MBs to tens of GBs. 
+
+When images grow beyond a few hundred MBs, it can take several minutes to start a container. The primary reason for this slowness is that the container runtime has to pull the entire container image before the container can start. Kubernetes solves this problem by caching images on nodes. But that only reduces the startup time for subsequent containers. The first image pull remains a challenge.
+
+Several community projects have attempted to tackle this issue by pre-fetching larger images. The idea is to pull the image on nodes before a Pod gets scheduled. These projects add another component that customers have to manage as they rely on DaemonSets and CronJobs to maintain a cached copy of large images. This post proposes a design that allows you to pre-pull images on nodes without managing infrastructure or Kubernetes resources. 
 
 
-## Introduction
+## EKS data plane management with AWS Systems Manager
 
-To-Do
+AWS Systems Manager (https://aws.amazon.com/systems-manager/) is a secure end-to-end management solution for AWS resources. It offers a suite of operational management tools to simplify the management of AWS resources, automate operational tasks, and streamline IT operations at scale.
 
-Benefits of Event-Driven Data Prefetching Event-driven data prefetching provides several benefits, including:
+With AWS Systems Manager, you can securely manage instances, automate patching and software installations, monitor and collect operational data, and enable remote access to instances, making it an essential tool for efficiently managing your AWS infrastructure. You can use AWS Systems Manager to customize nodes as they get created.
 
-Improved performance: By fetching data in anticipation of future requests, you can reduce the latency and improve the overall user experience.
+In this post we use AWS Systems Manager State Manager (https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-state.html) to cache container images on nodes. To keep the cache current, the solution uses an event-driven architecture to update the cache as new images get pushed to the image registry. By caching container images on nodes, we significantly reduce the container startup time. When containers get created, the container runtime doesn’t spend any time pulling the image from the container registry. As a result, horizontal scaling occurs almost immediately. 
 
-Reduced server load: By fetching data ahead of time, you can reduce the load on your servers, allowing them to handle more requests.
+## Solution  Overview
 
-Increased reliability: By automating the process of fetching data, you can reduce the risk of errors and improve the reliability of your system.
+We’ll reduce Pod startup time by caching images for a sample application before a Pod gets scheduled on the node. The solution uses Amazon EventBridge (https://aws.amazon.com/eventbridge/) and AWS Systems Manager for the automation. Whenever we push a new image to the sample application’s Amazon Elastic Container Registry (https://aws.amazon.com/ecr/) (ECR) repository, AWS Systems Manager executes commands to pull the new image on all worker nodes. 
 
-In this blog, we will demonstrate the usage of AWS Systems Manager SSM Automation and State Manager to prefetch container images to your existing and newer worker nodes of your Amazon EKS Cluster.
-
-## Solution Overview
-
-Below is the overall architecture for setting up **Event Driven process to prefetch data to EKS Nodes using SSM Automation**
+As new worker nodes start, AWS Systems Manager will run similar automation to pull the image. Below is the architecture diagram for setting up a Event Driven process to pre-fetch data to EKS Nodes using SSM Automation.
 
 ![Image](images/EDP-1.jpg)
 
 The process for implementing this solution is as follows:
 
-* The first step is to identify the image repository to fetch the container image. The container image repository could be Amazon Elastic Container Registry (Amazon ECR), DockerHub or others. For this demonstration we are using Amazon ECR as the image source.
-* Next, when a container image gets pushed to Amazon ECR, an event based rule is triggered  by Amazon EventBridge to trigger an AWS SSM automation to prefetch container images from Amazon ECR to your existing Amazon EKS worker nodes.
-* Whenever a newer worker node gets added to your Amazon EKS cluster, based on the tags on the worker node, Systems Manager State Manager Association on tags acts on to prefetch container images to newly created worker nodes.
+* The first step is to identify the image repository to fetch the container image. The container image repository could be Amazon ECR, DockerHub, or others. 
+* Next, when a container image gets pushed to Amazon ECR, an event based rule is triggered by Amazon EventBridge, which starts an AWS SSM automation to pre-fetch container images from Amazon ECR
+* Whenever a new worker node gets added to your cluster, based on the tags on the worker node, AWS Systems Manager State Manager association (https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-associations.html) pre-fetches container images to new nodes
 
-## Solution Walkthrough
-
-### Prerequisites
+## Prerequisites
 
 To run this solution, you must have the following prerequisites:
 
-* [AWS CLI version 2.10 or higher](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) to interact with AWS services
-* [eksctl](https://docs.aws.amazon.com/eks/latest/userguide/eksctl.html) for creating and managing your Amazon EKS cluster
-* [kubectl](https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html) for running kubectl commands on your Amazon EKS cluster
-* [envsubst](https://yum-info.contradodigital.com/view-package/base/gettext/) for environment variables substitution (envsubst is included in gettext package)
-* [jq](https://stedolan.github.io/jq/download/) for command-line JSON processing
+* [AWS CLI version 2.10 or higher] (https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) to interact with AWS services
+* [eksctl] (https://docs.aws.amazon.com/eks/latest/userguide/eksctl.html) for creating and managing your Amazon EKS cluster
+* [kubectl] (https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html) for running kubectl commands on your Amazon EKS cluster
+* [envsubst] (https://yum-info.contradodigital.com/view-package/base/gettext/) for environment variables substitution (envsubst is included in gettext package)
+* [jq] (https://stedolan.github.io/jq/download/) for command-line JSON processing
 
-### Source Code
+## Solution Walkthrough
 
-Checkout the source code, the source code for this blog is available in AWS-Samples on [GitHub] (https://github.com/aws-samples/containers-blog-maelstrom/tree/main/prefetch-data-to-EKSnodes)
+1. Checkout the source code, the source code for this blog is available in AWS-Samples on GitHub (https://github.com/aws-samples/containers-blog-maelstrom/tree/main/prefetch-data-to-EKSnodes).
 
-```bash
-mkdir aws-prefetch-data-to-EKSnodes && cd aws-prefetch-data-to-EKSnodes
-git clone https://github.com/aws-samples/containers-blog-maelstrom/tree/main/prefetch-data-to-EKSnodes .
-```
+      ```bash
+      git clone https://github.com/aws-samples/containers-blog-maelstrom/
+      cd containers-blog-maelstrom/prefetch-data-to-EKSnodes
+      ```
 
-### Implementation Steps
-
-1. Let’s start by setting a few environment variables.
+2. Let’s start by setting environment variables:
 
       ```bash
       export EDP_AWS_REGION=us-east-1
@@ -58,426 +58,228 @@ git clone https://github.com/aws-samples/containers-blog-maelstrom/tree/main/pre
       export EDP_NAME=prefetching-data-automation
       ```
 
-2. Create Amazon Elastic Container Registry repository.
+3. Create an Amazon EKS cluster:
 
-      ```bash 
-      aws ecr create-repository \
-         --cli-input-json file://repo.json  \
-         --repository-name ${EDP_NAME} 
-      ```
-
-3. Create an Amazon EKS Cluster using the below commands. Using envsubst utility we will be replacing the variables in the Yaml Config file and using the eksctl CLI tool will deploy the cluster.
-
-      ```bash   
+      ```bash
       envsubst < cluster-config.yaml | eksctl create cluster -f -
       ```
 
-4. Build a large docker image size of approximately 1 GB to test this solution by running below shell script.
+4. Create Amazon Elastic Container Registry repository to store the sample application’s image:
+
+      ```bash
+      aws ecr create-repository \
+          --cli-input-json file://repo.json  \
+          --repository-name ${EDP_NAME} \
+          --region $EDP_AWS_REGION
+      ```
+5. Create a large container image:
 
       ```bash
       ./build-docker-image.sh
       ```
 
-5. Create prefetching-data-automation-role with trust policy events-trust-policy.json which will be assumed by Amazon EventBridge service.
+6. Create an IAM role for Amazon EventBridge:
 
       ```bash
       aws iam create-role \
-         --role-name $EDP_NAME-role \
-         --assume-role-policy-document file://events-trust-policy.json
+          --role-name $EDP_NAME-role \
+          --assume-role-policy-document file://events-trust-policy.json
       ```
 
-6. Run the below command to replace variables in events-policy.json policy file by using envsubst utility and attach the policy to the above created 'prefetching-data-automation-role' role.
+7. Attach a policy to the role that allows Amazon EventBridge to run commands on cluster’s worker nodes using AWS Systems Manager:
 
       ```bash
       aws iam put-role-policy \
-         --role-name ${EDP_NAME}-role \
-         --policy-name ${EDP_NAME}-policy \
-         --policy-document "$(envsubst < events-policy.json)"
+          --role-name ${EDP_NAME}-role \
+          --policy-name ${EDP_NAME}-policy \
+          --policy-document "$(envsubst < events-policy.json)"
       ```
 
-7. Create Amazon EventBridge Rule to trigger SSM Run Command on successful ECR Image push, using envsubst we will be replacing the variables in the events-rule.json file.
+8. Create an Amazon EventBridge rule that looks for push events on the Amazon ECR repository:
 
       ```bash
-      envsubst < events-rule.json > events-rule-updated.json \
-      && aws events put-rule --cli-input-json file://events-rule-updated.json \
-      && rm events-rule-updated.json
+      envsubst < events-rule.json > events-rule-updated.json 
+      aws events put-rule \
+        --cli-input-json file://events-rule-updated.json \
+        --region $EDP_AWS_REGION
+      rm events-rule-updated.json
       ```
 
-8. Attach the Target as AWS Systems Manager Run Command to AWS EventBridge Rule created above, using envsubst we will be replacing the variables in the events-target.json file.
+9. Attach System Manager Run Command as the target. Whenever we push a new image to the ECR repository, Amazon EventBridge will trigger SSM run command to pull the new image on worker nodes. 
 
       ```bash
-      envsubst '$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME' < events-target.json > events-target-updated.json \
-      && aws events put-targets --rule $EDP_NAME --cli-input-json file://events-target-updated.json \
-      && rm events-target-updated.json   
+      envsubst '$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME' < events-target.json > events-target-updated.json
+      aws events put-targets --rule $EDP_NAME \
+        --cli-input-json file://events-target-updated.json \
+        --region $EDP_AWS_REGION
+      rm events-target-updated.json 
       ```
 
-9. Create AWS Systems Manager State Manager Association for new worker nodes to prefetch container images, using envsubst we will be replacing the variables in the statemanager-association.json file.
+10. Create an AWS Systems Manager State Manager (https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-associations.html) association to pre-fetch sample application’s images on new worker nodes:
 
       ```bash
-      envsubst '$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME' < statemanager-association.json > statemanager-association-updated.json \
-      && aws ssm create-association --cli-input-json file://statemanager-association-updated.json \
-      && rm statemanager-association-updated.json   
+      envsubst '$EDP_AWS_REGION $EDP_AWS_ACCOUNT $EDP_NAME' < \
+        statemanager-association.json > statemanager-association-updated.json 
+      aws ssm create-association --cli-input-json \
+        file://statemanager-association-updated.json \
+        --region $EDP_AWS_REGION
+      rm statemanager-association-updated.json
       ```
-
-      Note: Status might show failed for the AWS SSM State Manager association as there is no image present in ECR yet.
+      Note: The status of AWS SSM State Manager association will be in “failed” state until the first run. 
 
 ## Validation
 
-Now the setup is complete, let’s run some validations on the setup for Event Driven process to prefetch data to EKS Nodes.
+We have laid the groundwork for the automation. Let’s validate the setup by pushing a new image to the repository. We’ll know the automation works if worker nodes pull the image before we schedule a Pod. 
 
-### First test
+### Test image pre-fetch on existing nodes
 
-Verify if the container images are getting fetched to existing worker nodes automatically upon a container image push. 
-
-1. Run the following command to get authenticated with ECR repository.
+1. Log into the ECR repository:
 
       ```bash
-      aws ecr get-login-password --region $EDP_AWS_REGION | \
-      docker login --username AWS --password-stdin $EDP_AWS_ACCOUNT.dkr.ecr.$EDP_AWS_REGION.amazonaws.com
+      aws ecr get-login-password \
+          --region $EDP_AWS_REGION | docker login \
+          --username AWS \
+          --password-stdin $EDP_AWS_ACCOUNT.dkr.ecr.$EDP_AWS_REGION.amazonaws.com
       ```
 
-2. Push the container image created in step 4 of Implementations step to Amazon ECR
-   
+2. Push the container image we created earlier:
+
       ```bash
       docker push $EDP_AWS_ACCOUNT.dkr.ecr.$EDP_AWS_REGION.amazonaws.com/$EDP_NAME
       ```
 
-3. Check if the event rule we created on the Amazon EventBridge has been triggered. In your Amazon EventBridge console, Navigate to **TriggeredRules** under **Monitoring** tab. If there are no **FailedInvocations** 
-   datapoints, then EventBridge has delivered the event to the target successfully which in this case is AWS Systems Manager Run Command. 
+3. As we push the image to Amazon ECR, ECR publishes an event to Amazon EventBridge. As a result, the rule we previously created in Amazon EventBridge will trigger AWS Systems Manager Run Command. 
 
-      ![Image](images/EDP-2.jpg)
+    You can monitor rule invocation in the AWS Management Console. Navigate to Amazon EventBridge in AWS Management Console and switch to the *Monitoring* tab for the event. If you don’t see *FailedInvocations*, then EventBridge has delivered the event to AWS Systems Manager successfully.
 
-      Note: It might take 3 to 5 mins for the data points to be published in the Monitoring graphs.
+    ![Image](images/EDP-2.jpg)
+    
+    Note: It might take 3 to 5 mins for the data points to be published in the Monitoring graphs
 
 4. Verify if AWS Systems Manager Run Command is triggered by Amazon EventBridge. Run the below command to see the invocations. Look for DocumentName which should be AWS-RunShellScript, RequestedDateTime to identify 
    corresponding run, and then status to make sure if the Run Command executed Successfully or not.
 
       ```bash
       aws ssm list-command-invocations \
-         --details \
-         --filter "[{\"key\": \"DocumentName\", \"value\": \"arn:aws:ssm:us-east-1::document/AWS-RunShellScript\"}]"
+          --details \
+          --filter "[{\"key\": \"DocumentName\", \"value\": \"arn:aws:ssm:${EDP_AWS_REGION}::document/AWS-RunShellScript\"}]" \
+          --region $EDP_AWS_REGION
       ```
 
       **Output**
 
-      ```json
+      ```bash
       {
-            "CommandInvocations": [
-               {
+          "CommandInvocations": [
+              {
                   "CommandId": "eeb9d869-421d-488f-b1ba-ce93a69db2b0",
                   "InstanceId": "i-0e1a4977c389*****",
                   "InstanceName": "ip-192-168-29-214.ec2.internal",
                   "Comment": "",
-                  "DocumentName": "arn:aws:ssm:us-east-1::document/AWS-RunShellScript</span",
+                  "DocumentName": "arn:aws:ssm:us-east-1::document/AWS-RunShellScript",
                   "DocumentVersion": "$DEFAULT",
                   "RequestedDateTime": "2023-02-17T17:35:48.520000-06:00",
                   "Status": "Success",
                   "StatusDetails": "Success",
                   .......
                   .......
-               }
-            ]
-      }
       ```
 
-5. Verify if the Image has been copied in to worker node of your Amazon EKS Cluster using the below command.
+5. Verify that the worker node has pulled the image. We’ll SSM agent to log into the worker node:
 
       ```bash
       aws ec2 describe-instances \
-         --filters "Name=tag:eks:cluster-name,Values=$EDP_NAME" "Name=tag:eks:nodegroup-name,Values=nodegroup" \
-         --query "Reservations[*].Instances[*].InstanceId" \
-         --output text | xargs -I {} aws ssm start-session \
-         --target {} \
-         --document-name AWS-StartInteractiveCommand \
-         --parameters "command=echo \$(curl -s http://169.254.169.254/latest/meta-data/instance-id) && sudo docker images" \
-         --region $EDP_AWS_REGION
+          --filters "Name=tag:eks:cluster-name,Values=$EDP_NAME" "Name=tag:eks:nodegroup-name,Values=nodegroup" \
+          --query "Reservations[*].Instances[*].InstanceId" \
+          --output text \
+          --region $EDP_AWS_REGION | xargs -I {} aws ssm start-session \
+          --target {} \
+          --document-name AWS-StartInteractiveCommand \
+          --parameters "command=echo \$(curl -s http://169.254.169.254/latest/meta-data/instance-id) && sudo ctr -n k8s.io images ls | grep ${EDP_NAME}" \
+          --region $EDP_AWS_REGION
       ```
 
       **Output**
 
       ```bash
-      Starting session with SessionId: nbbat-0cf87cdf534*****
-      ........
-      REPOSITORY                                                                 TAG                  IMAGE ID       CREATED          SIZE 
-      0266528*****.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation   latest               d50f7ccece64   50 minutes ago   1.23GB
-      .......
+      Starting session with SessionId: i-084630900d41ea7bf-0412132f6a6ec65b0
+      i-051edb69ee3c4de4e
+      0123456789.dkr.ecr.us-east-2.amazonaws.com/prefetching-data-automation:latest  application/vnd.docker.distribution.manifest.v2+json    sha256:eb0703bef7c8312b517495a9f2d0cc41384b6fdd66b2dc10d266e0032613fb63 1.1 GiB   linux/amd64   io.cri-containerd.image=managed
       ```
 
-### Second Test  
+      Note: If you receive Cannot perform start session: EOF error, try to rerun the command. This error is caused by an issue with Amazon Systems Manager SSM agent (https://github.com/aws/amazon-ssm-agent/issues/354).
 
-Validate the container image getting copied to new worker node for any newly added Amazon EKS worker node.
+### Test image pre-fetch on new nodes
 
-1. Lets create new worker node as part of EKS Cluster using below command.
+We have verified that existing nodes are pulling new image as soon as a new version gets pushed. Let’s validate that the automation also pulls the latest version of image (not to be confused with the $latest tag) on any new nodes that join the cluster. 
+
+1. To test the process, let’s create a new node by increasing the size of the existing node group:
 
       ```bash
       eksctl scale nodegroup \
-         --cluster $EDP_NAME \
-         --name nodegroup \
-         --nodes 2 \
-         --nodes-min 1\
-         --nodes-max 3
+        --cluster $EDP_NAME \
+        --name nodegroup \
+        --nodes 2 \
+        --nodes-min 1 \
+        --nodes-max 3 \
+        --region $EDP_AWS_REGION
       ```
 
-2. Verify if the AWS System Manager State Manager Association has been triggered and association execution is successful. 
-
-      ```bash
-      aws ssm list-associations \
-         --association-filter-list "key=AssociationName,value=$EDP_NAME"
-      ```
-
-      Note: Please wait for for few minutes for new worker node to come up and run above command
-
-      **Output**
-
-      ```json
-      {
-         "Associations": [
-            {
-                  "Name": "AWS-RunShellScript",
-                  "AssociationId": "d9c82d84-0ceb-4f0f-a8d8-35cd67d1a66e",
-      ......
-                     "AssociationStatusAggregatedCount": {
-                        "Failed": 1,
-                        "Success": 1
-                     }
-            },
-                  "AssociationName": "prefetching-data-automation"
-      ]
-      }
-      ```
-
-3. Verify if the Image has been copied in to worker node of your Amazon EKS Cluster using the below command.
+2. Once the new node becomes available, verify if the image has been cached on it:
 
       ```bash
       aws ec2 describe-instances \
-         --filters "Name=tag:eks:cluster-name,Values=$EDP_NAME" "Name=tag:eks:nodegroup-name,Values=nodegroup" \
-         --query "Reservations[*].Instances[*].InstanceId" \
-         --output text | xargs -I {} aws ssm start-session \
-         --target {} \
-         --document-name AWS-StartInteractiveCommand \
-         --parameters "command=echo \$(curl -s http://169.254.169.254/latest/meta-data/instance-id) && sudo docker images" \
-         --region $EDP_AWS_REGION
+          --filters "Name=tag:eks:cluster-name,Values=$EDP_NAME" "Name=tag:eks:nodegroup-name,Values=nodegroup" \
+          --query "Reservations[*].Instances[*].InstanceId" \
+          --output text \
+          --region $EDP_AWS_REGION | xargs -I {} aws ssm start-session \
+          --target {} \
+          --document-name AWS-StartInteractiveCommand \
+          --parameters "command=echo \$(curl -s http://169.254.169.254/latest/meta-data/instance-id) && sudo ctr -n k8s.io images ls | grep ${EDP_NAME}" \
+          --region $EDP_AWS_REGION
       ```
 
       **Output**
 
       ```bash
-      Starting session with SessionId: nbbat-0cf87cdf5347*****
-      ........
-      REPOSITORY                                                                 TAG                  IMAGE ID       CREATED          SIZE
-      0266528*****.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation   latest               d50f7ccece64   50 minutes ago   1.23GB
-      .......
+      Starting session with SessionId: i-084630900d41ea7bf-0412132f6a6ec65b0
+      i-051edb69ee3c4df2f
+      0123456789.dkr.ecr.us-east-2.amazonaws.com/prefetching-data-automation:latest    application/vnd.docker.distribution.manifest.v2+json    sha256:eb0703bef7c8312b517495a9f2d0cc41384b6fdd66b2dc10d266e0032613fb63 1.1 GiB   linux/amd64   io.cri-containerd.image=managed
       ```
 
+### Container startup improvement
 
-### Final Test
+By pre-fetching the image, we have reduced container startup time significantly. When a node doesn’t have a cached copy of the image, it has to download the entire image before the container can start. 
 
-Lets identify the time difference for a Kubernetes pod to get in to running state with a Container Image pulled from Amazon ECR vs Image pulled locally
+As an example, it takes sixty seconds to start a container using the 1 GB test image we’ve used in this post. The same container starts in one second when the node has a cached copy of the image. 
 
-#### Final Test A
+![Image](images/EDP-3.jpg)
 
-1. Delete the locally cached/copied image from one of the worker nodes using the following commands.
+## Design considerations
 
-      Grab the Instance ID
+The solution is design to cache images but it doesn’t clean old images. It relies on Kubelet’s garbage collection (https://kubernetes.io/docs/concepts/architecture/garbage-collection/) to remove unused images. The kubelet automatically removes unused images when the root volume on a nodes is nearing 
 
-      ```bash
-      InstanceID=$(kubectl get nodes -o jsonpath='{.items[*].spec.providerID}' | awk -F/ '{print $NF}')
-      ```
+Pre-fetching images can fill node’s local storage. Limit the number of images you cache to avoid running into storage capacity issues. 
 
-2. SSH in to the Instance.
-
-      ```bash
-      aws ssm start-session \
-         --target $InstanceID \
-         --region $EDP_AWS_REGION
-      ```
-
-3. List the locally cached image that you pushed in one of the above step.
-
-      ```bash
-      sudo su
-      ```
-
-      ```bash
-      IMAGE_ID=$(docker images | awk 'NR==2{print $3}')
-      ```
-
-4. Delete the locally cached image.
-
-      ```bash
-      docker rmi $IMAGE_ID
-      ```
-
-      Exit out of root and exit out of the SSM session
-
-5. Pull the latest container image and create a Kubernetes Pod.
-
-      ```bash
-      sh pod.sh
-      ```
-
-      ```bash
-      kubectl apply -f pod.yaml
-      ```
-
-6. Run below command to check how long it took for pod to get in to running state.
-
-      ```bash
-      kubectl describe pod $EDP_NAME
-      ```
-
-      **Output**
-
-      ```bash
-      nbbathul@88665a1f8bb5 EDP_Working % kubectl describe pod prefetching-data-automation
-      Name:         prefetching-data-automation
-      Namespace:    default
-      Priority:     0
-      Node:         ip-192-168-19-136.ec2.internal/192.168.19.136
-      Start Time:   Thu, 09 Mar 2023 23:03:52 -0600
-      Labels:       <none>
-      Annotations:  kubernetes.io/psp: eks.privileged
-      Status:       Running
-      IP:           192.168.23.89
-      IPs:
-      IP:  192.168.23.89
-      Containers:
-      prefetching-data-automation:  
-         Container ID:  containerd://29579b61aaca8597bade857458e95b669ab7fca142c1e8f733cfec07d15d9d4d
-         Image:         022435809194.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation:latest
-         Image ID:      022435809194.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation@sha256:d7a93473bd682ed53acbaba18405532e6c1026c35b7d04ffc96ad89d2221736c
-         Port:          <none>
-         Host Port:     <none>
-         Command:
-         sleep
-         3600 
-         State:          Running
-         Started:      Thu, 09 Mar 2023 23:04:52 -0600
-         Ready:          True
-         Restart Count:  0
-         Environment:    <none>
-      ```
-
-      Notice time difference between Start Time and Started Time
-
-
-7. Also validate time taken by pod to get in to running state by running below commands.
-
-      ```bash
-      chmod +x get-pod-boot-time.sh
-      ```
-
-      ```bash
-      for pod in $(kubectl get --no-headers=true pods -o name | awk -F "/" '{print $2}'); do ./get-pod-boot-time.sh $pod ; done \
-      >> pod-up-time-with-image-from-ecr.txt
-      ```
-
-      ```bash
-      cat pod-up-time-with-image-from-ecr.txt
-      ```
-      
-      **Output**
-
-      ```bash
-      It took approximately 60 seconds for pod get in to running state
-      ```
-
-
-#### Final Test B
-
-1. Delete the Kubernetes Pod, create another pod by using sample pod definition file created above and calculate the time pod take to get to running state, since the image is cached locally this time it shouldn’t take 
-    long to start the pod.
-
-      ```bash
-      kubectl delete pod $EDP_NAME
-      ```
-
-      ```bash
-      kubectl apply -f pod.yaml
-      ```
-
-2. Run below command to check how long it took for pod to get in to running state.
-
-      ```bash
-      kubectl describe pod $EDP_NAME
-      ```
-
-      **Output**
-
-      ```bash
-      nbbathul@88665a1f8bb5 EDP_Working % kubectl describe pod prefetching-data-automation
-      Name:         prefetching-data-automation
-      Namespace:    default
-      Priority:     0
-      Node:         ip-192-168-19-136.ec2.internal/192.168.19.136
-      Start Time:   Thu, 09 Mar 2023 23:20:05 -0600
-      Labels:       <none>
-      Annotations:  kubernetes.io/psp: eks.privileged
-      Status:       Running
-      IP:           192.168.10.39
-      IPs:
-      IP:  192.168.10.39
-      Containers:
-      prefetching-data-automation:
-      Container ID:  containerd://fc06a2c5f5ee7734b2a9c4fd893acd1aca7c314ba035b6a01fa9954ae48a69fb
-      Image:         022435809194.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation:latest
-      Image ID:      022435809194.dkr.ecr.us-east-1.amazonaws.com/prefetching-data-automation@sha256:d7a93473bd682ed53acbaba18405532e6c1026c35b7d04ffc96ad89d2221736c
-      Port:          <none>
-      Host Port:     <none>
-      Command:
-         sleep
-         3600
-      State:          Running
-         Started:      Thu, 09 Mar 2023 23:20:06 -0600
-      Ready:          True
-      Restart Count:  0
-      Environment:    <none>
-      ```
-
-      Notice time difference between Start Time and Started Time
-
-
-3. Also validate time take by pod to get in to running state by running below commands.
-
-      ```bash
-      for pod in $(kubectl get --no-headers=true pods -o name | awk -F "/" '{print $2}'); do ./get-pod-boot-time.sh $pod ; done \
-      >> pod-up-time-with-image-from-workernode.txt
-      ```
-
-      ```bash
-      cat pod-up-time-with-image-from-workernode.txt
-      ```
-
-      **Output**
-
-      ```bash
-      It took 1 second for pod to get in to running state
-      ```
-
-
-Below table shows  time it took for Pod that has been created with locally cached image is drastically less when compared to Pod that has been created with image that got pulled from ECR repository.
-
-| Entity           | Final Test A (Created Pod by pulling image from ECR repo) | Final Test B (Created Pod by pulling locally cached Image) |
-|------------------|-----------------------------------------------------------|------------------------------------------------------------|
-| Pod Start Time   | 23:03:52 -0600                                            | 23:20:05 -0600                                             |
-| Pod Running Time | 23:04:52 -0600                                            | 23:20:06 -0600                                             |
-| Total Time Taken | 60 Seconds                                                | 1 Second                                                   |
+This solution also assumes that the image pull occurs before a Pod gets scheduled on the node. If the Pod is scheduled before the image is cached, the node will have to pull the image from the container registry, thus rendering this technique ineffective. Customers can use overprovisioning (https://aws.github.io/aws-eks-best-practices/cluster-autoscaling/#overprovisioning) to ensure that the automation runs before a Pod gets scheduled on new  nodes. 
 
 ## Cleanup
 
-   ```bash
-   chmod +x cleanup.sh
-   ```
+You continue to incur cost until deleting the infrastructure that you created for this post. Use the commands below to delete resources created during this post:
 
-   ```bash
-   ./cleanup.sh
-   ```
+./cleanup.sh
+
+## Lazy loading container images
+
+Lazy loading is an approach where data is downloaded from the registry in parallel with the application startup. Seekable OCI (SOCI) (https://github.com/awslabs/soci-snapshotter) is a technology open sourced by AWS that enables containers to launch faster by lazily loading the container image. 
+
+To use lazy loading, customers have to build a SOCI index of the container image, which adds an additional step to the container build process. Customers that have control over their build process can also consider using SOCI to improve container start up time
 
 ## Conclusion
 
-In this blog, we demonstrated the usage of AWS Systems Manager SSM Automation and State Manager to prefetch container images to your existing and newer worker nodes of your Amazon EKS Cluster. We clearly demonstrated a clear differentiation in run times when your container images are prefetched to worker nodes. This solution will be very effective for run machine learning, analytics and other complex containerized workloads having large container images which otherwise needs lot of time to cache locally.
+By utilizing AWS Systems Manager SSM to pre-fetch container images on worker nodes in your Amazon EKS Cluster, you can significantly reduce Pod startup times, even for large images, down to a few seconds. This technique can greatly benefit customers running workloads such as machine learning, simulation, data analytics, and code builds, improving container startup performance and overall workload efficiency. By eliminating the need for additional management of infrastructure or Kubernetes resources, this approach offers a cost-efficient and serverless solution for addressing the slow container startup problem in Kubernetes-based environments.
 
-For more information, see the following references:
+## Authors
 
 ![Ela](images/Ela.jpg)
 
@@ -485,20 +287,16 @@ For more information, see the following references:
 
 Elamaran (Ela) Shanmugam is a Sr. Container Specialist Solutions Architect with Amazon Web Services. Ela is a Container, Observability and Multi-Account Architecture SME and helps AWS partners and customers to design and build scalable, secure and optimized container workloads on AWS. His passion is building and automating Infrastructure to allow customers to focus more on their business. He is based out of Tampa, Florida and you can reach him on twitter @IamElaShan
 
+
 ![Re](images/Re.jpg)
 
 ### Re Alvarez Parmar
 
 In his role as Containers Specialist Solutions Architect at Amazon Web Services. Re advises engineering teams with modernizing and building distributed services in the cloud. Prior to joining AWS, he spent over 15 years as Enterprise and Software Architect. He is based out of Seattle. You can connect with him on LinkedIn linkedin.com/in/realvarez/
 
+
 ![Re](images/Naveen.jpeg)
 
 ### Naveen Kumar Bathula
 
 Naveen Bathula is a Partners Solutions Architect with Amazon Web Services. Naveen works with Systems Integrator Partners, being their primary contact for technical questions related to AWS services and solutions and providing best practice guidance to operate on AWS Cloud. Prior to joining AWS, he spent over 5 years as DevOPs Engineer. He is based out of Dallas, TX. You can connect with him on Linkedin linkedin.com/in/naveen-bathula
-
-
-
-
-
-
