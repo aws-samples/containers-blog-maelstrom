@@ -27,7 +27,10 @@ log() {
                 ;;
             P)
                 echo -e "\033[0;35m${2}\033[0m" # Purple text
-                ;;                                                           
+                ;;
+            G-H)
+                echo -e "\e[37;42m${2}\e[0m" # Green highlighted text
+                ;;                
             *)
                 echo -e "\033[0;33m${2}\033[0m" # Orange text
                 ;;
