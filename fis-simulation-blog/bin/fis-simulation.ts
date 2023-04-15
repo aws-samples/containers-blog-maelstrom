@@ -8,7 +8,7 @@ const app = new cdk.App();
 
 const account = process.env.FIS_ACCOUNT_ID! || process.env.CDK_DEFAULT_ACCOUNT!;
 const region = process.env.FIS_AWS_REGION! || process.env.CDK_DEFAULT_REGION!;
-const clusterName = process.env.FIS_CLUSTER_NAME! || 'grafana-operator-cluster';
+const clusterName = process.env.FIS_CLUSTER_NAME! || 'fis-simulation-cluster';
 
 const addOns: Array<blueprints.ClusterAddOn> = [
     new blueprints.addons.AwsLoadBalancerControllerAddOn(),
