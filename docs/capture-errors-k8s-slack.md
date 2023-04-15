@@ -47,8 +47,7 @@ export CAP_FUNCTION_NAME="cloudwatch-to-slack"
 Clone the sample repository which contains the code for our solution :
 
 ```
-~~git clone https~~~~:~~~~//github.com/aws-samples/containers-blog-maelstrom.git~~
-git clone -b eks-app-alarm-to-slack https://github.com/iamprakkie/containers-blog-maelstrom.git
+git clone https://github.com/aws-samples/containers-blog-maelstrom.git
 cd ./containers-blog-maelstrom/aws-cdk-eks-app-alarms-to-slack
 ```
 
