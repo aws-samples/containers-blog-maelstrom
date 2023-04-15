@@ -1,0 +1,10 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: grafana-repo
+  namespace: flux-system
+spec:
+  interval: 5m0s
+  url: https://github.com/aws-samples/containers-blog-maelstrom
+  ref:
+    branch: main
