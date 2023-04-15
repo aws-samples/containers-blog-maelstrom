@@ -9,3 +9,4 @@ kms-key-policy.json
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+bkp/
