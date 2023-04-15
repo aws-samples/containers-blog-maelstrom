@@ -16,8 +16,8 @@ spec:
       'timeInterval': "5s"
       "sigV4Auth": true,
       "sigV4AuthType": "ec2_iam_role"
-      "sigV4Region": "YOUR_AWS_REGION"
+      "sigV4Region": ${AMG_AWS_REGION}
       "customMetricsNamespaces": "ContainerInsights/Prometheus"
-      "defaultRegion": "YOUR_AWS_REGION"
+      "defaultRegion": ${AMG_AWS_REGION}
       "provisionedBy": "aws-datasource-provisioner-app"
     editable: true
