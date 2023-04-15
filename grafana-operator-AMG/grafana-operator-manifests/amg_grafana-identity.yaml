@@ -6,7 +6,7 @@ metadata:
     dashboards: "external-grafana"
 spec:
   external:
-    url: ""
+    url: ${AMG_ENDPOINT_URL}
     apiKey:
       name: grafana-admin-credentials
       key: GF_SECURITY_ADMIN_APIKEY

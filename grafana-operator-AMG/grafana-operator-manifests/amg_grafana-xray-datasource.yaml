@@ -13,6 +13,6 @@ spec:
     isDefault: false
     jsonData:
       "authType": "ec2_iam_role"
-      "defaultRegion": "YOUR_AWS_REGION"
+      "defaultRegion": ${AMG_AWS_REGION}
       "provisionedBy": "aws-datasource-provisioner-app"
     editable: true
