@@ -48,8 +48,20 @@ else
 fi
 
 #generate EncryptedURL
+KMS_KEY_ALIAS="alias/${CAP_FUNCTION_NAME}-key"
 
-CAP_KMS_KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id alias/${CAP_FUNCTION_NAME}-key --query KeyMetadata.KeyId --output text)
+KMS_KEY_CHECK=$(aws kms list-aliases --region ${CAP_CLUSTER_REGION} --query "length(Aliases[?AliasName=='${KMS_KEY_ALIAS}'].AliasName)")
+
+if [[ $KMS_KEY_CHECK -eq 0 ]]
+then
+    log 'O' "Creating KMS Key with alias ${KMS_KEY_ALIAS}."
+    CAP_KMS_KEY_ID=$(aws kms create-key --region ${CAP_CLUSTER_REGION} --description "Encryption Key for lambda function ${CAP_FUNCTION_NAME}" --key-spec SYMMETRIC_DEFAULT --key-usage ENCRYPT_DECRYPT --query KeyMetadata.KeyId --output text)
+    aws kms create-alias --region ${CAP_CLUSTER_REGION} --alias-name ${KMS_KEY_ALIAS} --target-key-id $CAP_KMS_KEY_ID
+else
+    log 'O' "Using existing KMS Key with alias ${KMS_KEY_ALIAS}."
+fi
+
+CAP_KMS_KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id ${KMS_KEY_ALIAS} --query KeyMetadata.KeyId --output text)
 EncryptedURL=$(aws kms encrypt --region ${CAP_CLUSTER_REGION} --key-id ${CAP_KMS_KEY_ID} --plaintext `echo ${webhookURL} | base64 -w 0` --query CiphertextBlob --output text --encryption-context LambdaFunctionName=${CAP_FUNCTION_NAME})
 #to verify decryption
 #aws kms decrypt --region ${CAP_CLUSTER_REGION} --ciphertext-blob ${EncryptedURL} --output text --query Plaintext --encryption-context LambdaFunctionName=${CAP_FUNCTION_NAME} | base64 -d

@@ -152,18 +152,7 @@ Slack allows you to send messages from other applications using incoming webhook
 
 #### **Create a KMS Key**
 
-In order to increase security posture of incoming webhook URL, we will now encrypt it using [AWS KMS keys](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#kms_keys). Create KMS Key and key alias using below mentioned commands:
-
-```
-CAP_KMS_KEY_ID=$(aws kms create-key --region ${CAP_CLUSTER_REGION} \
---description "Encryption Key for lambda function ${CAP_FUNCTION_NAME}" \
---key-spec SYMMETRIC_DEFAULT --key-usage ENCRYPT_DECRYPT \
---query KeyMetadata.KeyId --output text)
-
-aws kms create-alias --region ${CAP_CLUSTER_REGION} \
---alias-name alias/${CAP_FUNCTION_NAME}-key --target-key-id $CAP_KMS_KEY_ID
-
-```
+In order to increase security posture of incoming webhook URL, we will encrypt incoming webhook URL using [AWS KMS keys](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#kms_keys). We will create KMS Key with alias `alias/${CAP_FUNCTION_NAME}-key` as part of script `deploy-sam-app.sh`.
 
 #### **Create an Amazon Lambda function**
 
@@ -221,7 +210,7 @@ aws cloudwatch put-metric-alarm --region ${CAP_CLUSTER_REGION} \
   --alarm-actions ${SNS_TOPIC} \
   --cli-input-json file://templates/sample-app-400-alarm.json
 
-aws cloudwatch describe-alarms --region ${CAP_CLUSTER_REGION} \ 
+aws cloudwatch describe-alarms --region ${CAP_CLUSTER_REGION} \
   --alarm-names "400 errors from sample app"
 ```
 
