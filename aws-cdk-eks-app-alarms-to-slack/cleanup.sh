@@ -83,7 +83,7 @@ log 'O' "deleting log groups"
 aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/containerinsights/${CAP_CLUSTER_NAME}/prometheus
 aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/lambda/${CAP_FUNCTION_NAME}
 
-for logGroupName in $(aws logs describe-log-groups --region us-west-2 --query 'logGroups[?starts_with(logGroupName,`/aws/eks/fluentbit-cloudwatch/demo-cluster/workload`)].logGroupName' --output text); do
+for logGroupName in $(aws logs describe-log-groups --region ${CAP_CLUSTER_REGION} --query 'logGroups[?starts_with(logGroupName,`/aws/eks/fluentbit-cloudwatch/demo-cluster/workload`)].logGroupName' --output text); do
     aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name $logGroupName
 done
 
