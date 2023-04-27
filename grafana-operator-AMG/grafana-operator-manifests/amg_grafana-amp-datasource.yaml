@@ -2,6 +2,7 @@ apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDatasource
 metadata:
   name: grafanadatasource-sample-amp
+  namespace: grafana-operator
 spec:
   instanceSelector:
     matchLabels:
