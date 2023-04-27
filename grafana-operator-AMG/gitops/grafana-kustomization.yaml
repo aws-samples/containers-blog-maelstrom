@@ -12,5 +12,5 @@ spec:
     name: grafana-repo
   postBuild:  <===
     substituteFrom:
-      - kind: ConfigMap
-        name: cluster-vars
+      kind: ConfigMap
+      name: cluster-vars
