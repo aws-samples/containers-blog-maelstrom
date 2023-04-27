@@ -10,7 +10,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: grafana-repo
-  postBuild:  <===
+  postBuild: 
     substituteFrom:
-      kind: ConfigMap
-      name: cluster-vars
+      - kind: ConfigMap
+        name: cluster-vars
