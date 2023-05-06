@@ -1,0 +1,589 @@
+# Experimental deployment of retail store sample for testing TAH
+# Usage: Generate manifest using your region via AWS_REGION=<replace-to-your-region> awk -i inplace '{ gsub(/{{region}}/,ENVIRON["AWS_REGION"]); print $0 }' experiment.yaml
+# kubectl apply --server-side -f experiment.yaml
+# Be sure to delete simple version before apply this! kubectl delete -f simple.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/created-by: retail-store-sample
+    app.kubernetes.io/type: app
+    topology.kubernetes.io/zone: {{region}}a
+  name: catalog-a
+  namespace: catalog
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: service
+      app.kubernetes.io/instance: catalog
+      app.kubernetes.io/name: catalog
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: opentelemetry/default-instrumentation
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/component: service
+        app.kubernetes.io/created-by: retail-store-sample
+        app.kubernetes.io/instance: catalog
+        app.kubernetes.io/name: catalog
+        topology.kubernetes.io/zone: {{region}}a
+    spec:
+      nodeSelector:
+        topology.kubernetes.io/zone: {{region}}a
+      containers:
+      - env:
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: DB_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: endpoint
+              name: catalog-db
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: catalog-db
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: catalog-db
+        - name: DB_READ_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: endpoint
+              name: catalog-db
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              key: name
+              name: catalog-db
+        envFrom:
+        - configMapRef:
+            name: catalog
+        image: public.ecr.aws/aws-containers/retail-store-sample-catalog:0.2.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 3
+        name: catalog
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          periodSeconds: 5
+          successThreshold: 3
+        resources:
+          limits:
+            memory: 256Mi
+          requests:
+            cpu: 128m
+            memory: 256Mi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp-volume
+      securityContext:
+        fsGroup: 1000
+      serviceAccountName: catalog
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: tmp-volume
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/created-by: retail-store-sample
+    app.kubernetes.io/type: app
+    topology.kubernetes.io/zone: {{region}}b
+  name: catalog-b
+  namespace: catalog
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: service
+      app.kubernetes.io/instance: catalog
+      app.kubernetes.io/name: catalog
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: opentelemetry/default-instrumentation
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/component: service
+        app.kubernetes.io/created-by: retail-store-sample
+        app.kubernetes.io/instance: catalog
+        app.kubernetes.io/name: catalog
+        topology.kubernetes.io/zone: {{region}}b
+    spec:
+      nodeSelector:
+        topology.kubernetes.io/zone: {{region}}b
+      containers:
+      - env:
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: DB_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: endpoint
+              name: catalog-db
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: catalog-db
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: catalog-db
+        - name: DB_READ_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: endpoint
+              name: catalog-db
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              key: name
+              name: catalog-db
+        envFrom:
+        - configMapRef:
+            name: catalog
+        image: public.ecr.aws/aws-containers/retail-store-sample-catalog:0.2.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 3
+        name: catalog
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          periodSeconds: 5
+          successThreshold: 3
+        resources:
+          limits:
+            memory: 256Mi
+          requests:
+            cpu: 128m
+            memory: 256Mi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp-volume
+      securityContext:
+        fsGroup: 1000
+      serviceAccountName: catalog
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: tmp-volume
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/created-by: retail-store-sample
+    app.kubernetes.io/type: app
+    topology.kubernetes.io/zone: {{region}}c
+  name: catalog-c
+  namespace: catalog
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: service
+      app.kubernetes.io/instance: catalog
+      app.kubernetes.io/name: catalog
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: opentelemetry/default-instrumentation
+        prometheus.io/path: /metrics
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/component: service
+        app.kubernetes.io/created-by: retail-store-sample
+        app.kubernetes.io/instance: catalog
+        app.kubernetes.io/name: catalog
+        topology.kubernetes.io/zone: {{region}}c
+    spec:
+      nodeSelector:
+        topology.kubernetes.io/zone: {{region}}c
+      containers:
+      - env:
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: DB_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: endpoint
+              name: catalog-db
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: catalog-db
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: catalog-db
+        - name: DB_READ_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              key: endpoint
+              name: catalog-db
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              key: name
+              name: catalog-db
+        envFrom:
+        - configMapRef:
+            name: catalog
+        image: public.ecr.aws/aws-containers/retail-store-sample-catalog:0.2.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 3
+        name: catalog
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          periodSeconds: 5
+          successThreshold: 3
+        resources:
+          limits:
+            memory: 256Mi
+          requests:
+            cpu: 128m
+            memory: 256Mi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp-volume
+      securityContext:
+        fsGroup: 1000
+      serviceAccountName: catalog
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: tmp-volume
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/created-by: retail-store-sample
+    app.kubernetes.io/type: app
+    topology.kubernetes.io/zone: {{region}}a
+  name: ui-a
+  namespace: ui
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: service
+      app.kubernetes.io/instance: ui
+      app.kubernetes.io/name: ui
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: opentelemetry/default-instrumentation
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/component: service
+        app.kubernetes.io/created-by: retail-store-sample
+        app.kubernetes.io/instance: ui
+        app.kubernetes.io/name: ui
+        topology.kubernetes.io/zone: {{region}}a
+    spec:
+      nodeSelector:
+        topology.kubernetes.io/zone: {{region}}a
+      containers:
+      - env:
+        - name: ENDPOINTS_HTTP_KEEPALIVE
+          value: "false"
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: JAVA_OPTS
+          value: -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/urandom
+        envFrom:
+        - configMapRef:
+            name: ui
+        image: public.ecr.aws/aws-containers/retail-store-sample-ui:0.2.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 45
+          periodSeconds: 20
+        name: ui
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 128m
+            memory: 512Mi
+        securityContext:
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp-volume
+      securityContext:
+        fsGroup: 1000
+      serviceAccountName: ui
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: tmp-volume
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/created-by: retail-store-sample
+    app.kubernetes.io/type: app
+    topology.kubernetes.io/zone: {{region}}b
+  name: ui-b
+  namespace: ui
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: service
+      app.kubernetes.io/instance: ui
+      app.kubernetes.io/name: ui
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: opentelemetry/default-instrumentation
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/component: service
+        app.kubernetes.io/created-by: retail-store-sample
+        app.kubernetes.io/instance: ui
+        app.kubernetes.io/name: ui
+        topology.kubernetes.io/zone: {{region}}b
+    spec:
+      nodeSelector:
+        topology.kubernetes.io/zone: {{region}}b
+      containers:
+      - env:
+        - name: ENDPOINTS_HTTP_KEEPALIVE
+          value: "false"
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: JAVA_OPTS
+          value: -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/urandom
+        envFrom:
+        - configMapRef:
+            name: ui
+        image: public.ecr.aws/aws-containers/retail-store-sample-ui:0.2.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 45
+          periodSeconds: 20
+        name: ui
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 128m
+            memory: 512Mi
+        securityContext:
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp-volume
+      securityContext:
+        fsGroup: 1000
+      serviceAccountName: ui
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: tmp-volume
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/created-by: retail-store-sample
+    app.kubernetes.io/type: app
+    topology.kubernetes.io/zone: {{region}}c
+  name: ui-c
+  namespace: ui
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: service
+      app.kubernetes.io/instance: ui
+      app.kubernetes.io/name: ui
+  template:
+    metadata:
+      annotations:
+        instrumentation.opentelemetry.io/inject-sdk: opentelemetry/default-instrumentation
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/component: service
+        app.kubernetes.io/created-by: retail-store-sample
+        app.kubernetes.io/instance: ui
+        app.kubernetes.io/name: ui
+        topology.kubernetes.io/zone: {{region}}c
+    spec:
+      nodeSelector:
+        topology.kubernetes.io/zone: {{region}}c
+      containers:
+      - env:
+        - name: ENDPOINTS_HTTP_KEEPALIVE
+          value: "false"
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: JAVA_OPTS
+          value: -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/urandom
+        envFrom:
+        - configMapRef:
+            name: ui
+        image: public.ecr.aws/aws-containers/retail-store-sample-ui:0.2.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 45
+          periodSeconds: 20
+        name: ui
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 128m
+            memory: 512Mi
+        securityContext:
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp-volume
+      securityContext:
+        fsGroup: 1000
+      serviceAccountName: ui
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: tmp-volume
