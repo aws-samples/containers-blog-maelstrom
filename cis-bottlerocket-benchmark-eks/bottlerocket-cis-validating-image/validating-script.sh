@@ -34,8 +34,17 @@ else
 fi
 
 RECOMMENDATION="1.3.1 Ensure dm-verity is configured (Automated)"
-verity_on=$(grep -Fw "dm-mod.create=root,,,ro,0" /proc/cmdline | awk '{print $20}')
-restart_on_corrupt=$(grep -Fw "dm-mod.create=root,,,ro,0" /proc/cmdline | awk '{print $31}')
+
+verity_check=$(grep -Fw "dm-mod.create=root,,,ro,0" /proc/cmdline)
+
+if [[ $verity_check == *"verity 1"* ]]; then
+    verity_on="1"
+fi
+
+if [[ $verity_check == *"restart_on_corruption"* ]]; then
+    restart_on_corrupt="restart_on_corruption"
+fi
+
 
 if [[ $verity_on == "1" ]] && [[ $restart_on_corrupt == "restart_on_corruption" ]];
 then
