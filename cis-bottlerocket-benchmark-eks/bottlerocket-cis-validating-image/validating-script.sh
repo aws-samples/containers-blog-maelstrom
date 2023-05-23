@@ -6,6 +6,7 @@
 
 echo "This tool validates the Amazon EKS optimized AMI against CIS Bottlerocket Benchmark v1.0.0"
 
+
 Num_Of_Checks_Passed=0
 Total_Num_Of_Checks=26
 
@@ -24,7 +25,7 @@ function checkSysctlConfig()
 RECOMMENDATION="1.1.1.1 Ensure mounting of udf filesystems is disabled (Automated)"
 mod_check=$(lsmod | grep udf)
 
-if [[ $mod_check == "" ]];
+if [[  -z "$mod_check" ]];
 then
     >&2 echo "[PASS] $RECOMMENDATION"
     Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
@@ -135,7 +136,7 @@ fi
 RECOMMENDATION="2.1.1.1 Ensure chrony is configured (Automated)"
 chrony=$(chroot /.bottlerocket/rootfs pgrep chronyd)
 
-if [[ $chrony != "" ]];
+if [[ -n "$chrony" ]];
 then
     echo "[PASS] $RECOMMENDATION"
     Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
@@ -251,7 +252,7 @@ fi
 RECOMMENDATION="3.3.1 Ensure SCTP is disabled (Automated)"
 mod_check=$(lsmod | grep sctp)
 
-if [[ $mod_check == "" ]];
+if [[ -z "$mod_check" ]];
 then
     >&2 echo "[PASS] $RECOMMENDATION"
     Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
@@ -281,13 +282,29 @@ fi
 
 RECOMMENDATION="3.4.1.2 Ensure IPv4 loopback traffic is configured (Automated)"
 InputAccept=$(iptables -L INPUT -v -n | grep "ACCEPT     all" | awk '{print $8}')
+if [[ -z "$InputAccept" ]];
+then
+    InputAccept=$(iptables -L INPUT -v -n | grep "ACCEPT     0" | awk '{print $8}')
+fi
 #echo $InputAccept
 
+
+
 InputDrop=$(iptables -L INPUT -v -n | grep "DROP       all" | awk '{print $8}')
+if [[ -z "$InputDrop" ]];
+then
+    InputDrop=$(iptables -L INPUT -v -n | grep "DROP       0" | awk '{print $8}')
+fi
 #echo $InputDrop
 
+
 OutputAccept=$(iptables -L OUTPUT -v -n | grep "ACCEPT     all" | awk '{print $8}')
+if [[ -z "$OutputAccept" ]];
+then
+    OutputAccept=$(iptables -L INPUT -v -n | grep "ACCEPT     0" | awk '{print $8}')
+fi
 #echo $OutputAccept
+
 
 if [[ $InputAccept == "0.0.0.0/0" ]] && [[ $InputDrop == "127.0.0.0/8" ]] && [[ $OutputAccept == "0.0.0.0/0" ]];
 then
@@ -300,21 +317,45 @@ fi
 
 RECOMMENDATION="3.4.1.3 Ensure IPv4 outbound and established connections are configured (Manual)"
 InputTCP=$(iptables -L INPUT -v -n | grep "ACCEPT     tcp" | grep state | awk '{print $11}')
+if [[ -z "$InputTCP" ]];
+then
+    InputTCP=$(iptables -L INPUT -v -n | grep "ACCEPT     6" | grep state | awk '{print $11}')
+fi
 #echo $InputTCP
 
 InputUDP=$(iptables -L INPUT -v -n | grep "ACCEPT     udp" | awk '{print $11}')
+if [[ -z "$InputUDP" ]];
+then
+    InputUDP=$(iptables -L INPUT -v -n | grep "ACCEPT     17" | awk '{print $11}')
+fi
 #echo $InputUDP
 
 InputICMP=$(iptables -L INPUT -v -n | grep "ACCEPT     icmp" | awk '{print $11}')
+if [[ -z "$InputICMP" ]];
+then
+    InputICMP=$(iptables -L INPUT -v -n | grep "ACCEPT     1 " | awk '{print $11}')
+fi
 #echo $InputICMP
 
 OutputTCP=$(iptables -L OUTPUT -v -n | grep "ACCEPT     tcp" | awk '{print $11}')
+if [[ -z "$OutputTCP" ]];
+then
+    OutputTCP=$(iptables -L OUTPUT -v -n | grep "ACCEPT     6" | awk '{print $11}')
+fi
 #echo $OutputTCP
 
 OutputUDP=$(iptables -L OUTPUT -v -n | grep "ACCEPT     udp" | awk '{print $11}')
+if [[ -z "$OutputUDP" ]];
+then
+    OutputUDP=$(iptables -L OUTPUT -v -n | grep "ACCEPT     17" | awk '{print $11}')
+fi
 #echo $OutputUDP
 
 OutputICMP=$(iptables -L OUTPUT -v -n | grep "ACCEPT     icmp" | awk '{print $11}')
+if [[ -z "$OutputICMP" ]];
+then
+    OutputICMP=$(iptables -L OUTPUT -v -n | grep "ACCEPT     1 " | awk '{print $11}')
+fi
 #echo $OutputICMP
 
 if [[ $InputTCP == "ESTABLISHED" ]] && [[ $InputUDP == "ESTABLISHED" ]] && [[ $InputICMP == "ESTABLISHED" ]] && [[ $OutputTCP == "NEW,ESTABLISHED" ]] && [[ $OutputUDP == "NEW,ESTABLISHED" ]] && [[ $OutputICMP == "NEW,ESTABLISHED" ]];
@@ -350,15 +391,27 @@ else
 fi
 
 
-
 RECOMMENDATION="3.4.2.2 Ensure IPv6 loopback traffic is configured (Automated)"
 InputAccept=$(ip6tables -L INPUT -v -n | grep "ACCEPT     all" | awk '{print $7}')
+if [[ -z "$InputAccept" ]];
+then
+    InputAccept=$(ip6tables -L INPUT -v -n | grep "ACCEPT     0" | awk '{print $8}')
+fi
 #echo $InputAccept
 
+
 InputDrop=$(ip6tables -L INPUT -v -n | grep "DROP       all" | awk '{print $7}')
+if [[ -z "$InputDrop" ]];
+then
+    InputDrop=$(ip6tables -L INPUT -v -n | grep "DROP       0" | awk '{print $8}')
+fi
 #echo $InputDrop
 
 OutputAccept=$(ip6tables -L OUTPUT -v -n | grep "ACCEPT     all" | awk '{print $7}')
+if [[ -z "$OutputAccept" ]];
+then
+    OutputAccept=$(ip6tables -L OUTPUT -v -n | grep "ACCEPT     0" | awk '{print $8}')
+fi
 #echo $OutputAccept
 
 
@@ -374,21 +427,45 @@ fi
 
 RECOMMENDATION="3.4.2.3 Ensure IPv6 outbound and established connections are configured (Manual)"
 InputTCP=$(ip6tables -L INPUT -v -n | grep "ACCEPT     tcp" | grep ESTABLISHED | awk '{print $10}')
+if [[ -z "$InputTCP" ]];
+then
+    InputTCP=$(ip6tables -L INPUT -v -n | grep "ACCEPT     6" | grep ESTABLISHED | awk '{print $11}')
+fi
 #echo $InputTCP
 
 InputUDP=$(ip6tables -L INPUT -v -n | grep "ACCEPT     udp" | awk '{print $10}')
+if [[ -z "$InputUDP" ]];
+then
+    InputUDP=$(ip6tables -L INPUT -v -n | grep "ACCEPT     17" | awk '{print $11}')
+fi
 #echo $InputUDP
 
 InputICMP=$(ip6tables -L INPUT -v -n | grep "ACCEPT     icmp" | awk '{print $10}')
+if [[ -z "$InputICMP" ]];
+then
+    InputICMP=$(ip6tables -L INPUT -v -n | grep "ACCEPT     1 " | awk '{print $11}')
+fi
 #echo $InputICMP
 
 OutputTCP=$(ip6tables -L OUTPUT -v -n | grep "ACCEPT     tcp" | awk '{print $10}')
+if [[ -z "$OutputTCP" ]];
+then
+    OutputTCP=$(ip6tables -L OUTPUT -v -n | grep "ACCEPT     6" | awk '{print $11}')
+fi
 #echo $OutputTCP
 
 OutputUDP=$(ip6tables -L OUTPUT -v -n | grep "ACCEPT     udp" | awk '{print $10}')
+if [[ -z "$OutputUDP" ]];
+then
+    OutputUDP=$(ip6tables -L OUTPUT -v -n | grep "ACCEPT     17" | awk '{print $11}')
+fi
 #echo $OutputUDP
 
 OutputICMP=$(ip6tables -L OUTPUT -v -n | grep "ACCEPT     icmp" | awk '{print $10}')
+if [[ -z "$OutputICMP" ]];
+then
+    OutputICMP=$(ip6tables -L OUTPUT -v -n | grep "ACCEPT     1 " | awk '{print $11}')
+fi
 #echo $OutputICMP
 
 if [[ $InputTCP == "ESTABLISHED" ]] && [[ $InputUDP == "ESTABLISHED" ]] && [[ $InputICMP == "ESTABLISHED" ]] && [[ $OutputTCP == "NEW,ESTABLISHED" ]] && [[ $OutputUDP == "NEW,ESTABLISHED" ]] && [[ $OutputICMP == "NEW,ESTABLISHED" ]];
@@ -415,7 +492,7 @@ fi
 RECOMMENDATION="4.1.2 Ensure permissions on journal files are configured (Automated)"
 journal_perms=$(chroot /.bottlerocket/rootfs find /var/log/journal -type f -perm /g+wx,o+rwx)
 
-if [[ $journal_perms == "" ]];
+if [[  -z "$journal_perms" ]];
 then
     echo "[PASS] $RECOMMENDATION"
     Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
