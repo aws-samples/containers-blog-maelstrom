@@ -1,0 +1,230 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This template provision EventBridge, SQS and Lambda for processing ECS Task State Change events. It would update Load Balancer for the up-to-date Host IP/Port for Tasks running in ECS-Anywhere.
+Parameters:
+  ECSClusterName:
+    Type: String
+    Default: ECSA-Demo-Cluster
+  OnPremVPC:
+#    Type: AWS::EC2::VPC::Id
+    Type: String
+    Default: ''
+  OnPremVPCCidrBlock:
+    Type: String
+    Default: ''
+  LambdaSubnetIds:
+#    Type: List<AWS::EC2::Subnet::Id>
+    Type: String
+    Default: ''
+  SQSVisibilityTimeout:
+    Type: Number
+    Default: 30
+  LambdaSQSBatchSize:
+    Type: Number
+    Default: 50
+  LambdaSQSMaximumBatchingWindowInSeconds:
+    Type: Number
+    Default: 30
+  LambdaSQSMaximumConcurrency:
+    Type: Number
+    Default: 2
+    
+
+Conditions:
+  OnPremVPCExists:
+    !Not [ !Equals [!Ref OnPremVPC, '']]
+  OnPremVPCCidrBlockExists:
+    !Not [ !Equals [!Ref OnPremVPCCidrBlock, '']]
+  LambdaSubnetIdsExists:
+    !Not [ !Equals [!Ref LambdaSubnetIds, '']]
+  
+Resources:
+  LambdaProcessEventRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ECSClusterName}-LambdaProcessEventRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - lambda.amazonaws.com
+          Action:
+            - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
+      Policies:
+        - PolicyName: inline-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+            - Effect: Allow
+              Action: logs:CreateLogGroup
+              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+            - Effect: Allow
+              Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*"
+            - Effect: Allow
+              Action:
+              - ec2:DescribeNetworkInterfaces
+              - ec2:CreateNetworkInterface
+              - ec2:DeleteNetworkInterface
+              Resource: "*"
+            - Effect: Allow
+              Action:
+              - ecs:ListServices
+              - ecs:ListTasks
+              - ecs:DescribeTasks
+              - ecs:DescribeContainerInstances
+              - ecs:ListTagsForResource
+              Resource: "*"
+            - Effect: Allow
+              Action:
+              - ssm:DescribeInstanceInformation
+              Resource: "*"
+            - Effect: Allow
+              Action:
+              - elasticloadbalancing:DescribeTargetHealth
+              - elasticloadbalancing:RegisterTargets
+              - elasticloadbalancing:DeregisterTargets
+              - elasticloadbalancing:DescribeTags
+              Resource: "*"
+
+  SQSProcessEvent: 
+    Type: AWS::SQS::Queue
+    Properties: 
+      QueueName: !Sub "${ECSClusterName}-SQS-ProcessEvent"
+      VisibilityTimeout: !Ref SQSVisibilityTimeout
+  EventBridgeECSTaskStateChange:
+    Type: AWS::Events::Rule
+    Properties: 
+      Name: !Sub "${ECSClusterName}-EventBridge-ECSTaskStateChange"
+      EventBusName: default
+      EventPattern:
+        source:
+        - aws.ecs
+        detail-type:
+        - ECS Task State Change
+        detail:
+          clusterArn:
+          - !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ECSClusterName}"
+      State: ENABLED
+      Targets: 
+      - Arn: !GetAtt SQSProcessEvent.Arn
+        Id: !Sub "${ECSClusterName}-SQS-ProcessEvent"
+  SQSProcessEventPolicy: 
+    Type: AWS::SQS::QueuePolicy
+    Properties: 
+      Queues: 
+        - !Ref SQSProcessEvent
+      PolicyDocument: 
+        Statement: 
+        - Principal:
+            Service: events.amazonaws.com
+          Action: 
+          - sqs:SendMessage 
+          Effect: "Allow"
+          Resource: !GetAtt SQSProcessEvent.Arn
+          Condition:
+            ArnEquals:
+              "aws:SourceArn": !GetAtt EventBridgeECSTaskStateChange.Arn
+              
+              
+  VPCEndpointssm:
+    Type: AWS::EC2::VPCEndpoint
+    Properties: 
+      PrivateDnsEnabled: true
+      SecurityGroupIds: [!Ref SecurityGroupLambda]
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ssm"
+      SubnetIds: !If [LambdaSubnetIdsExists, !Split [',', !Ref LambdaSubnetIds], [!ImportValue ECSA-SvcDisc-LambdaVPC-SubnetLambdaA,!ImportValue ECSA-SvcDisc-LambdaVPC-SubnetLambdaB]]
+      VpcEndpointType: Interface
+      VpcId: !If [OnPremVPCExists, !Ref OnPremVPC, !ImportValue ECSA-SvcDisc-LambdaVPC]
+  VPCEndpointecs:
+    Type: AWS::EC2::VPCEndpoint
+    Properties: 
+      PrivateDnsEnabled: true
+      SecurityGroupIds: [!Ref SecurityGroupLambda]
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecs"
+      SubnetIds: !If [LambdaSubnetIdsExists, !Split [',', !Ref LambdaSubnetIds], [!ImportValue ECSA-SvcDisc-LambdaVPC-SubnetLambdaA,!ImportValue ECSA-SvcDisc-LambdaVPC-SubnetLambdaB]]
+      VpcEndpointType: Interface
+      VpcId: !If [OnPremVPCExists, !Ref OnPremVPC, !ImportValue ECSA-SvcDisc-LambdaVPC]
+  VPCEndpointelasticloadbalancing:
+    Type: AWS::EC2::VPCEndpoint
+    Properties: 
+      PrivateDnsEnabled: true
+      SecurityGroupIds: [!Ref SecurityGroupLambda]
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.elasticloadbalancing"
+      SubnetIds: !If [LambdaSubnetIdsExists, !Split [',', !Ref LambdaSubnetIds], [!ImportValue ECSA-SvcDisc-LambdaVPC-SubnetLambdaA,!ImportValue ECSA-SvcDisc-LambdaVPC-SubnetLambdaB]]
+      VpcEndpointType: Interface
+      VpcId: !If [OnPremVPCExists, !Ref OnPremVPC, !ImportValue ECSA-SvcDisc-LambdaVPC]
+      
+  SecurityGroupLambda:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Lambda
+      SecurityGroupEgress:
+      - CidrIp: !If [OnPremVPCCidrBlockExists, !Ref OnPremVPCCidrBlock, !ImportValue ECSA-SvcDisc-OnPremVPC-CidrBlock]
+        Description: Allow outbound traffic to OnPremVPC
+        IpProtocol: -1
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-SecurityGroup/Lambda
+      VpcId: !If [OnPremVPCExists, !Ref OnPremVPC, !ImportValue ECSA-SvcDisc-LambdaVPC]
+  SecurityGroupLambdaIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SecurityGroupLambda
+      SourceSecurityGroupId: !Ref SecurityGroupLambda
+      Description: Allow HTTPS inbound traffic from the same Security Group
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+  SecurityGroupLambdaEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref SecurityGroupLambda
+      DestinationSecurityGroupId: !Ref SecurityGroupLambda
+      Description: Allow HTTPS outbound traffic from the same Security Group
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      
+  LambdaProcessEvent:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ECSClusterName}-Lambda-ProcessEvent"
+      Description: Lambda Function for processing ECSTaskStateChange event
+      Handler: index.handler
+      Role: !GetAtt LambdaProcessEventRole.Arn
+      Code:
+        ZipFile: !Sub |
+          exports.handler = async function (event, context) {
+          }
+      Runtime: nodejs18.x
+      Timeout: !Ref SQSVisibilityTimeout
+      VpcConfig:
+        SecurityGroupIds:
+        - !Ref SecurityGroupLambda
+        SubnetIds: !If [LambdaSubnetIdsExists, !Split [',', !Ref LambdaSubnetIds], [!ImportValue ECSA-SvcDisc-LambdaVPC-SubnetLambdaA,!ImportValue ECSA-SvcDisc-LambdaVPC-SubnetLambdaB]]
+  LambdaSQSEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt SQSProcessEvent.Arn
+      FunctionName: !GetAtt LambdaProcessEvent.Arn
+      BatchSize: !Ref LambdaSQSBatchSize
+      MaximumBatchingWindowInSeconds: !Ref LambdaSQSMaximumBatchingWindowInSeconds
+      ScalingConfig:
+        MaximumConcurrency: !Ref LambdaSQSMaximumConcurrency
+
+
+Outputs:
+  EventBridgeECSTaskStateChange:
+    Value: !Ref EventBridgeECSTaskStateChange
+  SQSProcessEvent:
+    Value: !Ref SQSProcessEvent
+  LambdaProcessEvent:
+    Value: !Ref LambdaProcessEvent
+
+    

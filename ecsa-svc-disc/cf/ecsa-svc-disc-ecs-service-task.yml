@@ -1,0 +1,244 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This template provision an ECS Task Definition and ECS Service for ECS-Anywhere custom Service Discovery Demo
+Parameters:
+  ECSClusterName:
+    Type: String
+    Default: ECSA-Demo-Cluster
+  ServiceDemoApp1DesiredCount:
+    Type: Number
+    Default: 1
+  ServiceDemoApp2DesiredCount:
+    Type: Number
+    Default: 3
+    
+Resources:
+  ECSATaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ECSClusterName}-ECSATaskExecutionRole"
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+  ECSATaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ECSClusterName}-ECSATaskRole"
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Condition:
+            StringEquals:
+              "aws:SourceAccount": !Sub "${AWS::AccountId}"
+        Version: '2012-10-17'
+      Policies:
+        - PolicyName: inline-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssmmessages:CreateControlChannel
+                  - ssmmessages:CreateDataChannel
+                  - ssmmessages:OpenControlChannel
+                  - ssmmessages:OpenDataChannel
+                  - ecs:DescribeTasks
+                  - ecs:DescribeContainerInstances
+                  - ssm:DescribeInstanceInformation
+                Resource: '*'
+
+  ECSATaskDefintionDemoApp1: 
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      Family: DemoApp1
+      RequiresCompatibilities:
+        - "EC2"
+        - "EXTERNAL"
+      ExecutionRoleArn: !GetAtt ECSATaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSATaskRole.Arn
+      NetworkMode: bridge
+      ContainerDefinitions: 
+        - Name: "container0"
+          Image: public.ecr.aws/aws-containers/ecsdemo-nodejs:latest
+          Cpu: 125
+          Memory: 125
+          PortMappings: 
+          - ContainerPort: 3000
+            HostPort: 0
+          Environment:
+          - Name: AWS_REGION
+            Value: !Sub "${AWS::Region}"
+          - Name: ECS_CLUSTER_NAME
+            Value: !Ref ECSClusterName
+          - Name: HTTP_PROXY_ENV_EXPORT
+            Value: !ImportValue ECSA-SvcDisc-HttpProxy-Env-Export
+          EntryPoint:
+          - /bin/bash
+          - -c
+          Command:
+          - |
+            if [ "$HTTP_PROXY_ENV_EXPORT" != "" ]; then
+              eval "$HTTP_PROXY_ENV_EXPORT"
+            fi
+            sleep 3
+            SERVICE=$(curl ${ECS_CONTAINER_METADATA_URI_V4}/task | jq -r '.ServiceName')
+            CONTAINER_METADATA=$(curl ${ECS_CONTAINER_METADATA_URI_V4})
+            CONTAINER=$(echo $CONTAINER_METADATA | jq -r '.Name')
+            HOST_PORT=$(echo $CONTAINER_METADATA | jq -r '.Ports[0].HostPort|tostring')
+            CONTAINER_ARN=$(echo $CONTAINER_METADATA | jq -r '.ContainerARN')
+            
+            mkdir -p $HOME/.aws; echo "[default]
+            region = $AWS_REGION" > $HOME/.aws/config
+            CLUSTER_NAME=$(echo $CONTAINER_ARN | awk -F '/' '{print $2}')
+            TASK_ID=$(echo $CONTAINER_ARN | awk -F '/' '{print $3}')
+            CONTAINER_INSTANCE_ARN=$(aws ecs describe-tasks --cluster $CLUSTER_NAME --task $TASK_ID | jq -r '.tasks[].containerInstanceArn')
+            INSTANCE_ID=$(aws ecs describe-container-instances --cluster $CLUSTER_NAME --container-instances $CONTAINER_INSTANCE_ARN | jq -r '.containerInstances[].ec2InstanceId')
+            IP=$(aws ssm describe-instance-information --filters "Key=InstanceIds,Values=$INSTANCE_ID" | jq -r '.InstanceInformationList[].IPAddress')
+
+            export AZ="
+            $SERVICE|$CONTAINER|$IP:$HOST_PORT
+            $CONTAINER_ARN
+            "
+            exec node server.js
+          Essential: true
+  ECSATaskDefintionDemoApp2: 
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      Family: DemoApp2
+      RequiresCompatibilities:
+        - "EC2"
+        - "EXTERNAL"
+      ExecutionRoleArn: !GetAtt ECSATaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSATaskRole.Arn
+      NetworkMode: bridge
+      ContainerDefinitions: 
+        - Name: "container1"
+          Image: public.ecr.aws/aws-containers/ecsdemo-nodejs:latest
+          Cpu: 125
+          Memory: 125
+          PortMappings: 
+          - ContainerPort: 3000
+            HostPort: 0
+          Environment:
+          - Name: AWS_REGION
+            Value: !Sub "${AWS::Region}"
+          - Name: ECS_CLUSTER_NAME
+            Value: !Ref ECSClusterName
+          - Name: HTTP_PROXY_ENV_EXPORT
+            Value: !ImportValue ECSA-SvcDisc-HttpProxy-Env-Export
+          EntryPoint:
+          - /bin/bash
+          - -c
+          Command:
+          - |
+            if [ "$HTTP_PROXY_ENV_EXPORT" != "" ]; then
+              eval "$HTTP_PROXY_ENV_EXPORT"
+            fi
+            sleep 3
+            SERVICE=$(curl ${ECS_CONTAINER_METADATA_URI_V4}/task | jq -r '.ServiceName')
+            CONTAINER_METADATA=$(curl ${ECS_CONTAINER_METADATA_URI_V4})
+            CONTAINER=$(echo $CONTAINER_METADATA | jq -r '.Name')
+            HOST_PORT=$(echo $CONTAINER_METADATA | jq -r '.Ports[0].HostPort|tostring')
+            CONTAINER_ARN=$(echo $CONTAINER_METADATA | jq -r '.ContainerARN')
+            
+            mkdir -p $HOME/.aws; echo "[default]
+            region = $AWS_REGION" > $HOME/.aws/config
+            CLUSTER_NAME=$(echo $CONTAINER_ARN | awk -F '/' '{print $2}')
+            TASK_ID=$(echo $CONTAINER_ARN | awk -F '/' '{print $3}')
+            CONTAINER_INSTANCE_ARN=$(aws ecs describe-tasks --cluster $CLUSTER_NAME --task $TASK_ID | jq -r '.tasks[].containerInstanceArn')
+            INSTANCE_ID=$(aws ecs describe-container-instances --cluster $CLUSTER_NAME --container-instances $CONTAINER_INSTANCE_ARN | jq -r '.containerInstances[].ec2InstanceId')
+            IP=$(aws ssm describe-instance-information --filters "Key=InstanceIds,Values=$INSTANCE_ID" | jq -r '.InstanceInformationList[].IPAddress')
+
+            export AZ="
+            $SERVICE|$CONTAINER|$IP:$HOST_PORT
+            $CONTAINER_ARN
+            "
+            exec node server.js
+          Essential: true
+        - Name: "container2"
+          Image: public.ecr.aws/aws-containers/ecsdemo-nodejs:latest
+          Cpu: 125
+          Memory: 125
+          PortMappings: 
+          - ContainerPort: 3000
+            HostPort: 0
+          Environment:
+          - Name: AWS_REGION
+            Value: !Sub "${AWS::Region}"
+          - Name: ECS_CLUSTER_NAME
+            Value: !Ref ECSClusterName
+          - Name: HTTP_PROXY_ENV_EXPORT
+            Value: !ImportValue ECSA-SvcDisc-HttpProxy-Env-Export
+          EntryPoint:
+          - /bin/bash
+          - -c
+          Command:
+          - |
+            if [ "$HTTP_PROXY_ENV_EXPORT" != "" ]; then
+              eval "$HTTP_PROXY_ENV_EXPORT"
+            fi
+            sleep 3
+            SERVICE=$(curl ${ECS_CONTAINER_METADATA_URI_V4}/task | jq -r '.ServiceName')
+            CONTAINER_METADATA=$(curl ${ECS_CONTAINER_METADATA_URI_V4})
+            CONTAINER=$(echo $CONTAINER_METADATA | jq -r '.Name')
+            HOST_PORT=$(echo $CONTAINER_METADATA | jq -r '.Ports[0].HostPort|tostring')
+            CONTAINER_ARN=$(echo $CONTAINER_METADATA | jq -r '.ContainerARN')
+            
+            mkdir -p $HOME/.aws; echo "[default]
+            region = $AWS_REGION" > $HOME/.aws/config
+            CLUSTER_NAME=$(echo $CONTAINER_ARN | awk -F '/' '{print $2}')
+            TASK_ID=$(echo $CONTAINER_ARN | awk -F '/' '{print $3}')
+            CONTAINER_INSTANCE_ARN=$(aws ecs describe-tasks --cluster $CLUSTER_NAME --task $TASK_ID | jq -r '.tasks[].containerInstanceArn')
+            INSTANCE_ID=$(aws ecs describe-container-instances --cluster $CLUSTER_NAME --container-instances $CONTAINER_INSTANCE_ARN | jq -r '.containerInstances[].ec2InstanceId')
+            IP=$(aws ssm describe-instance-information --filters "Key=InstanceIds,Values=$INSTANCE_ID" | jq -r '.InstanceInformationList[].IPAddress')
+
+            export AZ="
+            $SERVICE|$CONTAINER|$IP:$HOST_PORT
+            $CONTAINER_ARN
+            "
+            exec node server.js
+          Essential: true
+          
+   
+  ECSAServiceDemoApp1: 
+    Type: AWS::ECS::Service
+    Properties: 
+      Cluster: !Ref ECSClusterName
+      ServiceName: Service-DemoApp1
+      LaunchType: EXTERNAL
+      DesiredCount: !Ref ServiceDemoApp1DesiredCount
+      TaskDefinition: !Ref ECSATaskDefintionDemoApp1
+      EnableExecuteCommand: true
+  ECSAServiceDemoApp2: 
+    Type: AWS::ECS::Service
+    Properties: 
+      Cluster: !Ref ECSClusterName
+      ServiceName: Service-DemoApp2
+      LaunchType: EXTERNAL
+      DesiredCount: !Ref ServiceDemoApp2DesiredCount
+      TaskDefinition: !Ref ECSATaskDefintionDemoApp2
+      EnableExecuteCommand: true
+      
+      
+Outputs:
+  ECSATaskExecutionRole:
+    Value: !GetAtt ECSATaskExecutionRole.Arn
+  ECSATaskRole:
+    Value: !GetAtt ECSATaskRole.Arn
+  ECSATaskDefintionDemoApp1:
+    Value: !Ref ECSATaskDefintionDemoApp1
+  ECSATaskDefintionDemoApp2:
+    Value: !Ref ECSATaskDefintionDemoApp2
+  ECSAServiceDemoApp1:
+    Value: !Ref ECSAServiceDemoApp1
+  ECSAServiceDemoApp2:
+    Value: !Ref ECSAServiceDemoApp2
+    
