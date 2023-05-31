@@ -1,0 +1,776 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This template provision a VPC that simulate an On-Premises environment network. The VPC would host EC2 instances that model On-Premises VM, where ECS-Anywhere agents would be installed.
+Parameters:
+  ECSClusterName:
+    Type: String
+    Default: ECSA-Demo-Cluster
+  VMInstanceTypeParameter:
+    Type: String
+    Default: t3.large
+    AllowedValues:
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+      - m6i.medium
+      - m6i.large
+      - m6i.xlarge
+  ProxyInstanceTypeParameter:
+    Type: String
+    Default: t3.medium
+    AllowedValues:
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+      - m6i.medium
+      - m6i.large
+      - m6i.xlarge
+  InstanceAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/20.04/stable/current/amd64/hvm/ebs-gp2/ami-id
+  AutoRegisterECSAnywhereAgent:
+    Type: String
+    Default: true
+    AllowedValues:
+      - true
+      - false
+  SecurityGroupIngressAllowedCidrParameter:
+    Type: String
+#    Default: 0.0.0.0/0
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    
+Resources:
+  OnPremVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-OnPremVPC
+  OnPremVPCRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: OnPremVPC
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-OnPremVPC/RouteTable
+  OnPremVPCPeeringRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: OnPremVPCRouteTable
+      DestinationCidrBlock: 172.16.0.0/24
+      VpcPeeringConnectionId:
+        Ref: VPCPeeringConnection
+  OnPremVPCPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: OnPremVPC
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-LambdaVPC/PublicRouteTable
+  OnPremVPCPublicDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: OnPremVPCPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: OnPremVPCIGW
+  OnPremVPCIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-OnPremVPC/IGW
+  OnPremVPCGW:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: OnPremVPC
+      InternetGatewayId:
+        Ref: OnPremVPCIGW
+        
+  SecurityGroupOnPremVM:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for On-Premises VM (simulate by using EC2)
+      SecurityGroupEgress:
+      - CidrIp: !GetAtt OnPremVPC.CidrBlock
+        Description: Allow all outbound traffic within OnPremVPC
+        IpProtocol: -1
+      SecurityGroupIngress:
+      - CidrIp: !GetAtt OnPremVPC.CidrBlock
+        Description: Allow SSH inbound traffic from OnPremVPC
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+      - CidrIp: !GetAtt OnPremVPC.CidrBlock
+        Description: Allow container port inbound traffic from OnPremVPC
+        IpProtocol: tcp
+        FromPort: 32768
+        ToPort: 61000
+      - CidrIp: !GetAtt LambdaVPC.CidrBlock
+        Description: Allow all inbound traffic from LambdaVPC
+        IpProtocol: -1
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-SecurityGroup/OnPremVM
+      VpcId:
+        Ref: OnPremVPC
+  SecurityGroupOnPremProxy:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for On-Premises HTTP Proxy (simulate by using EC2)
+      SecurityGroupEgress:
+      - CidrIp: 0.0.0.0/0
+        Description: Allow all outbound traffic by default
+        IpProtocol: -1
+      SecurityGroupIngress:
+      - CidrIp: !GetAtt OnPremVPC.CidrBlock
+        Description: Allow HTTP Proxy inbound traffic within OnPremVPC
+        IpProtocol: tcp
+        FromPort: 3128
+        ToPort: 3128
+      - CidrIp: !Ref SecurityGroupIngressAllowedCidrParameter
+        Description: Allow SSH inbound traffic from the allowed CIDR
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-SecurityGroup/OnPremProxy
+      VpcId:
+        Ref: OnPremVPC
+  SecurityGroupOnPremLB:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Load Balancer (Simulate On-Premises Load Balancer)
+      SecurityGroupEgress:
+      - CidrIp: !GetAtt OnPremVPC.CidrBlock
+        Description: Allow all outbound traffic within OnPrem VPC
+        IpProtocol: -1
+      SecurityGroupIngress:
+      - CidrIp: !Ref SecurityGroupIngressAllowedCidrParameter
+        Description: Allow HTTP inbound from the allowed CIDR
+        IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8082
+      - CidrIp: !GetAtt OnPremVPC.CidrBlock
+        Description: Allow all inbound traffic within OnPrem VPC
+        IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8082
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-SecurityGroup/OnPremLB
+      VpcId: !Ref OnPremVPC
+      
+  LambdaVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 172.16.0.0/24
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-LambdaVPC
+  LambdaVPCRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: LambdaVPC
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-LambdaVPC/RouteTable
+  LambdaVPCPeeringRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: LambdaVPCRouteTable
+      DestinationCidrBlock: 10.0.0.0/16
+      VpcPeeringConnectionId:
+        Ref: VPCPeeringConnection
+
+
+  VPCPeeringConnection:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      VpcId: !Ref LambdaVPC
+      PeerVpcId: !Ref OnPremVPC
+      Tags:
+      - Key: Name
+        Value: Lambda-OnPrem-VPCPeering
+        
+        
+  OnPremVPCSubnetVMA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.1.0/24
+      VpcId:
+        Ref: OnPremVPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-OnPremVPC/Subnet-VM-A
+  OnPremVPCSubnetVMARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: OnPremVPCRouteTable
+      SubnetId:
+        Ref: OnPremVPCSubnetVMA
+  OnPremVPCSubnetVMB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.2.0/24
+      VpcId:
+        Ref: OnPremVPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-OnPremVPC/Subnet-VM-B
+  OnPremVPCSubnetVMBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: OnPremVPCRouteTable
+      SubnetId:
+        Ref: OnPremVPCSubnetVMB
+  OnPremVPCSubnetVMC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.3.0/24
+      VpcId:
+        Ref: OnPremVPC
+      AvailabilityZone: !Select [2, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-OnPremVPC/Subnet-VM-C
+  OnPremVPCSubnetVMCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: OnPremVPCRouteTable
+      SubnetId:
+        Ref: OnPremVPCSubnetVMC
+  OnPremVPCSubnetPublicA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.31.0/24
+      VpcId:
+        Ref: OnPremVPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-OnPremVPC/Subnet-Public-A
+  OnPremVPCSubnetPublicARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: OnPremVPCPublicRouteTable
+      SubnetId:
+        Ref: OnPremVPCSubnetPublicA
+  OnPremVPCSubnetPublicB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.32.0/24
+      VpcId:
+        Ref: OnPremVPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-OnPremVPC/Subnet-Public-B
+  OnPremVPCSubnetPublicRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: OnPremVPCPublicRouteTable
+      SubnetId:
+        Ref: OnPremVPCSubnetPublicB
+  OnPremVPCSubnetPublicC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.33.0/24
+      VpcId:
+        Ref: OnPremVPC
+      AvailabilityZone: !Select [2, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-OnPremVPC/Subnet-Public-C
+  OnPremVPCSubnetPublicCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: OnPremVPCPublicRouteTable
+      SubnetId:
+        Ref: OnPremVPCSubnetPublicC
+        
+  LambdaVPCSubnetLambdaA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 172.16.0.0/26
+      VpcId:
+        Ref: LambdaVPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-LambdaVPC/Subnet-Lambda-A
+  LambdaVPCSubnetLambdaARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: LambdaVPCRouteTable
+      SubnetId:
+        Ref: LambdaVPCSubnetLambdaA
+  LambdaVPCSubnetLambdaB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 172.16.0.64/26
+      VpcId:
+        Ref: LambdaVPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+      - Key: Name
+        Value: ECSA-SvcDisc-LambdaVPC/Subnet-Lambda-B
+  LambdaVPCSubnetLambdaBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: LambdaVPCRouteTable
+      SubnetId:
+        Ref: LambdaVPCSubnetLambdaB
+
+        
+  EC2KeyPair:
+    Type: 'AWS::EC2::KeyPair'
+    Properties:
+      KeyName: ECSA-SvcDisc-KeyPair
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ECSA-EC2InstanceRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - ec2.amazonaws.com
+          Action:
+            - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+      - PolicyName: inline-policy
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+              - ec2:ModifyInstanceMetadataOptions
+              Resource: '*'
+              Condition:
+                StringEquals:
+                  "ec2:ResourceTag/Name": ECSA-OnPrem-VM
+            - Effect: Allow
+              Action:
+              - ec2:Describeinstances
+              Resource: '*'
+            - Effect: Allow
+              Action:
+              - ssm:GetParameter
+              Resource:
+              - !Join ["/", [!Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ec2/keypair", !GetAtt EC2KeyPair.KeyPairId]]
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ecsa/ssmactivation/*"
+
+  EC2InstanceProfile: 
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      Path: "/"
+      Roles:
+      - !Ref EC2InstanceRole
+  LaunchTemplateOnPremVM:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: ECSA-OnPrem-VM-LaunchTemplate
+      LaunchTemplateData:
+        SecurityGroupIds:
+        - !Ref SecurityGroupOnPremVM
+        KeyName: !Ref EC2KeyPair
+        InstanceType: !Ref VMInstanceTypeParameter
+        ImageId: !Ref InstanceAmiId
+        IamInstanceProfile: 
+          Name: !Ref EC2InstanceProfile
+        MetadataOptions:
+          HttpEndpoint: enabled
+        TagSpecifications:
+        - ResourceType: instance
+          Tags:
+          - Key: Name
+            Value: ECSA-OnPrem-VM
+        UserData:
+          "Fn::Base64": !Join
+            - "\n"
+            - - "#!/bin/bash"
+              - ''
+              - !Join ['', ['AWS_REGION=', !Sub "${AWS::Region}"]]
+              - !Join ['', ['CLUSTER_NAME=', !Ref ECSClusterName]]
+              - !Join ['', ['AUTO_REG_ECSA=', !Ref AutoRegisterECSAnywhereAgent]]
+              - ''
+              - '## 1. Setup HTTP Proxy ENV'
+              - 'echo $(date) 1. Setup HTTP Proxy ENV >> /tmp/ecsa.status'
+              - !Join ['', ['export HTTP_PROXY=', !GetAtt NLBOnPremProxy.DNSName, ':3128']]
+              - |
+                export HOME=/root
+                export HTTPS_PROXY=$HTTP_PROXY
+                export NO_PROXY=169.254.169.254,169.254.170.2,10.0.0.0/8,localhost,127.0.0.1,::1,/var/run/docker.sock
+                
+                echo "export HTTP_PROXY=$HTTP_PROXY
+                export HTTPS_PROXY=$HTTPS_PROXY
+                export NO_PROXY=$NO_PROXY
+                " >> /etc/environment
+                
+                echo "Acquire::http::Proxy \"http://$HTTP_PROXY\";
+                Acquire::https::Proxy \"http://$HTTP_PROXY\";
+                " > /etc/apt/apt.conf
+                
+                
+                ## 2. Prepare the /tmp/esca.sh for ECS-Anywhere agent installation and registration
+                echo $(date) 2. Prepare the /tmp/esca.sh for ECS-Anywhere agent installation and registration >> /tmp/ecsa.status
+                
+                apt-get -y install zip
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                unzip awscliv2.zip
+                ./aws/install
+                
+                mkdir -p $HOME/.aws; echo "[default]
+                region = $AWS_REGION" > $HOME/.aws/config
+                ACT_ID=`aws ssm get-parameter --name /ecsa/ssmactivation/ActivationId --query Parameter.Value --output text`
+                ACT_CODE=`aws ssm get-parameter --name /ecsa/ssmactivation/ActivationCode --query Parameter.Value --with-decryption --output text`
+                
+                curl -o /tmp/ecs-anywhere-install.sh https://amazon-ecs-agent.s3.amazonaws.com/ecs-anywhere-install-latest.sh
+                echo "/tmp/ecs-anywhere-install.sh --region $AWS_REGION --cluster $CLUSTER_NAME --activation-id $ACT_ID --activation-code $ACT_CODE" > /tmp/ecsa.sh
+                chmod 755 /tmp/ecs-anywhere-install.sh
+                chmod 755 /tmp/ecsa.sh
+                
+                
+                ## 3. Disable EC2 Instance Metadata
+                echo $(date) 3. Disable EC2 Instance Metadata >> /tmp/ecsa.status
+                
+                TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"`
+                INSTANCE_ID=`curl -H "X-aws-ec2-metadata-token: $TOKEN" -v http://169.254.169.254/latest/meta-data/instance-id`
+                aws ec2 modify-instance-metadata-options --instance-id $INSTANCE_ID --http-endpoint disabled
+
+
+                ## 4. Setup HTTP Proxy for Services
+                echo $(date) 5. Setup HTTP Proxy for Services >> /tmp/ecsa.status
+                
+                mkdir -p /etc/ecs
+                echo "HTTP_PROXY=$HTTP_PROXY
+                HTTPS_PROXY=$HTTPS_PROXY
+                NO_PROXY=$NO_PROXY
+                " > /etc/ecs/ecs.config
+                
+                mkdir -p /etc/systemd/system/ecs.service.d
+                echo "[Service]
+                Environment=\"HTTP_PROXY=$HTTP_PROXY\"
+                Environment=\"HTTPS_PROXY=$HTTPS_PROXY\"
+                Environment=\"NO_PROXY=$NO_PROXY\"
+                " > /etc/systemd/system/ecs.service.d/http-proxy.conf
+
+                mkdir -p /etc/systemd/system/snap.amazon-ssm-agent.amazon-ssm-agent.service.d
+                cp /etc/systemd/system/ecs.service.d/http-proxy.conf /etc/systemd/system/snap.amazon-ssm-agent.amazon-ssm-agent.service.d/override.conf
+                
+                mkdir /etc/systemd/system/docker.service.d
+                echo "[Service]
+                Environment=\"HTTP_PROXY=http://$HTTP_PROXY\"
+                Environment=\"HTTPS_PROXY=http://$HTTPS_PROXY\"
+                Environment=\"NO_PROXY=$NO_PROXY\"
+                " > /etc/systemd/system/docker.service.d/http-proxy.conf
+                
+                mkdir $HOME/.docker
+                echo "{
+                  \"proxies\": {
+                    \"default\": {
+                     \"httpProxy\": \"http://$HTTP_PROXY\",
+                     \"httpsProxy\": \"http://$HTTP_PROXY\",
+                     \"noProxy\": \"$NO_PROXY\"
+                  }
+                 }
+                }" > $HOME/.docker/config.json
+                
+                
+                ## 5. Install Docker
+                echo $(date) 4. Install Docker >> /tmp/ecsa.status
+                
+                ARCH_ALT="amd64"
+                apt install -y apt-transport-https ca-certificates gnupg-agent software-properties-common
+                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+                add-apt-repository \
+                    "deb [arch=$ARCH_ALT] https://download.docker.com/linux/ubuntu \
+                $(lsb_release -cs) \
+                stable"
+                apt update -y
+                apt install -y docker-ce docker-ce-cli containerd.io
+                
+              
+                echo $(date) COMPLETED >> /tmp/ecsa.status
+                echo ''
+                
+                if [ "$AUTO_REG_ECSA" == "true" ]; then
+                  echo $(date) Auto-Registering ECS-Anywhere Agent by execuing /tmp/ecsa.sh \> /tmp/ecsa.log >> /tmp/ecsa.status
+                  /tmp/ecsa.sh > /tmp/ecsa.log
+                else 
+                  echo $(date) Skip Auto-Register of ECS-Anywhere Agent >> /tmp/ecsa.status
+                  echo $(date) To register, execute 'sudo /tmp/ecsa.sh' manually >> /tmp/ecsa.status
+                fi
+                echo $(date) DONE >> /tmp/ecsa.status
+                
+  AutoScalingGroupOnPremVM:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName:  ECSA-OnPrem-VM-ASG
+      VPCZoneIdentifier:
+      - !Ref OnPremVPCSubnetVMA
+      - !Ref OnPremVPCSubnetVMB
+      - !Ref OnPremVPCSubnetVMC
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplateOnPremVM
+        Version: !GetAtt LaunchTemplateOnPremVM.LatestVersionNumber
+      MinSize: 0
+      MaxSize: 10
+      DesiredCapacity: 0
+  LaunchTemplateProxy:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: ECSA-OnPrem-Proxy-LaunchTemplate
+      LaunchTemplateData:
+        SecurityGroupIds:
+        - !Ref SecurityGroupOnPremProxy
+        KeyName: !Ref EC2KeyPair
+        InstanceType: !Ref ProxyInstanceTypeParameter
+        ImageId: !Ref InstanceAmiId
+        IamInstanceProfile: 
+          Name: !Ref EC2InstanceProfile
+        MetadataOptions:
+          HttpEndpoint: enabled
+        TagSpecifications:
+        - ResourceType: instance
+          Tags:
+          - Key: Name
+            Value: ECSA-OnPrem-Proxy
+        UserData:
+          "Fn::Base64": !Join
+            - "\n"
+            - - "#!/bin/bash"
+              - !Join ['', ['KEYPAIR_ID=', !GetAtt EC2KeyPair.KeyPairId]]
+              - ''
+              - |
+                ## Disable EC2 Instance Metadata
+                apt-get -y install zip
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                unzip awscliv2.zip
+                ./aws/install
+                
+                # Install HTTP Proxy squid
+                apt-get -y install squid
+                systemctl enable squid
+                sed -i 's/http_access deny all/http_access allow all/' /etc/squid/squid.conf
+                systemctl restart squid
+                
+                # Setup SSH Key for On-Prem VM
+                aws ssm get-parameter --name /ec2/keypair/$KEYPAIR_ID --with-decryption --query Parameter.Value --output text > /home/ubuntu/.ssh/id_rsa
+                chown ubuntu:ubuntu /home/ubuntu/.ssh/id_rsa
+                chmod 400 /home/ubuntu/.ssh/id_rsa
+        
+  AutoScalingGroupProxy:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName:  ECSA-OnPrem-Proxy-ASG
+      VPCZoneIdentifier:
+      - !Ref OnPremVPCSubnetPublicA
+      - !Ref OnPremVPCSubnetPublicB
+      - !Ref OnPremVPCSubnetPublicC
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplateProxy
+        Version: !GetAtt LaunchTemplateProxy.LatestVersionNumber
+      TargetGroupARNs:
+      - !Ref TargetGroupOnPremProxy
+      MinSize: 1
+      MaxSize: 3
+      DesiredCapacity: 3
+      
+
+  NLBOnPremProxy:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: ECSA-SvcDisc-NLB-OnPremProxy
+      Scheme: internal
+      Subnets: [!Ref OnPremVPCSubnetPublicA, !Ref OnPremVPCSubnetPublicB, !Ref OnPremVPCSubnetPublicC]
+      Type: network
+  TargetGroupOnPremProxy:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: ECSA-SvcDisc-TargetGroup-Proxy
+      Protocol: TCP
+      VpcId: !Ref OnPremVPC
+      Port: 3128
+      HealthCheckEnabled: true
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 10
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      TargetType: instance
+
+  ListenerOnPremProxy:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupOnPremProxy
+      LoadBalancerArn: !Ref NLBOnPremProxy
+      Port: 3128
+      Protocol: TCP
+        
+      
+  ALBOnPremLB:
+      Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+      Properties:
+          Name: ECSA-SvcDisc-ALB-OnPremLB
+          Scheme: internet-facing
+          Type: application
+          Subnets: [!Ref OnPremVPCSubnetPublicA, !Ref OnPremVPCSubnetPublicB, !Ref OnPremVPCSubnetPublicC]
+          SecurityGroups: 
+            - !Ref SecurityGroupOnPremLB
+          IpAddressType: ipv4
+
+  HTTPListenerPremLB0:
+      Type: AWS::ElasticLoadBalancingV2::Listener
+      Properties:
+          LoadBalancerArn: !Ref ALBOnPremLB
+          Port: 8080
+          Protocol: HTTP
+          DefaultActions: 
+          - Order: 1
+            TargetGroupArn: !Ref TargetGroupPremLB0
+            Type: forward
+  TargetGroupPremLB0:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${ECSClusterName}-TargetGroup-0"
+      Protocol: HTTP
+      Port: 80
+      HealthCheckEnabled: true
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 3
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      TargetType: ip
+      VpcId: !Ref OnPremVPC
+      Tags:
+        - Key: ecs-a.lbVpcCidr
+          Value: !GetAtt OnPremVPC.CidrBlock
+          
+  HTTPListenerPremLB1:
+      Type: AWS::ElasticLoadBalancingV2::Listener
+      Properties:
+          LoadBalancerArn: !Ref ALBOnPremLB
+          Port: 8081
+          Protocol: HTTP
+          DefaultActions: 
+          - Order: 1
+            TargetGroupArn: !Ref TargetGroupPremLB1
+            Type: forward
+  TargetGroupPremLB1:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${ECSClusterName}-TargetGroup-1"
+      Protocol: HTTP
+      Port: 80
+      HealthCheckEnabled: true
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 3
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      TargetType: ip
+      VpcId: !Ref OnPremVPC
+      Tags:
+        - Key: ecs-a.lbVpcCidr
+          Value: !GetAtt OnPremVPC.CidrBlock
+          
+  HTTPListenerPremLB2:
+      Type: AWS::ElasticLoadBalancingV2::Listener
+      Properties:
+          LoadBalancerArn: !Ref ALBOnPremLB
+          Port: 8082
+          Protocol: HTTP
+          DefaultActions: 
+          - Order: 1
+            TargetGroupArn: !Ref TargetGroupPremLB2
+            Type: forward
+  TargetGroupPremLB2:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${ECSClusterName}-TargetGroup-2"
+      Protocol: HTTP
+      Port: 80
+      HealthCheckEnabled: true
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 3
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      TargetType: ip
+      VpcId: !Ref OnPremVPC
+      Tags:
+        - Key: ecs-a.lbVpcCidr
+          Value: !GetAtt OnPremVPC.CidrBlock
+          
+Outputs:
+  SSMParameterEC2KeyPair:
+    Value: !Sub
+      - "/ec2/keypair/${KeyPairId}"
+      - KeyPairId: !GetAtt EC2KeyPair.KeyPairId
+  OnPremVPCCidrBlock:
+    Value: !GetAtt OnPremVPC.CidrBlock
+    Export:
+      Name: ECSA-SvcDisc-OnPremVPC-CidrBlock
+  LambdaVPC:
+    Value: !Ref LambdaVPC
+    Export:
+      Name: ECSA-SvcDisc-LambdaVPC
+  LambdaVPCSubnetLambdaA:
+    Value: !Ref LambdaVPCSubnetLambdaA
+    Export:
+      Name: ECSA-SvcDisc-LambdaVPC-SubnetLambdaA
+  LambdaVPCSubnetLambdaB:
+    Value: !Ref LambdaVPCSubnetLambdaB
+    Export:
+      Name: ECSA-SvcDisc-LambdaVPC-SubnetLambdaB
+  HttpProxyEnvExport:
+    Value: !Join
+          - ";\n"
+          - - !Join ['', ['export HTTP_PROXY=', !GetAtt NLBOnPremProxy.DNSName, ':3128']]
+            - export HTTPS_PROXY=$HTTP_PROXY
+            - export NO_PROXY=169.254.169.254,169.254.170.2,10.0.0.0/8,localhost,127.0.0.1,::1,/var/run/docker.sock
+    Export:
+      Name: ECSA-SvcDisc-HttpProxy-Env-Export
