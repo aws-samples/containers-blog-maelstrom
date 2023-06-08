@@ -1,0 +1,17 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Federated": "arn:aws:iam::${EKSA_ACCOUNT_ID}:oidc-provider/${EKSA_OIDC_PROVIDER}"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+                "StringLike": {
+                 "${EKSA_OIDC_PROVIDER}:sub": ["system:serviceaccount:${EKSA_ADOT_NAMESPACE}:*"]
+                }
+               }
+        }
+    ]
+}
