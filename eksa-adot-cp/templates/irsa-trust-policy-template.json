@@ -9,7 +9,7 @@
             "Action": "sts:AssumeRoleWithWebIdentity",
             "Condition": {
                 "StringLike": {
-                 "${EKSA_OIDC_PROVIDER}:sub": ["system:serviceaccount:${EKSA_ADOT_NAMESPACE}:*"]
+                 "${EKSA_OIDC_PROVIDER}:sub": ["system:serviceaccount:${EKSA_ADOT_NAMESPACE}:${EKSA_ADOT_SERVICE_ACCOUNT}"]
                 }
                }
         }
