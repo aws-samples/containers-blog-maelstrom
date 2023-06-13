@@ -69,9 +69,6 @@ env_vars_check() {
     fi
 }
 
-# exit when any command fails
-set -e
-
 # check for required environment variables
 env_vars_check
 

@@ -61,9 +61,6 @@ env_vars_check() {
     fi    
 }
 
-# exit when any command fails
-set -e
-
 # check for required environment variables
 env_vars_check
 
@@ -93,13 +90,13 @@ helm uninstall grafana-operator -n grafana-operator
 log 'O' "Uninstalling external-secrets using helm.."
 helm uninstall external-secrets -n external-secrets
 
-log 'O' "Deleting $EKSA_ES_SERVICE_ACCOUNT in ${EKSA_ADOT_NAMESPACE}.."
+log 'O' "Deleting $EKSA_ES_SERVICE_ACCOUNT in ${EKSA_ADOT_NAMESPACE} namespace.."
 kubectl delete -f ./external-secrets-sa.yaml
 
-log 'O' "Deleting curated package curated-amp-adot.."
+log 'O' "Deleting curated package curated-amp-adot .."
 eksctl anywhere delete packages curated-amp-adot --cluster $EKSA_CLUSTER_NAME
 
-log 'O' "Deleting $EKSA_ADOT_SERVICE_ACCOUNT in ${EKSA_ADOT_NAMESPACE}.."
+log 'O' "Deleting $EKSA_ADOT_SERVICE_ACCOUNT in ${EKSA_ADOT_NAMESPACE} namespace.."
 kubectl delete -f ./eksa-adot-sa.yaml
 
 log 'O' "Cleaning up manifest files.."
