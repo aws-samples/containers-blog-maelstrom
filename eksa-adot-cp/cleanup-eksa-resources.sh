@@ -69,7 +69,6 @@ env_vars_check
 
 log 'R' "This step will CLEAN UP all objects, deployments and other resources deployed in Kubernetes cluster as part of the blog post."
 read -p "Are you sure you want to proceed [y/N]? " -n 2
-echo -e "\n"
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
     log 'O' "proceeding with clean up steps.."
@@ -108,7 +107,6 @@ rm -fv ./eksa-externalsecret.yaml ./clustersecretstore.yaml ./external-secrets-s
 
 log 'R' "This step will CLEAN UP NAMESPACES flux-system, prometheus-node-exporter, grafana-operator, external-secrets and ${EKSA_ADOT_NAMESPACE} created in Kubernetes cluster as part of the blog post."
 read -p "Are you sure you want to proceed [y/N]? " -n 2
-echo -e "\n"
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
     log 'O' "proceeding with deleting namespaces.."
