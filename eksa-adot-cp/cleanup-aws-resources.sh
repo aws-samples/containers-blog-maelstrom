@@ -77,7 +77,6 @@ env_vars_check
 
 log 'R' "This step will CLEAN UP all AWS resources deployed as part of the blog post."
 read -p "Are you sure you want to proceed [y/N]? " -n 2
-echo -e "\n"
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
     log 'O' "proceeding with clean up steps.."
