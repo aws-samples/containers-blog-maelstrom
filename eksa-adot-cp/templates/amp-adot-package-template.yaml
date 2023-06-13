@@ -276,7 +276,7 @@ spec:
 
       processors:
         batch/metrics:
-          timeout: 60s
+          timeout: 30s
 
       exporters:
         logging:
