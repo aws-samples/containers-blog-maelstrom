@@ -1,0 +1,13 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "aps:RemoteWrite",
+                "aps:ListWorkspaces"
+            ],
+            "Effect": "Allow",
+            "Resource": "${EKSA_AMP_WORKSPACE_ARN}"
+        }
+    ]
+}
