@@ -1,4 +1,4 @@
-# Observing your On Premises EKS Anywhere environment using ADOT Curated package, AMP and AMG Dashboards managed using Grafana Operator
+# Using EKS Anywhere Curated Packages, AWS managed Open Sources services and Open Source Grafana Operator to Observe your On Premises EKS Anywhere environment
 
 This repository contains artifacts to deploy required EKS Anywhere and AWS resources. Follow steps mentioned in the blog.
 
