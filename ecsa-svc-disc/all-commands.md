@@ -1,12 +1,10 @@
-All commands
-===
-*This markdown list all the commands shown in the AWS Blog - **Implementing Custom Service Discovery for ECS-Anywhere Tasks**, for easier references.*
+*All the provisioning commands, verification and post-configuration commands are put in this markdown for the Blog post - **Implementing Custom Service Discovery for ECS-Anywhere Tasks**
 
 ---
 ### Prerequisites
 
 ```
-git clone git@github.com:aws-samples/containers-blog-maelstrom.git
+git clone https://github.com/aws-samples/containers-blog-maelstrom.git
 cd containers-blog-maelstrom/ecsa-svc-disc
 ```
 
@@ -52,7 +50,7 @@ KEYPAIR_ID=$(aws ec2 describe-key-pairs --key-name ECSA-SvcDisc-KeyPair | jq -r 
 aws ssm get-parameter --name /ec2/keypair/$KEYPAIR_ID --with-decryption --query Parameter.Value --output text > ecsa-svcdisc-keypair.pem
 chmod 400 ecsa-svcdisc-keypair.pem
 
-ssh -i ecsa-svcdisc-keypair.pem ubuntu@18.167.51.161 # Public IP of the 1st Ubuntu HTTP Proxy above
+ssh -i ecsa-svcdisc-keypair.pem ubuntu@18.167.51.161 # Public IP of the 1st Linux EC2 instance of HTTP Proxy above
 ```
 ```
 curl -x localhost:3128 https://api.ipify.org?format=json
@@ -67,7 +65,7 @@ aws autoscaling set-desired-capacity --auto-scaling-group-name ECSA-OnPrem-VM-AS
 aws ec2 describe-instances --filters 'Name=tag:Name,Values=ECSA-OnPrem-VM' 'Name=instance-state-name,Values=running' --query "Reservations[].Instances[].{Id:InstanceId,Name:Tags[?Key=='Name']|[0].Value,PrivateIp:PrivateIpAddress,PublicIp:PublicIpAddress}" --output text
 ```
 ```
-# In the SSH Session of 1st Ubuntu HTTP Proxy (18.167.51.161)
+# In the SSH Session of 1st Linux EC2 instance of HTTP Proxy (18.167.51.161)
 ssh ubuntu@10.0.1.168
 ```
 ```
@@ -125,7 +123,7 @@ chmod 755 script/ecsa-svc-disc-show-tg-health.sh
 ```
 
 ---
-### Step 5 - Update ECS Service Desired Count and Observe the Registered Targets in ALB Target Groups
+### Update ECS Service Desired Count and Observe the Registered Targets in ALB Target Groups
 
 ```
 aws ecs update-service --cluster ECSA-Demo-Cluster --service Service-DemoApp1 --desired-count 2 | jq '.service | {serviceArn:.serviceArn, status:.status, desiredCount:.desiredCount, runningCount:.runningCount}'
@@ -151,7 +149,7 @@ curl http://ECSA-SvcDisc-ALB-OnPremLB-<suffix>.<aws region>.elb.amazonaws.com:80
 ---
 ### Highlight of Required Modification for On-Premises Load Balancer
 
-```js
+```
 //import * as lb from './lb-alb.mjs';
 import * as lb from './lb-your-onprem-ld.mjs';
 ```
@@ -166,4 +164,10 @@ aws ecs list-container-instances --cluster ECSA-Demo-Cluster
 aws ecs deregister-container-instance --cluster ECSA-Demo-Cluster \
     --container-instance <Container Instance ARN> \
     --force
+```
+```
+aws cloudformation delete-stack --stack-name ecsa-svc-disc-sqs-lambda
+aws cloudformation delete-stack --stack-name ecsa-svc-disc-ecs-service-task
+aws cloudformation delete-stack --stack-name ecsa-svc-disc-sqs-vpc-ec2-alb
+aws cloudformation delete-stack --stack-name ecsa-svc-disc-sqs-ecs-cluster
 ```
