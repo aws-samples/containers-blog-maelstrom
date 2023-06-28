@@ -1,0 +1,103 @@
+[
+  {
+    "Action": {
+      "Operation": "FORMAT_DATE",
+      "Parameters": {
+        "sourceColumn": "line_item_usage_end_date",
+        "targetDateFormat": "yyyy-mm-dd*HH:MM:SS"
+      }
+    }
+  },
+  {
+    "Action": {
+      "Operation": "FORMAT_DATE",
+      "Parameters": {
+        "sourceColumn": "line_item_usage_start_date",
+        "targetDateFormat": "yyyy-mm-dd*HH:MM:SS"
+      }
+    }
+  },
+  {
+    "Action": {
+      "Operation": "FORMAT_DATE",
+      "Parameters": {
+        "sourceColumn": "bill_billing_period_end_date",
+        "targetDateFormat": "yyyy-mm-dd*HH:MM:SS"
+      }
+    }
+  },
+  {
+    "Action": {
+      "Operation": "FORMAT_DATE",
+      "Parameters": {
+        "sourceColumn": "bill_billing_period_start_date",
+        "targetDateFormat": "yyyy-mm-dd*HH:MM:SS"
+      }
+    }
+  },
+  {
+    "Action": {
+      "Operation": "EXTRACT_PATTERN",
+      "Parameters": {
+        "pattern": "/.*",
+        "sourceColumn": "line_item_resource_id",
+        "targetColumn": "lineItem_ResourceId_arn"
+      }
+    }
+  },
+  {
+    "Action": {
+      "Operation": "SPLIT_COLUMN_SINGLE_DELIMITER",
+      "Parameters": {
+        "includeInSplit": "true",
+        "limit": "4",
+        "pattern": "/",
+        "sourceColumn": "lineItem_ResourceId_arn"
+      }
+    }
+  },
+  {
+    "Action": {
+      "Operation": "DELETE",
+      "Parameters": {
+        "sourceColumns": "[\"lineItem_ResourceId_arn_1\"]"
+      }
+    }
+  },
+  {
+    "Action": {
+      "Operation": "RENAME",
+      "Parameters": {
+        "sourceColumn": "lineItem_ResourceId_arn_2",
+        "targetColumn": "lineItem_ResourceId_clusterName"
+      }
+    }
+  },
+  {
+    "Action": {
+      "Operation": "RENAME",
+      "Parameters": {
+        "sourceColumn": "lineItem_ResourceId_arn_3",
+        "targetColumn": "lineItem_ResourceId_namespace"
+      }
+    }
+  },
+  {
+    "Action": {
+      "Operation": "RENAME",
+      "Parameters": {
+        "sourceColumn": "lineItem_ResourceId_arn_4",
+        "targetColumn": "lineItem_ResourceId_deploymentId"
+      }
+    }
+  },
+  {
+    "Action": {
+      "Operation": "RENAME",
+      "Parameters": {
+        "sourceColumn": "lineItem_ResourceId_arn_5",
+        "targetColumn": "lineItem_ResourceId_podId"
+      }
+    }
+  }
+]
