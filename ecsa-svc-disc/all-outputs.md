@@ -1,7 +1,8 @@
 *All the sample outputs of commands are put in this markdown for the Blog post - **Implementing Custom Service Discovery for ECS-Anywhere Tasks**
 
+
 ---
-### Step 1 - Provision the ECS Cluster and Prepare the Activation ID and Activation Code
+### Step 1 - Provision the ECS cluster, VPCs/Subnets, EC2 Launch Template and ALB
 
 **1.**
 
@@ -13,80 +14,33 @@ e1db3452-d0c7-48b0-8f54-2d4317e21f0e
 itUspF************** (Partially masked as it is a sensitive data)
 ```
 
----
-### Step 2 - Provision the VPCs, Subnets, EC2 Launch Template and ALB
-
-**1.**
+**2.**
 
 ```
 i-0a0f5db07af93d469     ECSA-OnPrem-Proxy       10.0.31.5       18.167.51.161
 i-0b6b830d009f1f611     ECSA-OnPrem-Proxy       10.0.33.186     18.162.143.140
 i-0cb4428205c6fb63f     ECSA-OnPrem-Proxy       10.0.32.46      43.198.17.79
-```
-
-**2.**
-
-```
-{"ip":"18.167.51.161"}
+i-02bcd1dbfe0c7591a     ECSA-OnPrem-VM  10.0.1.168      None
+i-0599e04b00e7e9c97     ECSA-OnPrem-VM  10.0.3.224      None
+i-0e81940c6efba2493     ECSA-OnPrem-VM  10.0.2.73       None
 ```
 
 **3.**
 
 ```
-i-02bcd1dbfe0c7591a     ECSA-OnPrem-VM  10.0.1.168      None
-i-0599e04b00e7e9c97     ECSA-OnPrem-VM  10.0.3.224      None
-i-0e81940c6efba2493     ECSA-OnPrem-VM  10.0.2.73       None
-```
-```
-Mon May 22 16:49:33 UTC 2023 1. Setup HTTP Proxy ENV
-Mon May 22 16:49:33 UTC 2023 2. Prepare the /tmp/esca.sh for ECS Anywhere agent installation and registration
-Mon May 22 16:49:56 UTC 2023 3. Disable EC2 Instance Metadata
-Mon May 22 16:49:57 UTC 2023 5. Setup HTTP Proxy for Services
-Mon May 22 16:49:57 UTC 2023 4. Install Docker
-Mon May 22 16:50:40 UTC 2023 COMPLETED
-Mon May 22 16:50:40 UTC 2023 Auto-Registering ECS Anywhere Agent by execuing /tmp/ecsa.sh > /tmp/ecsa.log
-Mon May 22 16:51:11 UTC 2023 DONE
-```
-```
 # AWS Account ID are masked as ************
 {
-  "serviceArn": "arn:aws:ecs:ap-east-1:************:service/ECSA-Demo-Cluster/Service-DemoApp1",
-  "deployments": {
-    "id": "ecs-svc/2474979950726421586",
-    "status": "PRIMARY",
-    "taskDefinition": "arn:aws:ecs:ap-east-1:************:task-definition/DemoApp1:1",
-    "desiredCount": 1,
-    "pendingCount": 0,
-    "runningCount": 1,
-    "failedTasks": 0,
-    "createdAt": "2023-05-23T00:52:52.802000+08:00",
-    "updatedAt": "2023-05-23T01:44:01.662000+08:00",
-    "launchType": "EXTERNAL",
-    "rolloutState": "COMPLETED",
-    "rolloutStateReason": "ECS deployment ecs-svc/2474979950726421586 completed."
-  }
-}
-{
-  "serviceArn": "arn:aws:ecs:ap-east-1:************:service/ECSA-Demo-Cluster/Service-DemoApp2",
-  "deployments": {
-    "id": "ecs-svc/7567762855939340968",
-    "status": "PRIMARY",
-    "taskDefinition": "arn:aws:ecs:ap-east-1:************:task-definition/DemoApp2:1",
-    "desiredCount": 3,
-    "pendingCount": 0,
-    "runningCount": 3,
-    "failedTasks": 0,
-    "createdAt": "2023-05-23T00:52:54.560000+08:00",
-    "updatedAt": "2023-05-23T01:44:08.727000+08:00",
-    "launchType": "EXTERNAL",
-    "rolloutState": "COMPLETED",
-    "rolloutStateReason": "ECS deployment ecs-svc/7567762855939340968 completed."
-  }
+    "containerInstanceArns": [
+        "arn:aws:ecs:ap-east-1:************:container-instance/ECSA-Demo-Cluster/901230153cb94b09854f2d47e6169ffc",
+        "arn:aws:ecs:ap-east-1:************:container-instance/ECSA-Demo-Cluster/df65caa34dfe41059ae6cc3acce2327c",
+        "arn:aws:ecs:ap-east-1:************:container-instance/ECSA-Demo-Cluster/aa270abfbbe54b91bb476c097b89a252"
+    ]
 }
 ```
 
+
 ---
-### Step 3 - Provision the ECS Task Definitions and Services
+### Step 2 - Provision the ECS Task Definitions and Services
 
 **1.**
 
@@ -214,7 +168,7 @@ ECS Container Instances:
 ```
 
 ---
-### Step 4 - Provision the EventBridge, SQS and Lambda Function
+### Step 3 - Provision the EventBridge, SQS and Lambda Function
 
 ```
 # AWS Account ID are masked as ************

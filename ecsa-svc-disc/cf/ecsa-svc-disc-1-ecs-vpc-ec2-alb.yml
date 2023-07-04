@@ -1,9 +1,15 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: This template provision a VPC that simulate an On-Premises environment network. The VPC would host EC2 instances that model On-Premises VM, where ECS-Anywhere agents would be installed.
+Description: This template provision an ECS Cluster for ECS-Anywhere, and a VPC that simulate an On-Premises environment network. The VPC would host EC2 instances that model On-Premises VM, where ECS-Anywhere agents would be installed.
 Parameters:
   ECSClusterName:
     Type: String
     Default: ECSA-Demo-Cluster
+  ECSAExpirationDays:
+    Type: Number
+    Default: 7
+  ECSARegistrationLimit:
+    Type: Number
+    Default: 20
   VMInstanceTypeParameter:
     Type: String
     Default: t3.large
@@ -33,12 +39,211 @@ Parameters:
     AllowedValues:
       - true
       - false
+  ProxyDesiredCapacity:
+    Type: Number
+    Default: 3
+  OnPremVMDesiredCapacity:
+    Type: Number
+    Default: 3
   SecurityGroupIngressAllowedCidrParameter:
     Type: String
 #    Default: 0.0.0.0/0
     AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
     
 Resources:
+
+  ECSARole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ECSClusterName}-ECSARole"
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: ssm.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref ECSClusterName
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  LambdaSSMActivationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ECSClusterName}-LambdaSSMActivationRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - lambda.amazonaws.com
+          Action:
+            - sts:AssumeRole
+      Description: Role for Lambda function for ECS-Anywhere on Automating SSM Hybrid Activations.
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: inline-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ssm:CreateActivation'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'ssm:PutParameter'
+                  - 'ssm:DeleteParameter'
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ecsa/ssmactivation/*"
+              - Effect: Allow
+                Action:
+                  - 'iam:PassRole'
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ECSClusterName}-ECSARole"
+  LambdaSSMActivation:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ECSClusterName}-Lambda-SSMActivation"
+      Description: Lambda function for ECS-Anywhere on Automating SSM Hybrid Activations.
+      Handler: index.handler
+      Role: !GetAtt LambdaSSMActivationRole.Arn
+      Environment:
+        Variables:
+          ACTIVATION_EXP_DAYS: !Ref ECSAExpirationDays
+          ACTIVATION_IAM_ROLE: !Ref ECSARole
+          ACTIVATION_REG_LIMIT: !Ref ECSARegistrationLimit
+      Code:
+        ZipFile: !Sub |
+          let cfn_response = require("cfn-response");
+          
+          exports.handler = async function (event, context) {
+              console.log(event);
+          
+              let responseData = null;
+              let responseStatus = cfn_response.FAILED;
+          
+              try {
+                const { SSMClient, CreateActivationCommand, PutParameterCommand, DeleteParameterCommand } = require("@aws-sdk/client-ssm");
+                const ssmClient = new SSMClient();
+          
+                if(event.RequestType=="Delete") {
+                  for(let name of ["/ecsa/ssmactivation/ActivationInfo",
+                      "/ecsa/ssmactivation/ActivationId",
+                      "/ecsa/ssmactivation/ActivationCode"]) {
+                  
+                    const command = new DeleteParameterCommand({
+                      Name: name
+                    });
+                    console.log(command.input);
+                    
+                    const response = await ssmClient.send(command);
+                    console.log(response);
+                  }
+                  
+                  responseStatus = "SUCCESS";
+                  responseData = {
+                    "SSMParamerer-ActivationInfo": "/ecsa/ssmactivation/ActivationInfo",
+                    "SSMParamerer-ActivationId": "/ecsa/ssmactivation/ActivationId",
+                    "SSMParamerer-ActivationCode": "/ecsa/ssmactivation/ActivationCode"
+                  };
+                }
+                else {
+                  let iamRole = process.env.ACTIVATION_IAM_ROLE;
+                  let regLimit = parseInt(process.env.ACTIVATION_REG_LIMIT);
+                  let expDate = new Date();
+                  expDate.setDate(expDate.getDate()+parseInt(process.env.ACTIVATION_EXP_DAYS));
+              
+                  const command1 = new CreateActivationCommand({
+                    IamRole: iamRole,
+                    RegistrationLimit: regLimit,
+                    ExpirationDate: expDate
+                  });
+                  console.log(command1.input);
+                  
+                  const response1 = await ssmClient.send(command1);
+                  console.log(response1);
+                  
+                  const command2a = new PutParameterCommand({
+                    Name: "/ecsa/ssmactivation/ActivationInfo",
+                    Value: JSON.stringify(command1.input),
+                    Type: "String",
+                    Overwrite: true
+                  });
+                  console.log(command2a.input);
+                  
+                  const response2a = await ssmClient.send(command2a);
+                  console.log(response2a);
+                  
+                  const command2b = new PutParameterCommand({
+                    Name: "/ecsa/ssmactivation/ActivationId",
+                    Value: response1.ActivationId,
+                    Type: "String",
+                    Overwrite: true
+                  });
+                  console.log(command2b.input);
+                  
+                  const response2b = await ssmClient.send(command2b);
+                  console.log(response2b);
+                  
+                  const command2c = new PutParameterCommand({
+                    Name: "/ecsa/ssmactivation/ActivationCode",
+                    Value: response1.ActivationCode,
+                    Type: "SecureString",
+                    Overwrite: true
+                  });
+                  console.log(command2c.input);
+                  
+                  const response2c = await ssmClient.send(command2c);
+                  console.log(response2c);
+                  
+                  responseStatus = cfn_response.SUCCESS;
+                  responseData = {
+                      ActivationInfo: command2a.input.Value,
+                      ActivationId: command2b.input.Value,
+                      ActivationCode: command2c.input.Value,
+                      "SSMParamerer-ActivationInfo": command2a.input.Name,
+                      "SSMParamerer-ActivationId": command2b.input.Name,
+                      "SSMParamerer-ActivationCode": command2c.input.Name
+                  };
+                }
+                
+                if(event.ResponseURL) {
+                  await new Promise((resolve, reject) => {
+                    cfn_response.send(event, context, responseStatus, responseData);
+                  });
+                }
+                return responseData;
+              }
+              catch(e) {
+                if(event.ResponseURL) {
+                  responseData = e;
+                  await new Promise((resolve, reject) => {
+                    cfn_response.send(event, context, responseStatus, responseData);
+                  });
+                }
+                throw e;
+              }
+          };
+
+       
+      Runtime: nodejs18.x
+      Timeout: 30
+  LambdaSSMActivationInvoke:
+    Type: AWS::CloudFormation::CustomResource
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt LambdaSSMActivation.Arn
+      
+      
   OnPremVPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -401,6 +606,27 @@ Resources:
       Path: "/"
       Roles:
       - !Ref EC2InstanceRole
+      
+  AutoScalingGroupOnPremVM:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName:  ECSA-OnPrem-VM-ASG
+      VPCZoneIdentifier:
+      - !Ref OnPremVPCSubnetVMA
+      - !Ref OnPremVPCSubnetVMB
+      - !Ref OnPremVPCSubnetVMC
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplateOnPremVM
+        Version: !GetAtt LaunchTemplateOnPremVM.LatestVersionNumber
+      MinSize: 0
+      MaxSize: 10
+      DesiredCapacity: !Ref OnPremVMDesiredCapacity
+    DependsOn:
+    - ECSCluster
+    - NLBOnPremProxy
+    - WaitConditionEC2Proxy
+    - LambdaECSACleanupInvoke
+    - LambdaSSMActivationInvoke
   LaunchTemplateOnPremVM:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -442,6 +668,8 @@ Resources:
                 export NO_PROXY=$NO_PROXY
                 " >> /etc/environment
                 
+                curl -x $HTTPS_PROXY:3128 https://api.seeip.org/jsonip > /tmp/proxy.status 2>&1
+              
                 echo "Acquire::http::Proxy \"http://$HTTP_PROXY\";
                 Acquire::https::Proxy \"http://$HTTP_PROXY\";
                 " > /etc/apt/apt.conf
@@ -537,21 +765,28 @@ Resources:
                   echo $(date) To register, execute 'sudo /tmp/ecsa.sh' manually >> /tmp/ecsa.status
                 fi
                 echo $(date) DONE >> /tmp/ecsa.status
+              - ''
+              - !Join ['', ['WAIT_HANDLE_ACK_URL="', !Ref WaitHandleEC2OnPremVM, '"']]
+              - |
+                WAIT_STATUS="FAILURE"
+                WAIT_MSG_FIELD="Reason"
+                grep ERROR ecsa.log > /tmp/ecsa.ack
+                systemctl status ecs >> /tmp/ecsa.ack 2>&1
                 
-  AutoScalingGroupOnPremVM:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName:  ECSA-OnPrem-VM-ASG
-      VPCZoneIdentifier:
-      - !Ref OnPremVPCSubnetVMA
-      - !Ref OnPremVPCSubnetVMB
-      - !Ref OnPremVPCSubnetVMC
-      LaunchTemplate:
-        LaunchTemplateId: !Ref LaunchTemplateOnPremVM
-        Version: !GetAtt LaunchTemplateOnPremVM.LatestVersionNumber
-      MinSize: 0
-      MaxSize: 10
-      DesiredCapacity: 0
+                if [ $? -eq 0 ]; then
+                  WAIT_STATUS="SUCCESS"
+                  WAIT_MSG_FIELD="Data"
+                fi
+                
+                head -5 /tmp/ecsa.ack | jq -R --slurp . > /tmp/waitdata 2>&1
+                
+                echo "{
+                   \"Status\": \"$WAIT_STATUS\",
+                   \"UniqueId\": \"onpremvm-$(hostname)\",
+                   \"$WAIT_MSG_FIELD\": $(cat /tmp/waitdata)
+                }" > /tmp/waithandle_ack
+                
+                curl -T /tmp/waithandle_ack "$WAIT_HANDLE_ACK_URL"
   LaunchTemplateProxy:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -594,7 +829,28 @@ Resources:
                 aws ssm get-parameter --name /ec2/keypair/$KEYPAIR_ID --with-decryption --query Parameter.Value --output text > /home/ubuntu/.ssh/id_rsa
                 chown ubuntu:ubuntu /home/ubuntu/.ssh/id_rsa
                 chmod 400 /home/ubuntu/.ssh/id_rsa
-        
+              - ''
+              - !Join ['', ['WAIT_HANDLE_ACK_URL="', !Ref WaitHandleEC2Proxy, '"']]
+              - |
+                snap install jq
+                WAIT_STATUS="FAILURE"
+                WAIT_MSG_FIELD="Reason"
+                curl -x localhost:3128 https://api.seeip.org/jsonip > /tmp/proxy.status 2>&1
+                
+                if [ $? -eq 0 ]; then
+                  WAIT_STATUS="SUCCESS"
+                  WAIT_MSG_FIELD="Data"
+                fi
+                
+                tail -2 /tmp/proxy.status | jq -R --slurp . > /tmp/waitdata 2>&1
+                
+                echo "{
+                   \"Status\": \"$WAIT_STATUS\",
+                   \"UniqueId\": \"proxy-$(hostname)\",
+                   \"$WAIT_MSG_FIELD\": $(cat /tmp/waitdata)
+                }" > /tmp/waithandle_ack
+                
+                curl -T /tmp/waithandle_ack "$WAIT_HANDLE_ACK_URL"
   AutoScalingGroupProxy:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
@@ -610,7 +866,7 @@ Resources:
       - !Ref TargetGroupOnPremProxy
       MinSize: 1
       MaxSize: 3
-      DesiredCapacity: 3
+      DesiredCapacity: !Ref ProxyDesiredCapacity
       
 
   NLBOnPremProxy:
@@ -744,12 +1000,198 @@ Resources:
       Tags:
         - Key: ecs-a.lbVpcCidr
           Value: !GetAtt OnPremVPC.CidrBlock
+
+  WaitHandleEC2Proxy:
+    Type: AWS::CloudFormation::WaitConditionHandle
+  
+  WaitConditionEC2Proxy:
+    Type: AWS::CloudFormation::WaitCondition
+    Properties:
+      Handle: !Ref WaitHandleEC2Proxy
+      Count: !Ref ProxyDesiredCapacity
+      Timeout: 600
+    DependsOn: AutoScalingGroupProxy
+
+  WaitHandleEC2OnPremVM:
+    Type: AWS::CloudFormation::WaitConditionHandle
+  
+  WaitConditionEC2OnPremVM:
+    Type: AWS::CloudFormation::WaitCondition
+    Properties:
+      Handle: !Ref WaitHandleEC2OnPremVM
+      Count: !Ref OnPremVMDesiredCapacity
+      Timeout: 600
+    DependsOn: AutoScalingGroupOnPremVM
+    
+    
+  LambdaECSACleanupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ECSClusterName}-LambdaECSACleanupRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - lambda.amazonaws.com
+          Action:
+            - sts:AssumeRole
+      Description: Role for Lambda function to cleanup ECS-Anywhere resources, including ECS Container Instance Deregistration and SSM Managed Instance Deregistration.
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: inline-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ecs:ListContainerInstances'
+                  - 'ecs:DescribeContainerInstances'
+                  - 'ecs:DeregisterContainerInstance'
+                Resource:
+                - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ECSClusterName}"
+                - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:container-instance/${ECSClusterName}/*"
+              - Effect: Allow
+                Action:
+                  - 'ssm:DeregisterManagedInstance'
+                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:managed-instance/*"
+  LambdaECSACleanup:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ECSClusterName}-Lambda-ECSACleanup"
+      Description: Lambda function to cleanup ECS-Anywhere resources, including ECS Container Instance Deregistration and SSM Managed Instance Deregistration.
+      Handler: index.handler
+      Role: !GetAtt LambdaECSACleanupRole.Arn
+      Environment:
+        Variables:
+          ECS_CLUSTER_NAME: !Ref ECSClusterName
+      Code:
+        ZipFile: !Sub |
+          let cfn_response = require("cfn-response");
           
+          exports.handler = async function (event, context) {
+            console.log(event);
+          
+            let responseData = null;
+            let responseStatus = cfn_response.FAILED;
+          
+            try {
+              const { ECSClient, ListContainerInstancesCommand, DescribeContainerInstancesCommand, DeregisterContainerInstanceCommand } = require("@aws-sdk/client-ecs"); 
+              const { SSMClient, DeregisterManagedInstanceCommand } = require("@aws-sdk/client-ssm");
+          
+              const ecsClient = new ECSClient();
+              const ssmClient = new SSMClient();
+          
+              let clusterName = process.env.ECS_CLUSTER_NAME;
+                
+              if(event.RequestType=="Delete") {
+                  
+                let command1 = new ListContainerInstancesCommand({
+                  cluster: clusterName
+                });
+                let response1 = await ecsClient.send(command1);
+                console.log(response1);
+ 
+                const containerInstanceArns = new Array();
+                const ec2InstanceIds = new Array();
+                
+                if(response1.containerInstanceArns && response1.containerInstanceArns.length>0) {
+              
+                  let command2 = new DescribeContainerInstancesCommand({
+                    cluster: clusterName,
+                    containerInstances: response1.containerInstanceArns
+                  });
+                  let response2 = await ecsClient.send(command2);
+                  console.log(response2);
+                  
+                  for(let containerInstance of response2.containerInstances) {
+                    containerInstanceArns.push(containerInstance.containerInstanceArn);
+                    ec2InstanceIds.push(containerInstance.ec2InstanceId);
+                  }
+                   
+                  for(let containerInstanceArn of containerInstanceArns) {
+                    const command3a = new DeregisterContainerInstanceCommand({
+                      cluster: clusterName,
+                      containerInstance: containerInstanceArn,
+                      force: true
+                    });
+                    console.log(command3a.input);
+                    
+                    const response3a = await ecsClient.send(command3a);
+                    console.log(response3a); 
+                  }
+                   
+                  for(let ec2InstanceId of ec2InstanceIds) {
+                    const command3b = new DeregisterManagedInstanceCommand({
+                      InstanceId: ec2InstanceId
+                    });
+                    console.log(command3b.input);
+                    
+                    const response3b = await ssmClient.send(command3b);
+                    console.log(response3b); 
+                  }
+                  
+                }
+                
+                responseStatus = "SUCCESS";
+                responseData = {
+                  "containerInstanceArns": JSON.stringify(containerInstanceArns),
+                  "ec2InstanceIds": JSON.stringify(ec2InstanceIds)
+                };
+              }
+              else {
+                responseStatus = "SUCCESS";
+                responseData = { };
+              }
+              
+              if(event.ResponseURL) {
+                await new Promise((resolve, reject) => {
+                  cfn_response.send(event, context, responseStatus, responseData);
+                });
+              }
+              return responseData;
+            }
+            catch(e) {
+              if(event.ResponseURL) {
+                responseData = e;
+                await new Promise((resolve, reject) => {
+                  cfn_response.send(event, context, responseStatus, responseData);
+                });
+              }
+              throw e;
+            }
+          };
+
+       
+      Runtime: nodejs18.x
+      Timeout: 30
+  LambdaECSACleanupInvoke:
+    Type: AWS::CloudFormation::CustomResource
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt LambdaECSACleanup.Arn
+    DependsOn:
+    - ECSCluster
+    
 Outputs:
   SSMParameterEC2KeyPair:
     Value: !Sub
       - "/ec2/keypair/${KeyPairId}"
       - KeyPairId: !GetAtt EC2KeyPair.KeyPairId
+  ECSARole:
+    Value: !Ref ECSARole
+  ActivationInfo:
+    Value: !GetAtt LambdaSSMActivationInvoke.ActivationInfo
+  ActivationId:
+    Value: !GetAtt LambdaSSMActivationInvoke.ActivationId
+  ActivationCode:
+    Value: !GetAtt LambdaSSMActivationInvoke.ActivationCode
+  WaitConditionEC2ProxyData:
+    Value: !GetAtt WaitConditionEC2Proxy.Data
+  WaitConditionEC2OnPremVM:
+    Value: !GetAtt WaitConditionEC2OnPremVM.Data
   OnPremVPCCidrBlock:
     Value: !GetAtt OnPremVPC.CidrBlock
     Export:
