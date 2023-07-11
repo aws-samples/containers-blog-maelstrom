@@ -9,12 +9,15 @@ cd containers-blog-maelstrom/ecsa-svc-disc
 ```
 
 ---
-### Step 1 - Provision the ECS Cluster and Prepare the Activation ID and Activation Code
+### Step 1 - Provision the ECS cluster, VPCs/Subnets, EC2 Launch Template and ALB
 
 ```
-aws cloudformation create-stack --stack-name ecsa-svc-disc-ecs-cluster \
-  --template-body file://./cf/ecsa-svc-disc-ecs-cluster.yml \
-  --capabilities CAPABILITY_NAMED_IAM --timeout-in-minutes 10
+aws cloudformation create-stack --stack-name ecsa-svc-disc-1-ecs-vpc-ec2-alb \
+  --template-body file://./cf/ecsa-svc-disc-1-ecs-vpc-ec2-alb.yml \
+  --capabilities CAPABILITY_NAMED_IAM --timeout-in-minutes 20 \
+  --parameters ParameterKey=SecurityGroupIngressAllowedCidrParameter,ParameterValue=<To be replaced>
+
+aws cloudformation wait stack-create-complete --stack-name ecsa-svc-disc-1-ecs-vpc-ec2-alb
 ```
 
 **1.**
@@ -27,61 +30,27 @@ aws ssm get-parameter --name /ecsa/ssmactivation/ActivationId --query Parameter.
 aws ssm get-parameter --name /ecsa/ssmactivation/ActivationCode --query Parameter.Value --with-decryption --output text
 ```
 
----
-### Step 2 - Provision the VPCs, Subnets, EC2 Launch Template and ALB
-
-```
-aws cloudformation create-stack --stack-name ecsa-svc-disc-vpc-ec2-alb \
-  --template-body file://./cf/ecsa-svc-disc-vpc-ec2-alb.yml \
-  --capabilities CAPABILITY_NAMED_IAM --timeout-in-minutes 10 \
-  --parameters ParameterKey=SecurityGroupIngressAllowedCidrParameter,ParameterValue=<To be replaced>
-```
-
-**1.**
-
-```
-aws ec2 describe-instances --filters 'Name=tag:Name,Values=ECSA-OnPrem-Proxy' 'Name=instance-state-name,Values=running' --query "Reservations[].Instances[].{Id:InstanceId,Name:Tags[?Key=='Name']|[0].Value,PrivateIp:PrivateIpAddress,PublicIp:PublicIpAddress}" --output text
-```
-
 **2.**
 
 ```
-KEYPAIR_ID=$(aws ec2 describe-key-pairs --key-name ECSA-SvcDisc-KeyPair | jq -r '.KeyPairs[].KeyPairId')
-aws ssm get-parameter --name /ec2/keypair/$KEYPAIR_ID --with-decryption --query Parameter.Value --output text > ecsa-svcdisc-keypair.pem
-chmod 400 ecsa-svcdisc-keypair.pem
-
-ssh -i ecsa-svcdisc-keypair.pem ubuntu@18.167.51.161 # Public IP of the 1st Linux EC2 instance of HTTP Proxy above
-```
-```
-curl -x localhost:3128 https://api.ipify.org?format=json
+aws ec2 describe-instances --filters 'Name=tag:Name,Values=ECSA-OnPrem-*' 'Name=instance-state-name,Values=running' --query "sort_by(Reservations[].Instances[].{Id:InstanceId,Name:Tags[?Key=='Name']|[0].Value,PrivateIp:PrivateIpAddress,PublicIp:PublicIpAddress}, &Name)" --output text
 ```
 
 **3.**
 
 ```
-aws autoscaling set-desired-capacity --auto-scaling-group-name ECSA-OnPrem-VM-ASG --desired-capacity 3
-```
-```
-aws ec2 describe-instances --filters 'Name=tag:Name,Values=ECSA-OnPrem-VM' 'Name=instance-state-name,Values=running' --query "Reservations[].Instances[].{Id:InstanceId,Name:Tags[?Key=='Name']|[0].Value,PrivateIp:PrivateIpAddress,PublicIp:PublicIpAddress}" --output text
-```
-```
-# In the SSH Session of 1st Linux EC2 instance of HTTP Proxy (18.167.51.161)
-ssh ubuntu@10.0.1.168
-```
-```
-tail -f /tmp/ecsa.status
-```
-```
 aws ecs list-container-instances --cluster ECSA-Demo-Cluster
 ```
 
 ---
-### Step 3 - Provision the ECS Task Definitions and Services
+### Step 2 - Provision the ECS Task Definitions and Services
 
 ```
-aws cloudformation create-stack --stack-name ecsa-svc-disc-ecs-service-task \
-  --template-body file://./cf/ecsa-svc-disc-ecs-service-task.yml \
+aws cloudformation create-stack --stack-name ecsa-svc-disc-2-ecs-service-task \
+  --template-body file://./cf/ecsa-svc-disc-2-ecs-service-task.yml \
   --capabilities CAPABILITY_NAMED_IAM --timeout-in-minutes 10
+  
+aws cloudformation wait stack-create-complete --stack-name ecsa-svc-disc-2-ecs-service-task
 ```
 
 **1.**
@@ -98,18 +67,20 @@ chmod 755 script/ecsa-svc-disc-show-tasks.sh
 ```
 
 ---
-### Step 4 - Provision the EventBridge, SQS and Lambda Function
+### Step 3 - Provision the EventBridge, SQS and Lambda Function
 
 ```
-aws cloudformation create-stack --stack-name ecsa-svc-disc-sqs-lambda \
-  --template-body file://./cf/ecsa-svc-disc-sqs-lambda.yml \
+aws cloudformation create-stack --stack-name ecsa-svc-disc-3-sqs-lambda \
+  --template-body file://./cf/ecsa-svc-disc-3-sqs-lambda.yml \
   --capabilities CAPABILITY_NAMED_IAM --timeout-in-minutes 10
+  
+aws cloudformation wait stack-create-complete --stack-name ecsa-svc-disc-3-sqs-lambda
 ```
 ```
-pushd lambda
+cd lambda
 zip lambda.zip *.mjs
 aws lambda update-function-code --function-name ECSA-Demo-Cluster-Lambda-ProcessEvent --zip-file fileb://./lambda.zip | jq '{FunctionArn:.FunctionArn,CodeSize:.CodeSize}'
-popd
+cd ..
 ```
 ```
 chmod 755 script/ecsa-svc-disc-set-tg-tags.sh
@@ -158,16 +129,12 @@ import * as lb from './lb-your-onprem-ld.mjs';
 ### Cleaning up
 
 ```
-aws ecs list-container-instances --cluster ECSA-Demo-Cluster
-```
-```
-aws ecs deregister-container-instance --cluster ECSA-Demo-Cluster \
-    --container-instance <Container Instance ARN> \
-    --force
-```
-```
-aws cloudformation delete-stack --stack-name ecsa-svc-disc-sqs-lambda
-aws cloudformation delete-stack --stack-name ecsa-svc-disc-ecs-service-task
-aws cloudformation delete-stack --stack-name ecsa-svc-disc-sqs-vpc-ec2-alb
-aws cloudformation delete-stack --stack-name ecsa-svc-disc-sqs-ecs-cluster
+aws cloudformation delete-stack --stack-name ecsa-svc-disc-3-sqs-lambda
+aws cloudformation wait stack-delete-complete --stack-name ecsa-svc-disc-3-sqs-lambda
+
+aws cloudformation delete-stack --stack-name ecsa-svc-disc-2-ecs-service-task
+aws cloudformation wait stack-delete-complete --stack-name ecsa-svc-disc-2-ecs-service-task
+
+aws cloudformation delete-stack --stack-name ecsa-svc-disc-1-ecs-vpc-ec2-alb
+aws cloudformation wait stack-delete-complete --stack-name ecsa-svc-disc-1-ecs-vpc-ec2-alb
 ```
