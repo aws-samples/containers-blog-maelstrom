@@ -4,6 +4,8 @@
 ---
 ### Step 1 - Provision the ECS cluster, VPCs/Subnets, EC2 Launch Template and ALB
 
+###### <ins>Additional</ins> verification
+
 **1.**
 
 ```
@@ -38,9 +40,12 @@ i-0e81940c6efba2493     ECSA-OnPrem-VM  10.0.2.73       None
 }
 ```
 
+**4.**
 
 ---
 ### Step 2 - Provision the ECS Task Definitions and Services
+
+###### <ins>Additional</ins> verification
 
 **1.**
 
@@ -199,7 +204,8 @@ arn:aws:ecs:ap-east-1:************:service/ECSA-Demo-Cluster/Service-DemoApp2
 }
 ```
 
-**1.**
+###### Verification and post-configuration
+
 ```
 # AWS Account ID are masked as ************
 Target Group Health
@@ -258,7 +264,7 @@ http://ECSA-SvcDisc-ALB-OnPremLB-678673162.ap-east-1.elb.amazonaws.com:8082
 }
 ```
 
-**1.**
+###### Verification and post-configuration
 
 ```
 # AWS Account ID are masked as ************
@@ -374,8 +380,6 @@ http://ECSA-SvcDisc-ALB-OnPremLB-678673162.ap-east-1.elb.amazonaws.com:8080
 http://ECSA-SvcDisc-ALB-OnPremLB-678673162.ap-east-1.elb.amazonaws.com:8081
 http://ECSA-SvcDisc-ALB-OnPremLB-678673162.ap-east-1.elb.amazonaws.com:8082
 ```
-
-**2.**
 
 ```
 Node.js backend: Hello! from 
