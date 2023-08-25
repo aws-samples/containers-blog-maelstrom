@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Bottlerocket instance to snashot data volume.
+
+Parameters:
+  AmiID:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Description: "The ID of the AMI."
+    Default: /aws/service/bottlerocket/aws-k8s-1.24/x86_64/latest/image_id
+  InstanceType:
+    Type: String
+    Description: "EC2 instance type to launch"
+    Default: t2.small
+
+Resources:
+  BottlerocketInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiID
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref BottlerocketNodeInstanceProfile
+      UserData:
+        Fn::Base64: |
+          [settings.host-containers.admin]
+          enabled = true
+  BottlerocketNodeInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: "/"
+      Roles:
+        - Ref: "BottlerocketNodeRole"
+  BottlerocketNodeRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                !Sub "ec2.${AWS::URLSuffix}"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+
+Outputs:
+  InstanceId:
+    Value: !Ref BottlerocketInstance
+    Description: Instance Id
