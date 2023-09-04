@@ -1,0 +1,89 @@
+name: Build LLM Image
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '**'
+
+jobs:
+  build_llm_image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v2
+
+      - name: Check Node v
+        run: node -v
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          # Your may reference iam_policy_github_action.json for the required IAM permission
+          # Please further limit the permission when using on production, e.g. adding resources arn to the policy
+          # Please add the access key and key ID to github secret
+          # https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # Remember to update the region
+          aws-region: YOUR_AWS_REGION
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Get image tag(verion)
+        id: image
+        run: |
+          VERSION=$(echo ${{ github.sha }} | cut -c1-8)
+          echo VERSION=$VERSION
+          echo "::set-output name=version::$VERSION"
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: image-info
+        # Remember to change YOUR_ECR_REPOSITORY_NAME to your own ECR repo name
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: YOUR_ECR_REPOSITORY_NAME
+          IMAGE_TAG: ${{ steps.image.outputs.version }}
+        run: |
+          echo "::set-output name=ecr_repository::$ECR_REPOSITORY"
+          echo "::set-output name=image_tag::$IMAGE_TAG"
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  build_ebs:
+    runs-on: ubuntu-latest
+    needs: build_sdxl_consumer_image
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v2
+
+      - name: Check Node v
+        run: node -v
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # Remember to update the region
+          aws-region: YOUR_AWS_REGION
+
+      - name: Build EBS Snapshot
+        id: build-ebs-snapshot
+        # Remember to change YOUR_ECR_REPOSITORY_NAME to your own ECR repo name
+        env:
+          ECR_REPOSITORY: YOUR_ECR_REPOSITORY_NAME
+          SNAPSHOT_ID: ""
+        # This script will use aws ecr CLI to get the latest image from ECR, and add it to the EBS snapshot
+        # You may write your own logic e.g. adding latest three images into the EBS snapshot
+        run: |
+          . ./../run.sh
+          echo "SNAPSHOT_ID:" $SNAPSHOT_ID
+      # Finally you may commit this SNAPSHOT_ID to your kubernetes yaml repo e.g. updating karpenter NodeTemplate
+      - name: Commit and Push NodeTemplate
+        id: update-node-template
+        run: |
+          echo "commit and push now"
+          echo "SNAPSHOT_ID" $SNAPSHOT_ID
