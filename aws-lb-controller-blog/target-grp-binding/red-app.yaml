@@ -40,7 +40,7 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/healthcheck-path: /index.html
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: red-app
   ports:
