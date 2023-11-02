@@ -1,7 +1,7 @@
 variable "key_name" {
   type         = string
   description  = "EC2 key pair for SSH"
-  default      = ""
+  default      = "<your keypair>"
 }
 
 variable "instance_type" {
