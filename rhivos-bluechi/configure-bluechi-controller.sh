@@ -32,25 +32,25 @@ export AWS_REGION=$(curl --silent http://169.254.169.254/latest/dynamic/instance
 
 MANAGED_NODE_IPS=""
 
-while [ -z "$MANAGED_NODE_IPS" ]; do
+while [ -z "${MANAGED_NODE_IPS}" ]; do
   echo "Waiting for Manager IP address..."
   MANAGED_NODE_IPS=$(aws ec2 describe-instances \
 	--filters "Name=tag:Name,Values=AutoSD_Managed_Node" \
 	"Name=instance-state-name,Values=running" \
 	--query 'Reservations[*].Instances[*].PrivateDnsName' \
 	--output text \
-	--region $AWS_REGION)
+	--region ${AWS_REGION})
   sleep 5
 done
 
-MANAGED_NODE_IPS_LIST=$(echo $MANAGED_NODE_IPS | tr ' ' ',' | sed 's/,/,\n/g')
+MANAGED_NODE_IPS_LIST=$(echo ${MANAGED_NODE_IPS} | tr ' ' ',' | sed 's/,/,\n/g')
 
 # mkdir -p /etc/bluechi/controller.conf.d
 
 # Add managed nodes to the controller configuration
 echo -e "[bluechi]\nManagerPort=2020\nAllowedNodeNames=$(hostname)," > /etc/bluechi/bluechi.conf.d/1.conf
 
-for n in $(echo $MANAGED_NODE_IPS)
+for n in $(echo ${MANAGED_NODE_IPS})
 do
 	echo -e "  $n,"  >> /etc/bluechi/bluechi.conf.d/1.conf
 done
