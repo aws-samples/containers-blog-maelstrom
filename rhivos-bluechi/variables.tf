@@ -1,13 +1,7 @@
-variable "ami_id_x86" {
-  type        = string
-  description = "The id of RHIVOS AMI"
-  default      = "ami-08221099381170177"
-}
-
 variable "key_name" {
   type         = string
   description  = "EC2 key pair for SSH"
-  default      = "AWS_EAST2"
+  default      = ""
 }
 
 variable "instance_type" {
