@@ -29,14 +29,14 @@ export AWS_REGION=$(curl --silent http://169.254.169.254/latest/dynamic/instance
 
 # Get IP Addresses of managed nodes
 
-while [ -z "$MANAGER_IP" ]; do
+while [ -z "${MANAGER_IP}" ]; do
   echo "Waiting for Manager IP address..."
   MANAGER_IP=$(aws ec2 describe-instances \
 	--filters "Name=tag:Name,Values=AutoSD_Manager" \
 	"Name=instance-state-name,Values=running" \
 	--query 'Reservations[*].Instances[0].PrivateIpAddress' \
 	--output text \
-	--region $AWS_REGION)
+	--region ${AWS_REGION})
   sleep 5
 done
 
