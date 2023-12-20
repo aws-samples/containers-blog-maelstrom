@@ -4,5 +4,5 @@ go 1.16
 
 require (
 	github.com/aws/aws-lambda-go v1.23.0
-	github.com/go-redis/redis/v8 v8.8.2
+	github.com/redis/go-redis/v9 v9.3.0
 )
