@@ -15,13 +15,13 @@ if [ ! -f /usr/bin/bluechi ]; then
         dnf update --nogpgcheck -y
         dnf install -y epel-release
         dnf install -y \
-		bluechi-0.5.0-1.el9iv \
-                bluechi-agent-0.5.0-1.el9iv \
-                bluechi-selinux-0.5.0-1.el9iv \
-                bluechi-ctl-0.5.0-1.el9iv \
-                python3-bluechi-0.5.0-1.el9 \
-                awscli-1.23.10-3.el9 \
-                jq-1.6-16.el9
+		bluechi \
+                bluechi-agent \
+                bluechi-selinux \
+                bluechi-ctl \
+                python3-bluechi \
+                awscli \
+                jq
 fi
 
 
@@ -48,16 +48,16 @@ MANAGED_NODE_IPS_LIST=$(echo ${MANAGED_NODE_IPS} | tr ' ' ',' | sed 's/,/,\n/g')
 # mkdir -p /etc/bluechi/controller.conf.d
 
 # Add managed nodes to the controller configuration
-echo -e "[bluechi]\nManagerPort=2020\nAllowedNodeNames=$(hostname)," > /etc/bluechi/bluechi.conf.d/1.conf
+echo -e "[bluechi-controller]\nControllerPort=2020\nAllowedNodeNames=$(hostname)," > /etc/bluechi/controller.conf.d/1.conf
 
 for n in $(echo ${MANAGED_NODE_IPS})
 do
-	echo -e "  $n,"  >> /etc/bluechi/bluechi.conf.d/1.conf
+	echo -e "  $n,"  >> /etc/bluechi/controller.conf.d/1.conf
 done
 
 
 # Configure the agent
-echo -e "[bluechi-agent]\nManagerPort=2020\n" > /etc/bluechi/agent.conf.d/1.conf
+echo -e "[bluechi-agent]\nControllerPort=2020\n" > /etc/bluechi/agent.conf.d/1.conf
 
-systemctl enable bluechi bluechi-agent
-systemctl restart bluechi bluechi-agent
+systemctl enable bluechi-controller bluechi-agent
+systemctl restart bluechi-controller bluechi-agent

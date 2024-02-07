@@ -15,13 +15,14 @@ if [ ! -f /usr/bin/bluechi ]; then
         dnf update --nogpgcheck -y
         dnf install -y epel-release
         dnf install -y \
-                bluechi-0.5.0-1.el9iv \
-                bluechi-agent-0.5.0-1.el9iv \
-                bluechi-selinux-0.5.0-1.el9iv \
-                bluechi-ctl-0.5.0-1.el9iv \
-                python3-bluechi-0.5.0-1.el9 \
-                awscli-1.23.10-3.el9 \
-                jq-1.6-16.el9
+                bluechi \
+                bluechi-agent \
+                bluechi-selinux \
+                bluechi-ctl \
+                python3-bluechi \
+                awscli \
+                jq \
+		httpd
 fi
 
 # Get AWS Region
@@ -41,7 +42,7 @@ while [ -z "${MANAGER_IP}" ]; do
 done
 
 # Configure the agent
-echo -e "[bluechi-agent]\nManagerHost=${MANAGER_IP}\nManagerPort=2020\n" > /etc/bluechi/agent.conf.d/1.conf
+echo -e "[bluechi-agent]\nControllerHost=${MANAGER_IP}\nControllerPort=2020\n" > /etc/bluechi/agent.conf.d/1.conf
 
-systemctl enable bluechi-agent
+systemctl enable bluechi-agent httpd
 systemctl restart  bluechi-agent

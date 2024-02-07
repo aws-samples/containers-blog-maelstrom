@@ -16,10 +16,10 @@ provider "aws" {
 
 data "aws_ami" "autosd_ami_id_x86" {
   most_recent  = true
-  owners       = ["587138297281"]
+  owners       = [var.ami_owner_account_id]
   filter {
     name   = "name"
-    values = ["auto-osbuild-aws*"]
+    values = [var.ami_prefix]
   }
 
   filter {
@@ -30,7 +30,7 @@ data "aws_ami" "autosd_ami_id_x86" {
 
 data "aws_ami" "autosd_ami_id_arm64" {
   most_recent  = true
-  owners       = ["587138297281"]
+  owners       = [var.ami_owner_account_id]
   filter {
     name   = "name"
     values = [var.ami_prefix]
@@ -42,8 +42,15 @@ data "aws_ami" "autosd_ami_id_arm64" {
   }
 }
 
+data "http" "my_ip" {
+  url = "http://checkip.amazonaws.com"
+}
+
+
 resource "aws_vpc" "autosd_demo_vpc" {
-  cidr_block = var.cidr_block
+  cidr_block           = var.cidr_block
+  enable_dns_hostnames = true
+  enable_dns_support   = true
 
   tags = {
     Name = "autosd-demo-vpc"
@@ -110,6 +117,8 @@ resource "aws_security_group" "autosd_demo_sg" {
     to_port     = 22
     protocol    = "tcp"
     self        = true
+    cidr_blocks = ["${chomp(data.http.my_ip.response_body)}/32"]
+
   }
 
   ingress {
@@ -117,6 +126,13 @@ resource "aws_security_group" "autosd_demo_sg" {
     to_port     = 2020
     protocol    = "tcp"
     self        = true
+  }
+  
+  ingress {
+   from_port   = 80
+   to_port     = 80
+   protocol    = "tcp"
+   self        = true
   }
 
   egress {
@@ -128,7 +144,6 @@ resource "aws_security_group" "autosd_demo_sg" {
 }
 
 resource "aws_iam_role" "autosd_instance_role" {
-  name = "autosd_instance_role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -171,7 +186,7 @@ resource "aws_iam_role_policy_attachment" "autoscaling_policy_attachment" {
 }
 
 resource "aws_iam_instance_profile" "autosd_instance_profile" {
-  name = "autosd_instance_profile"
+  #name = "autosd_instance_profile"
   role = aws_iam_role.autosd_instance_role.name
 }
 

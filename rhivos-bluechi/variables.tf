@@ -1,7 +1,7 @@
 variable "key_name" {
   type         = string
   description  = "EC2 key pair for SSH"
-  default      = "<your keypair>"
+  default      = "AWS_EAST2"
 }
 
 variable "instance_type" {
@@ -16,6 +16,11 @@ variable "aws_region" {
   default      = "us-east-2"
 }
 
+variable "ami_owner_account_id" {
+  type         = string
+  description  = "Account ID of the Bluechi AMI owner"
+  default      = "587138297281"
+}
 variable "ami_prefix" {
   type         = string
   description  = "AutoSD AMI prefix"
