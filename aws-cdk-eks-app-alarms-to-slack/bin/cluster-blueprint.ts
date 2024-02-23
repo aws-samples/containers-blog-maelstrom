@@ -59,6 +59,7 @@ const addOns: Array<blueprints.ClusterAddOn> = [
 
 const stack = blueprints.EksBlueprint.builder()
     .account(account)
+    .version('auto')
     .region(region)
     .addOns(...addOns)
     .build(app, clusterName);
