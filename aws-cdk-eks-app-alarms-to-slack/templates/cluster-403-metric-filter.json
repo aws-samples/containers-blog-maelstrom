@@ -1,0 +1,12 @@
+{
+    "filterName": "Unauthorized Access Count",
+    "filterPattern": "{$.responseStatus.code = \"403\" }",
+    "metricTransformations": [
+        {
+            "metricName": "anonymous_access_count",
+            "metricNamespace": "SampleAppMetrics",
+            "metricValue": "1",
+            "defaultValue": 0.0
+        }
+    ]
+}

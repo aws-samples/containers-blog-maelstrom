@@ -37,19 +37,19 @@ else
     exit 1
 fi
 
-scRegex='^\S{1,}$'
 read -p "Slack channel name: " slackChannel
-if [[ $slackChannel =~ $scRegex ]]
+# scRegex='^\S{1,}$'
+scRegex="[[:space:]]+"
+if [[ $slackChannel =~ $scRegex ]];
 then
-    log 'O' "Notifications will be sent to Slack channel ${slackChannel}."
-else
     log 'R' "Slack channel name is invalid. Slack channel name should not contain any spaces."
     exit 1
+else
+    log 'O' "Notifications will be sent to Slack channel ${slackChannel}."
 fi
 
 #generate EncryptedURL
 KMS_KEY_ALIAS="alias/${CAP_FUNCTION_NAME}-key"
-
 KMS_KEY_CHECK=$(aws kms list-aliases --region ${CAP_CLUSTER_REGION} --query "length(Aliases[?AliasName=='${KMS_KEY_ALIAS}'].AliasName)")
 
 if [[ $KMS_KEY_CHECK -eq 0 ]]
@@ -62,7 +62,7 @@ else
 fi
 
 CAP_KMS_KEY_ID=$(aws kms describe-key --region ${CAP_CLUSTER_REGION} --key-id ${KMS_KEY_ALIAS} --query KeyMetadata.KeyId --output text)
-EncryptedURL=$(aws kms encrypt --region ${CAP_CLUSTER_REGION} --key-id ${CAP_KMS_KEY_ID} --plaintext `echo ${webhookURL} | base64 -w 0` --query CiphertextBlob --output text --encryption-context LambdaFunctionName=${CAP_FUNCTION_NAME})
+EncryptedURL=$(aws kms encrypt --region ${CAP_CLUSTER_REGION} --key-id ${CAP_KMS_KEY_ID} --plaintext `echo ${webhookURL} | base64 | tr -d '\n'` --query CiphertextBlob --output text --encryption-context LambdaFunctionName=${CAP_FUNCTION_NAME})
 #to verify decryption
 #aws kms decrypt --region ${CAP_CLUSTER_REGION} --ciphertext-blob ${EncryptedURL} --output text --query Plaintext --encryption-context LambdaFunctionName=${CAP_FUNCTION_NAME} | base64 -d
 

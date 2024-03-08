@@ -5,6 +5,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as blueprints from '@aws-quickstart/eks-blueprints';
 import { AwsForFluentBitAddOnProps } from "@aws-quickstart/eks-blueprints";
 import * as iam from "aws-cdk-lib/aws-iam";
+import { ControlPlaneLogType } from '@aws-quickstart/eks-blueprints';
 
 const app = new cdk.App();
 
@@ -60,6 +61,7 @@ const addOns: Array<blueprints.ClusterAddOn> = [
 const stack = blueprints.EksBlueprint.builder()
     .account(account)
     .version('auto')
+    .enableControlPlaneLogTypes(ControlPlaneLogType.API,ControlPlaneLogType.AUDIT,ControlPlaneLogType.AUTHENTICATOR,ControlPlaneLogType.CONTROLLER_MANAGER,ControlPlaneLogType.SCHEDULER)
     .region(region)
     .addOns(...addOns)
     .build(app, clusterName);
