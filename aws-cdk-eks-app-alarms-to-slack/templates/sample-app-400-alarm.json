@@ -1,18 +1,14 @@
 {
     "AlarmName": "400 errors from sample app",
     "AlarmDescription": "Alarm from **HTTP Handler in sample-app namespace** - Error threshold breached for **HTTP status code 400**",
-    "ActionsEnabled": true,
     "MetricName": "response_count",
     "Namespace": "SampleAppMetrics",
     "Statistic": "Sum",
-    "Dimensions": [
-        {
-            "Name": "HTTPStatusCode",
-            "Value": "400"
-        }        
-    ],
-    "Period": 60,
+    "Dimensions": [],
+    "Period": 300,
     "EvaluationPeriods": 1,
-    "Threshold": 75.0,
-    "ComparisonOperator": "GreaterThanThreshold" 
+    "DatapointsToAlarm": 1,
+    "Threshold": 10.0,
+    "ComparisonOperator": "GreaterThanThreshold",
+    "TreatMissingData": "missing"
 }

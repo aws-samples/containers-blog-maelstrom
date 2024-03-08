@@ -1,0 +1,14 @@
+{
+    "AlarmName": "403 errors from Cluster API Server",
+    "AlarmDescription": "Alarm from **EKS Cluster API Server** - Error threshold breached for **Unauthorized access from Anonymous user**",
+    "MetricName": "anonymous_access_count",
+    "Namespace": "SampleAppMetrics",
+    "Statistic": "Sum",
+    "Dimensions": [],
+    "Period": 300,
+    "EvaluationPeriods": 1,
+    "DatapointsToAlarm": 1,
+    "Threshold": 3.0,
+    "ComparisonOperator": "GreaterThanThreshold",
+    "TreatMissingData": "missing"
+}
