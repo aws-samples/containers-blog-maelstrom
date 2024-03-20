@@ -34,6 +34,7 @@ curr_dir=${PWD}
 #delete cloudwatch alarm
 log 'O' "deleting cloudwatch alarm"
 aws cloudwatch delete-alarms --region ${CAP_CLUSTER_REGION} --alarm-names "400 errors from sample app"
+aws cloudwatch delete-alarms --region ${CAP_CLUSTER_REGION} --alarm-names "403 errors from Cluster API Server"
 
 #delete SAM app
 log 'O' "deleting lamdba function deployed using SAM"
@@ -48,6 +49,7 @@ aws kms schedule-key-deletion --region ${CAP_CLUSTER_REGION} --key-id ${CAP_KMS_
 #delete metric filter
 log 'O' "deleting metric filter"
 aws logs delete-metric-filter --region ${CAP_CLUSTER_REGION} --log-group-name /aws/eks/fluentbit-cloudwatch/${CAP_CLUSTER_NAME}/workload/sample-app --filter-name 'Counts by Status Code'
+aws logs delete-metric-filter --region ${CAP_CLUSTER_REGION} --log-group-name /aws/eks/${CAP_CLUSTER_NAME}/cluster --filter-name 'Unauthorized Access Count'
 
 #delete sample application deployed
 log 'O' "deleting sample application"
@@ -82,6 +84,7 @@ fi
 log 'O' "deleting log groups"
 aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/containerinsights/${CAP_CLUSTER_NAME}/prometheus
 aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/lambda/${CAP_FUNCTION_NAME}
+aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name /aws/containerinsights/${CAP_CLUSTER_NAME}/cluster
 
 for logGroupName in $(aws logs describe-log-groups --region ${CAP_CLUSTER_REGION} --query 'logGroups[?starts_with(logGroupName,`/aws/eks/fluentbit-cloudwatch/demo-cluster/workload`)].logGroupName' --output text); do
     aws logs delete-log-group --region ${CAP_CLUSTER_REGION} --log-group-name $logGroupName
