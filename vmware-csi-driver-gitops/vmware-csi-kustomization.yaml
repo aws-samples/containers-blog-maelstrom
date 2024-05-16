@@ -1,0 +1,64 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: vmware-csi-kustomization
+  namespace: flux-system
+  labels:
+    app: vmware-csi-driver
+spec:
+  interval: 1m0s
+  path: ./vmware-csi-driver/vmware-csi
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: blog-repo
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: test-app
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: vmware-csi-kustomization
+  path: "./vmware-csi-driver/test-app"
+  sourceRef:
+    kind: GitRepository
+    name: addons
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: snapshot
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: test-app
+  path: "./vmware-csi-driver/snapshot"
+  sourceRef:
+    kind: GitRepository
+    name: addons
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: snapshot-restore
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: snapshot
+  path: "./vmware-csi-driver/snapshot-restore"
+  sourceRef:
+    kind: GitRepository
+    name: addons
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
+---
