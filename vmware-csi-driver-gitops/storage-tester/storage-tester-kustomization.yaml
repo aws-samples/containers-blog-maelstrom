@@ -4,7 +4,7 @@ metadata:
   name: test-app
   namespace: flux-system
 spec:
-  path: "./vmware-csi-driver/test-app"
+  path: "./test-app"
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -20,7 +20,7 @@ metadata:
 spec:
   dependsOn:
     - name: test-app
-  path: "./vmware-csi-driver/snapshot"
+  path: "./snapshot"
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -36,7 +36,7 @@ metadata:
 spec:
   dependsOn:
     - name: snapshot
-  path: "./vmware-csi-driver/snapshot-restore"
+  path: "./snapshot-restore"
   sourceRef:
     kind: GitRepository
     name: flux-system
