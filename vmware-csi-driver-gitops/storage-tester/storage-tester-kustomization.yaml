@@ -9,7 +9,7 @@ spec:
   path: "./vmware-csi-driver/test-app"
   sourceRef:
     kind: GitRepository
-    name: addons
+    name: flux-system
     namespace: flux-system
   interval: 1m0s
   prune: true
@@ -25,7 +25,7 @@ spec:
   path: "./vmware-csi-driver/snapshot"
   sourceRef:
     kind: GitRepository
-    name: addons
+    name: flux-system
     namespace: flux-system
   interval: 1m0s
   prune: true
@@ -41,7 +41,7 @@ spec:
   path: "./vmware-csi-driver/snapshot-restore"
   sourceRef:
     kind: GitRepository
-    name: addons
+    name: flux-system
     namespace: flux-system
   interval: 1m0s
   prune: true
