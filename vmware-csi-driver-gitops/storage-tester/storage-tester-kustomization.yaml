@@ -4,8 +4,6 @@ metadata:
   name: test-app
   namespace: flux-system
 spec:
-  dependsOn:
-    - name: vmware-csi-kustomization
   path: "./vmware-csi-driver/test-app"
   sourceRef:
     kind: GitRepository
