@@ -21,6 +21,8 @@ kind: Pod
 metadata:
   name: app-restore
   namespace: default
+  labels:
+    app: snapshot-restore-tester
 spec:
   containers:
   - name: app
