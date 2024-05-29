@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: deploy-csi-snapshot-components-job
+  namespace: kube-system 
+spec:
+  template:
+    spec:
+      containers:
+        - name: enable-volume-snapshotter
+          image: 'alpine/k8s:1.26.2'
+          imagePullPolicy: Always
+          command:
+            - /bin/deploy-csi-snapshot-components.sh
+          volumeMounts:
+            - name: snapshot-enable-script-volume
+              mountPath: /bin/deploy-csi-snapshot-components.sh
+              readOnly: true
+              subPath: deploy-csi-snapshot-components.sh
+      volumes:
+        - name: snapshot-enable-script-volume
+          configMap:
+            defaultMode: 0700
+            name: deploy-csi-snapshot-components-script
+      restartPolicy: Never
