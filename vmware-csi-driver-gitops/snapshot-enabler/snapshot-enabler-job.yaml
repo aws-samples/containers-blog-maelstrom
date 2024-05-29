@@ -8,7 +8,7 @@ spec:
     spec:
       containers:
         - name: enable-volume-snapshotter
-          image: 'alpine/k8s:1.26.2'
+          image: 'ubuntu'
           imagePullPolicy: Always
           command:
             - /bin/deploy-csi-snapshot-components.sh

@@ -12,15 +12,6 @@ spec:
   interval: 1m0s
   prune: true
   wait: true
-  # healthChecks:
-  # - apiVersion: apps/v1
-  #   kind: Daemonset
-  #   name: vsphere-csi-node
-  #   namespace: vmware-system-csi
-  # - apiVersion: apps/v1
-  #   kind: Deployment
-  #   name: vsphere-csi-controller
-  #   namespace: vmware-system-csi
   timeout: 5m
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
