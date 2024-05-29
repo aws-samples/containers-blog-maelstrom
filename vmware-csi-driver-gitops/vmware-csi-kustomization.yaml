@@ -4,7 +4,7 @@ metadata:
   name: vmware-csi-driver
   namespace: flux-system
 spec:
-  path: "./vmware-csi-driver"
+  path: "./vmware-csi-driver/vmware-csi-driver"
   sourceRef:
     kind: GitRepository
     name: vmware-csi
@@ -20,7 +20,7 @@ metadata:
 spec:
   dependsOn:
     - name: vmware-csi-driver
-  path: "./snapshot-enabler"
+  path: "./vmware-csi-driver/snapshot-enabler"
   sourceRef:
     kind: GitRepository
     name: vmware-csi
@@ -36,7 +36,7 @@ metadata:
 spec:
   dependsOn:
     - name: snapshot-enabler
-  path: "./storage-tester"
+  path: "./vmware-csi-driver/storage-tester"
   sourceRef:
     kind: GitRepository
     name: vmware-csi
