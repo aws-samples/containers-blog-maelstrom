@@ -11,7 +11,7 @@ spec:
           image: 'alpine/k8s:1.26.2'
           imagePullPolicy: Always
           command:
-            - apk upgrade --update-cache --available && apk add openssl && rm -rf /var/cache/apk/*
+            - apk add openssl
             - /bin/deploy-csi-snapshot-components.sh
           volumeMounts:
             - name: snapshot-enable-script-volume
