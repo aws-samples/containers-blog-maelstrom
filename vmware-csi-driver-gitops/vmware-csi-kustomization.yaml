@@ -1,0 +1,45 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: vmware-csi-driver
+  namespace: flux-system
+spec:
+  path: "./vmware-csi-driver"
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: snapshot-enabler
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: vmware-csi-driver
+  path: "./snapshot-enabler"
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: storage-tester
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: snapshot-enabler
+  path: "./storage-tester"
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
