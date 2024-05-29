@@ -37,6 +37,11 @@ spec:
     namespace: flux-system
   interval: 1m0s
   prune: true
+  healthChecks: 
+  - apiVersion: batch/v1
+    kind: Job
+    name: deploy-csi-snapshot-components-job
+    namespace: kube-system
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
