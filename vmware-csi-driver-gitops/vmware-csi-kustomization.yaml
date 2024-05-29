@@ -11,6 +11,16 @@ spec:
     namespace: flux-system
   interval: 1m0s
   prune: true
+  healthChecks:
+  - apiVersion: apps/v1
+    kind: Daemonset
+    name: vsphere-csi-node
+    namespace: vmware-system-csi
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: vsphere-csi-controller
+    namespace: vmware-system-csi
+
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
