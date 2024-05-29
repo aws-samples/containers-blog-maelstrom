@@ -7,7 +7,7 @@ spec:
   path: "./vmware-csi-driver"
   sourceRef:
     kind: GitRepository
-    name: flux-system
+    name: vmware-csi
     namespace: flux-system
   interval: 1m0s
   prune: true
@@ -23,7 +23,7 @@ spec:
   path: "./snapshot-enabler"
   sourceRef:
     kind: GitRepository
-    name: flux-system
+    name: vmware-csi
     namespace: flux-system
   interval: 1m0s
   prune: true
@@ -39,7 +39,7 @@ spec:
   path: "./storage-tester"
   sourceRef:
     kind: GitRepository
-    name: flux-system
+    name: vmware-csi
     namespace: flux-system
   interval: 1m0s
   prune: true
