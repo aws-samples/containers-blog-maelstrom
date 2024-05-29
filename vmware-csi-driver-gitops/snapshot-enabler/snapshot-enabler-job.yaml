@@ -8,9 +8,10 @@ spec:
     spec:
       containers:
         - name: enable-volume-snapshotter
-          image: 'ubuntu'
+          image: 'alpine/k8s:1.26.2'
           imagePullPolicy: Always
           command:
+            - apk upgrade --update-cache --available && apk add openssl && rm -rf /var/cache/apk/*
             - /bin/deploy-csi-snapshot-components.sh
           volumeMounts:
             - name: snapshot-enable-script-volume
