@@ -20,7 +20,7 @@ spec:
     kind: Deployment
     name: vsphere-csi-controller
     namespace: vmware-system-csi
-
+  timeout: 5m
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -42,6 +42,7 @@ spec:
     kind: Job
     name: deploy-csi-snapshot-components-job
     namespace: kube-system
+  timeout: 5m
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
