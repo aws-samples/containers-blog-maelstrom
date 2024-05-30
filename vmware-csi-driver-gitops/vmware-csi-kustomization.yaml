@@ -30,10 +30,7 @@ spec:
   interval: 1m0s
   prune: true
   healthChecks: 
-  - apiVersion: batch/v1
-    kind: Job
-    name: deploy-csi-snapshot-components-job
-    namespace: kube-system
+  wait: true
   timeout: 5m
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
