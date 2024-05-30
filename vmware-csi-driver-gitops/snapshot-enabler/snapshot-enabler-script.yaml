@@ -171,6 +171,7 @@ data:
       service=snapshot-validation-service
       secret=snapshot-webhook-certs
       namespace=kube-system
+      apk add openssl
       if [ ! -x "$(command -v openssl)" ]; then
         echo "❌ ERROR: openssl not found"
         exit 1
