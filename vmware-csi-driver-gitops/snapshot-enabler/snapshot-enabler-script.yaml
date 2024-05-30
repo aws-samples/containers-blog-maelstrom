@@ -231,6 +231,7 @@ data:
     }
 
     patch_vsphere_csi_driver(){
+      flux suspend kustomization vmware-csi-driver
       tmpdir=$(mktemp -d)
       echo "creating patch file in tmpdir ${tmpdir}"
       cat <<EOF >> "${tmpdir}"/patch.yaml
