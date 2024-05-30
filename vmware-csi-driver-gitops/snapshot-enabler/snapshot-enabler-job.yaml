@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: deploy-csi-snapshot-components-job
-  namespace: kube-system 
+  namespace: vmware-system-csi 
 spec:
   template:
     spec:
