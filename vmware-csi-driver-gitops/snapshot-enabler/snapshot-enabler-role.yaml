@@ -1,8 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   name: deploy-csi-snapshot-components-role
-  namespace: vmware-system-csi
 rules:
   - apiGroups: [""]
     resources: ["pods", "pods/exec", "services", "secrets"]
@@ -12,7 +11,7 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   name: deploy-csi-snapshot-components-rolebinding
   namespace: vmware-system-csi
@@ -21,6 +20,6 @@ subjects:
     name: default
     namespace: vmware-system-csi
 roleRef:
-  kind: Role
+  kind: ClusterRole
   name: deploy-csi-snapshot-components-role
   apiGroup: rbac.authorization.k8s.io
