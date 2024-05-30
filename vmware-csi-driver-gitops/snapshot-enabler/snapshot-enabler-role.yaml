@@ -5,7 +5,7 @@ metadata:
   namespace: kube-system
 rules:
   - apiGroups: [""]
-    resources: ["pods", "pods/exec", "services"]
+    resources: ["pods", "pods/exec", "services", "secrets"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
