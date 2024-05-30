@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: deploy-csi-snapshot-components-role
-  namespace: kube-system
+  namespace: vmware-system-csi
 rules:
   - apiGroups: [""]
     resources: ["pods", "pods/exec", "services", "secrets"]
@@ -15,11 +15,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: deploy-csi-snapshot-components-rolebinding
-  namespace: kube-system
+  namespace: vmware-system-csi
 subjects:
   - kind: ServiceAccount
     name: default
-    namespace: kube-system
+    namespace: vmware-system-csi
 roleRef:
   kind: Role
   name: deploy-csi-snapshot-components-role
