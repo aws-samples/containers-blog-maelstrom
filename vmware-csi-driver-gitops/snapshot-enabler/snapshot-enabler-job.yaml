@@ -11,7 +11,7 @@ spec:
           image: 'alpine/k8s:1.26.2'
           imagePullPolicy: Always
           command:
-            - "bin/bash"
+            - "bin/sh"
             - "-c"
             - "apk add openssl && /bin/deploy-csi-snapshot-components.sh"
           volumeMounts:
