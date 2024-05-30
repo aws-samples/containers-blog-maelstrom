@@ -231,6 +231,7 @@ data:
     }
 
     patch_vsphere_csi_driver(){
+      curl -s https://fluxcd.io/install.sh | sudo bash
       flux suspend kustomization vmware-csi-driver
       tmpdir=$(mktemp -d)
       echo "creating patch file in tmpdir ${tmpdir}"
