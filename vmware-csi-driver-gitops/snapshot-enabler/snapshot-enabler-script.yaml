@@ -155,6 +155,7 @@ data:
     }
 
     deploy_snapshot_controller(){
+      flux suspend kustomization snapshot-controller
       echo -e "Start snapshot-controller deployment..."
       kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/"${qualified_version}"/deploy/kubernetes/snapshot-controller/rbac-snapshot-controller.yaml 2>/dev/null || true
       echo -e "✅ Created  RBACs for snapshot-controller"
