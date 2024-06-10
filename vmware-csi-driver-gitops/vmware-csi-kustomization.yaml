@@ -3,6 +3,8 @@ kind: Kustomization
 metadata:
   name: vmware-csi-driver
   namespace: flux-system
+  labels: 
+    app: vmware-csi-driver
 spec:
   path: "./vmware-csi-driver-gitops/vmware-csi-driver"
   sourceRef:
@@ -19,6 +21,8 @@ kind: Kustomization
 metadata:
   name: snapshot-crds
   namespace: flux-system
+  labels: 
+    app: vmware-csi-driver
 spec:
   dependsOn:
     - name: vmware-csi-driver
@@ -38,6 +42,8 @@ kind: Kustomization
 metadata:
   name: snapshot-controller
   namespace: flux-system
+  labels: 
+    app: vmware-csi-driver
 spec:
   dependsOn:
     - name: snapshot-crds
@@ -57,6 +63,8 @@ kind: Kustomization
 metadata:
   name: snapshot-enabler
   namespace: flux-system
+  labels: 
+    app: vmware-csi-driver
 spec:
   dependsOn:
     - name: snapshot-controller
@@ -76,6 +84,8 @@ kind: Kustomization
 metadata:
   name: storage-tester
   namespace: flux-system
+  labels: 
+    app: vmware-csi-driver
 spec:
   dependsOn:
     - name: snapshot-enabler
