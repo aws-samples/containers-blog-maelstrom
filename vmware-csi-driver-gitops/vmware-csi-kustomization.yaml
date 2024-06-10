@@ -17,11 +17,49 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: snapshot-enabler
+  name: snapshot-crds
   namespace: flux-system
 spec:
   dependsOn:
     - name: vmware-csi-driver
+  path: "./vmware-csi-driver-gitops/snapshot-crds"
+  sourceRef:
+    kind: GitRepository
+    name: vmware-csi
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
+  healthChecks: 
+  wait: true
+  timeout: 5m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: snapshot-controller
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: snapshot-crds
+  path: "./vmware-csi-driver-gitops/snapshot-controller"
+  sourceRef:
+    kind: GitRepository
+    name: vmware-csi
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
+  healthChecks: 
+  wait: true
+  timeout: 5m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: snapshot-enabler
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: snapshot-controller
   path: "./vmware-csi-driver-gitops/snapshot-enabler"
   sourceRef:
     kind: GitRepository
