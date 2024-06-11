@@ -1,0 +1,98 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: vmware-csi-driver
+  namespace: flux-system
+  labels: 
+    app: vmware-csi-driver
+spec:
+  path: "./vmware-csi-driver-gitops/vmware-csi-driver"
+  sourceRef:
+    kind: GitRepository
+    name: vmware-csi
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
+  wait: true
+  timeout: 5m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: snapshot-crds
+  namespace: flux-system
+  labels: 
+    app: vmware-csi-driver
+spec:
+  dependsOn:
+    - name: vmware-csi-driver
+  path: "./vmware-csi-driver-gitops/snapshot-crds"
+  sourceRef:
+    kind: GitRepository
+    name: vmware-csi
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
+  healthChecks: 
+  wait: true
+  timeout: 5m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: snapshot-controller
+  namespace: flux-system
+  labels: 
+    app: vmware-csi-driver
+spec:
+  dependsOn:
+    - name: snapshot-crds
+  path: "./vmware-csi-driver-gitops/snapshot-controller"
+  sourceRef:
+    kind: GitRepository
+    name: vmware-csi
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
+  healthChecks: 
+  wait: true
+  timeout: 5m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: snapshot-enabler
+  namespace: flux-system
+  labels: 
+    app: vmware-csi-driver
+spec:
+  dependsOn:
+    - name: snapshot-controller
+  path: "./vmware-csi-driver-gitops/snapshot-enabler"
+  sourceRef:
+    kind: GitRepository
+    name: vmware-csi
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
+  healthChecks: 
+  wait: true
+  timeout: 5m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: storage-tester
+  namespace: flux-system
+  labels: 
+    app: vmware-csi-driver
+spec:
+  dependsOn:
+    - name: snapshot-enabler
+  path: "./vmware-csi-driver-gitops/storage-tester"
+  sourceRef:
+    kind: GitRepository
+    name: vmware-csi
+    namespace: flux-system
+  interval: 1m0s
+  prune: true
