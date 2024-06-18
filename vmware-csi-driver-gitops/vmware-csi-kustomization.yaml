@@ -33,7 +33,6 @@ spec:
     namespace: flux-system
   interval: 1m0s
   prune: true
-  healthChecks: 
   wait: true
   timeout: 5m
 ---
@@ -54,7 +53,6 @@ spec:
     namespace: flux-system
   interval: 1m0s
   prune: true
-  healthChecks: 
   wait: true
   timeout: 5m
 ---
@@ -75,7 +73,6 @@ spec:
     namespace: flux-system
   interval: 1m0s
   prune: true
-  healthChecks: 
   wait: true
   timeout: 5m
 ---
