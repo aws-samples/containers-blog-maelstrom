@@ -1,0 +1,68 @@
+Description: Create Scraper for Amazon Managed Service for Prometheus
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  AMPWorkSpaceAlias:
+    Description: (Optional) Alias for the Amazon Managed Service for Prometheus Workspace to be created. Select "NONE" if you have an existing AMP Workspace
+    Type: String
+    Default: NONE
+    AllowedValues:
+      - amp-scraper-automation
+      - NONE
+  AMPWorkSpaceArn:
+    Description: (Optional) Provide existing AMP Workspace Arn if the value for "AMPWorkSpaceAlias" is "NONE".
+    Type: String
+  ScraperAlias:
+    Description: Alias for the AMP Scraper
+    Type: String
+    Default: "amp-scraper-automation"
+  ClusterArn:
+    Description: EKS Cluster Arn
+    Type: String
+  SecurityGroupId:
+    Description: EKS Cluster Security Group ID
+    Type: String
+  SubnetId1:
+    Description: EKS cluster Subnet ID
+    Type: String
+  SubnetId2:
+    Description: EKS cluster Subnet ID
+    Type: String
+
+Conditions:
+  CreateAMPWorkspace: !Not [!Equals [!Ref AMPWorkSpaceAlias, NONE]]
+
+Resources:
+  AMPWorkspace:
+    Type: AWS::APS::Workspace
+    Condition: CreateAMPWorkspace
+    Properties:
+      Alias: !Ref AMPWorkSpaceAlias
+
+  AMPScraper:
+    Type: AWS::APS::Scraper
+    Properties:
+      Alias: !Ref ScraperAlias
+      Source:
+        EksConfiguration:
+          ClusterArn: !Ref ClusterArn
+          SecurityGroupIds:
+            - !Ref SecurityGroupId
+          SubnetIds:
+            - !Ref SubnetId1
+            - !Ref SubnetId2
+      Destination:
+        AmpConfiguration:
+          WorkspaceArn:
+            !If [
+              CreateAMPWorkspace,
+              !GetAtt AMPWorkspace.Arn,
+              !Ref AMPWorkSpaceArn,
+            ]
+      ScrapeConfiguration:
+        ConfigurationBlob: "global:\n  scrape_interval: 30s\n  # external_labels:\n    # clusterArn: PetSite\nscrape_configs:\n  # pod metrics\n  - job_name: pod_exporter\n    kubernetes_sd_configs:\n      - role: pod\n  # container metrics\n  - job_name: cadvisor\n    scheme: https\n    authorization:\n      credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token\n    kubernetes_sd_configs:\n      - role: node\n    relabel_configs:\n      - action: labelmap\n        regex: __meta_kubernetes_node_label_(.+)\n      - replacement: kubernetes.default.svc:443\n        target_label: __address__\n      - source_labels: [__meta_kubernetes_node_name]\n        regex: (.+)\n        target_label: __metrics_path__\n        replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor\n  # apiserver metrics\n  - bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token\n    job_name: kubernetes-apiservers\n    kubernetes_sd_configs:\n    - role: endpoints\n    relabel_configs:\n    - action: keep\n      regex: default;kubernetes;https\n      source_labels:\n      - __meta_kubernetes_namespace\n      - __meta_kubernetes_service_name\n      - __meta_kubernetes_endpoint_port_name\n    scheme: https\n  # kube proxy metrics\n  - job_name: kube-proxy\n    honor_labels: true\n    kubernetes_sd_configs:\n    - role: pod\n    relabel_configs:\n    - action: keep\n      source_labels:\n      - __meta_kubernetes_namespace\n      - __meta_kubernetes_pod_name\n      separator: '/'\n      regex: 'kube-system/kube-proxy.+'\n    - source_labels:\n      - __address__\n      action: replace\n      target_label: __address__\n      regex: (.+?)(\\:\\d+)?\n      replacement: $1:10249"
+
+Outputs:
+  AMPScraperArn:
+    Description: The ARN of the scraper
+    Value: !Ref AMPScraper
