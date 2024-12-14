@@ -271,6 +271,11 @@ ForwardChain=$(iptables -L | grep "Chain FORWARD" | awk '{print $4}')
 OutputChain=$(iptables -L | grep "Chain OUTPUT" | awk '{print $4}' )
 #echo $OutputChain
 
+# please note, For Kubernetes Bottlerocket variants, the iptables -P FORWARD DROP command will be unconditionally overwritten when the kubelet starts.
+# https://github.com/bottlerocket-os/bottlerocket/blob/52ea5b5c8d788f3e9d7a76e329cd2c766150cf59/packages/kubernetes-1.24/kubelet.service#L13
+# This is because Kubernetes relies on iptables rules to forward connections to any node in the cluster to the correct set of nodes where a nodePort service is running
+# Hence the below condition checks for ACCEPT instead of DROP for the ForwardChain
+
 if [[ $inputChain == "DROP)" ]] && [[ $ForwardChain == "ACCEPT)" ]] && [[ $OutputChain == "DROP)" ]];
 then
     echo "[PASS] $RECOMMENDATION"
