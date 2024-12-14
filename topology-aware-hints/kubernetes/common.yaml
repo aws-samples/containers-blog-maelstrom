@@ -130,7 +130,6 @@ metadata:
   name: catalog
   namespace: catalog
 spec:
-  trafficDistribution: PreferClose
   ports:
   - name: http
     port: 80
