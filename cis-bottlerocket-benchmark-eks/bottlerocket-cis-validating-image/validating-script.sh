@@ -8,7 +8,7 @@ echo "This tool validates the Amazon EKS optimized AMI against CIS Bottlerocket 
 
 
 Num_Of_Checks_Passed=0
-Total_Num_Of_Checks=26
+Total_Num_Of_Checks=30
 
 function checkSysctlConfig()
 {
@@ -285,6 +285,33 @@ else
     echo "Error Message: inputChain=$inputChain ForwardChain=$ForwardChain OutputChain=$OutputChain"
 fi
 
+RECOMMENDATION="3.4.1.1.1 Allow inbound traffic for kubelet"
+InputKubeletAccept=$(iptables -L INPUT -v -n | grep "ACCEPT" | grep "dpt:10250")
+if [[ ! -z "$InputKubeletAccept" ]];
+then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+    echo "Error Message: Rule for allowing inbound traffic for kubelet not found"
+fi
+#echo $InputKubeletAccept
+
+
+RECOMMENDATION="3.4.1.1.2 Allow inbound traffic to communicate with Pod Identity"
+InputPodIdentityAccept1=$(iptables -L INPUT -v -n | grep "ACCEPT" | grep "169.254.170.23" | grep "dpt:80")
+InputPodIdentityAccept2=$(iptables -L INPUT -v -n | grep "ACCEPT" | grep "169.254.170.23" | grep "dpt:2703")
+if [[ ! -z "$InputPodIdentityAccept1" ]] && [[ ! -z "$InputPodIdentityAccept2" ]];
+then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+    echo "Error Message: Rule for allowing inbound traffic for Pod Identity not found"
+fi
+#echo $InputPodIdentityAccept
+
+
 RECOMMENDATION="3.4.1.2 Ensure IPv4 loopback traffic is configured (Automated)"
 InputAccept=$(iptables -L INPUT -v -n | grep "ACCEPT     all" | awk '{print $8}')
 if [[ -z "$InputAccept" ]];
@@ -394,6 +421,33 @@ else
     echo "[FAIL] $RECOMMENDATION"
     echo "Error Message: inputChain=$inputChain ForwardChain=$ForwardChain OutputChain=$OutputChain"
 fi
+
+
+RECOMMENDATION="3.4.2.1.1 Allow inbound traffic for kubelet"
+InputKubeletAccept=$(ip6tables -L INPUT -v -n | grep "ACCEPT" | grep "dpt:10250")
+if [[ ! -z "$InputKubeletAccept" ]];
+then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+    echo "Error Message: Rule for allowing inbound traffic for kubelet not found"
+fi
+#echo $InputKubeletAccept
+
+
+RECOMMENDATION="3.4.2.1.2 Allow inbound traffic to communicate with Pod Identity"
+InputPodIdentityAccept1=$(ip6tables -L INPUT -v -n | grep "ACCEPT" | grep "fd00:ec2::23" | grep "dpt:80")
+InputPodIdentityAccept2=$(ip6tables -L INPUT -v -n | grep "ACCEPT" | grep "fd00:ec2::23" | grep "dpt:2703")
+if [[ ! -z "$InputPodIdentityAccept1" ]] && [[ ! -z "$InputPodIdentityAccept2" ]];
+then
+    echo "[PASS] $RECOMMENDATION"
+    Num_Of_Checks_Passed=$((Num_Of_Checks_Passed+1))
+else
+    echo "[FAIL] $RECOMMENDATION"
+    echo "Error Message: Rule for allowing inbound traffic for Pod Identity not found"
+fi
+#echo $InputPodIdentityAccept
 
 
 RECOMMENDATION="3.4.2.2 Ensure IPv6 loopback traffic is configured (Automated)"
