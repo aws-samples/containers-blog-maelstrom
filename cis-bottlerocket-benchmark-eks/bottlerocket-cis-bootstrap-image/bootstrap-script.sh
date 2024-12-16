@@ -8,8 +8,12 @@ iptables -P INPUT DROP
 iptables -P OUTPUT DROP
 iptables -P FORWARD DROP
 
-# Allow inbound traffic for kubelet (so kubectl logs/exec works)
+# 3.4.1.1.1 Allow inbound traffic for kubelet (so kubectl logs/exec works)
 iptables -I INPUT -p tcp -m tcp --dport 10250 -j ACCEPT
+
+# 3.4.1.1.2 Allow inbound traffic to communicate with Pod Identity
+iptables -I INPUT -d 169.254.170.23/32 -p tcp -m tcp --dport 80 -m comment --comment "Allow communicate with Pod Identity" -j ACCEPT
+iptables -I INPUT -d 169.254.170.23/32 -p tcp -m tcp --dport 2703 -m comment --comment "Allow communicate with Pod Identity" -j ACCEPT
 
 # 3.4.1.2 Ensure IPv4 loopback traffic is configured (Automated)
 iptables -A INPUT -i lo -j ACCEPT
@@ -32,8 +36,12 @@ ip6tables -P INPUT DROP
 ip6tables -P OUTPUT DROP
 ip6tables -P FORWARD DROP
 
-# Allow inbound traffic for kubelet on ipv6 if needed (so kubectl logs/exec works)
+# 3.4.2.1.1 Allow inbound traffic for kubelet on ipv6 if needed (so kubectl logs/exec works)
 ip6tables -A INPUT -p tcp --destination-port 10250 -j ACCEPT
+
+# 3.4.2.1.2 Allow inbound traffic to communicate with Pod Identity
+ip6tables -I INPUT -d fd00:ec2::23/128 -p tcp -m tcp --dport 80 -m comment --comment "Allow communicate with Pod Identity" -j ACCEPT
+ip6tables -I INPUT -d fd00:ec2::23/128 -p tcp -m tcp --dport 2703 -m comment --comment "Allow communicate with Pod Identity" -j ACCEPT
 
 # 3.4.2.2 Ensure IPv6 loopback traffic is configured (Automated)
 ip6tables -A INPUT -i lo -j ACCEPT
