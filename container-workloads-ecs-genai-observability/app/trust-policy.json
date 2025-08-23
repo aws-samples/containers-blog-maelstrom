@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::940019131157:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/1DF6CD695896D1B0A56C93C826A32D34"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "oidc.eks.us-east-1.amazonaws.com/id/1DF6CD695896D1B0A56C93C826A32D34:sub": "system:serviceaccount:default:strands-agent-sa"
+        }
+      }
+    }
+  ]
+}

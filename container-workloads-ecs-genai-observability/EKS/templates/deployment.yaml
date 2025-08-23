@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: strands-agent-sa
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::{{ACCOUNT_ID}}:role/strands-agent-eks-role
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: strands-agent-eks
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: strands-agent-eks
+  template:
+    metadata:
+      labels:
+        app: strands-agent-eks
+    spec:
+      serviceAccountName: strands-agent-sa
+      containers:
+        - name: strands-agent-eks
+          image: {{DOCKER_IMAGE}}
+          env:
+            - name: AWS_REGION
+              value: "us-west-2"
+            - name: BEDROCK_MODEL_ID
+              value: "anthropic.claude-3-haiku-20240307-v1:0"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
