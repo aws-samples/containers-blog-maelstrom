@@ -29,7 +29,7 @@ This project uses environment variables to manage Bedrock model IDs and AWS regi
 ### Prerequisites
 - AWS CLI configured with appropriate permissions and Session Manager plugin installed
 - Docker installed with buildx support
-- Node.js and npm (for CDK if creating ECS cluster from scratch)
+- Node.js and npm (for cdk if creating ECS cluster from scratch)
 - Access to AWS Bedrock Claude Sonnet model
 - Existing ECS cluster or EKS cluster (for EKS deployment)
 - Transactional search enabled on Amazon CloudWatch
@@ -45,7 +45,7 @@ cd containers-blog-maelstrom/container-workloads-ecs-genai-observability
 
 ### 2. Create ECS Cluster (Optional - skip if ECS cluster already exists)
 ```bash
-cd ECS/CDK
+cd ecs/cdk
 npm install
 cdk bootstrap  # If first time using CDK in this region
 cdk deploy 
@@ -79,7 +79,7 @@ cd app
 ### 5. Deploy ECS Service
 
 ```bash
-cd ../ECS/scripts
+cd ../ecs/scripts
 
 # Deploy with all parameters
 ./deploy-to-ecs.sh strands-agent-stack \
@@ -119,14 +119,14 @@ aws ecs describe-services --cluster strands-agent-sample --services strands-agen
 ## EKS Deployment
 
 ```bash
-cd EKS/scripts
+cd eks/scripts
 # Use the ECR image URI from the build step
 ./deploy.sh $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO_NAME:latest [namespace]
 ```
 
 ## Verify Permissions
 ```bash
-cd ECS/scripts
+cd ecs/scripts
 ./verify-permissions.sh
 ```
 
@@ -165,7 +165,7 @@ kubectl logs -f deployment/strands-agent-eks
 aws cloudformation delete-stack --stack-name strands-agent-stack --region $AWS_REGION
 
 # Delete ECS cluster (CDK)
-cd ECS/CDK
+cd ecs/cdk
 cdk destroy
 
 # Delete ECR repository
@@ -174,5 +174,5 @@ aws ecr delete-repository --repository-name strands-agent-monitoring --force --r
 
 ### EKS Cleanup
 ```bash
-kubectl delete -f EKS/templates/deployment.yaml
+kubectl delete -f eks/templates/deployment.yaml
 ```
