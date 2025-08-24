@@ -58,7 +58,7 @@ cdk deploy
 export AWS_REGION=us-west-2
 export BEDROCK_MODEL_ID="anthropic.claude-3-sonnet-20240229-v1:0"
 
-# Optional: Set different model if available
+# Optional: Set different model if available in your region or inference profile
 # export BEDROCK_MODEL_ID="anthropic.claude-3-5-sonnet-20240620-v1:0"
 ```
 
