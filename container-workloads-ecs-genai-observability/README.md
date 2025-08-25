@@ -47,6 +47,8 @@ cd containers-blog-maelstrom/container-workloads-ecs-genai-observability
 ```bash
 cd ecs/cdk
 npm install
+export AWS_REGION=us-west-2
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 cdk bootstrap  # If first time using CDK in this region
 cdk deploy 
 ```
