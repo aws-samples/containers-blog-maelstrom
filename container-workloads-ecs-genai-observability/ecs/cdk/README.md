@@ -1,6 +1,6 @@
 # ECS Cluster CDK Project
 
-This CDK project creates an ECS cluster named `strands-agent-sample` in the default VPC in the us-east-1 region.
+This CDK project creates an ECS cluster named `strands-agent-sample` in the default VPC in the us-west-2 region.
 
 ## Prerequisites
 
