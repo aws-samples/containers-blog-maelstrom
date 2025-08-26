@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: strands-agent-sa
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::940019131157:role/strands-agent-role
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: strands-agent-eks
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: strands-agent-eks
+  template:
+    metadata:
+      labels:
+        app: strands-agent-eks
+    spec:
+      serviceAccountName: strands-agent-sa
+      containers:
+        - name: strands-agent-eks
+          image: 940019131157.dkr.ecr.us-west-2.amazonaws.com/strands-agent-eks:latest
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
