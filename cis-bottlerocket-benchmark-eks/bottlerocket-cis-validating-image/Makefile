@@ -4,6 +4,7 @@ IMAGE_REPO ?= ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 IMAGE_NAME ?= ${VALIDATION_ECR_REPO}
 
 IMAGE_TAG ?= latest
+PLATFORM ?= linux/amd64
 
 PWD := $(shell pwd)
 BASE_DIR := $(shell basename $(PWD))
@@ -28,15 +29,15 @@ all: image
 
 image: build-image push-image
 
-build-image: 
-	@echo "Building the docker image: $(IMAGE_NAME):$(IMAGE_TAG) using ${VALIDATION_ECR_REPO}/Dockerfile..."
-	@docker build --no-cache  -t  $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) .
+build-image:
+	@echo "Building the container image (platform: $(PLATFORM)): $(IMAGE_NAME):$(IMAGE_TAG) using ${VALIDATION_ECR_REPO}/Dockerfile..."
+	@docker build --platform $(PLATFORM) --no-cache -t $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) .
 
 push-image: build-image
-	@echo "Pushing the docker image for $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) ..."	
+	@echo "Pushing the container image (platform: $(PLATFORM)) for $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) ..."
 	aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin $(IMAGE_REPO)/$(IMAGE_NAME)
 	@docker push $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG)
-	
+
 
 ############################################################
 # clean section
