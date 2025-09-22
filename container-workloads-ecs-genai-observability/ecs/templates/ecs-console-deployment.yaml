@@ -1,0 +1,295 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Deploy Strands Agent Console Application to ECS'
+
+Parameters:
+  ClusterName:
+    Type: String
+    Default: strands-agent-sample
+    Description: Name of the ECS cluster
+  
+  DockerImage:
+    Type: String
+    Description: Docker image URI (e.g., your-account.dkr.ecr.region.amazonaws.com/strands-agent:latest)
+  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID where ECS cluster is located
+  
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet IDs for the ECS service (use private subnets)
+  
+  DesiredCount:
+    Type: Number
+    Default: 1
+    Description: Desired number of tasks
+  
+  TaskCpu:
+    Type: Number
+    Default: 256
+    Description: CPU units for the task (256 = 0.25 vCPU)
+  
+  TaskMemory:
+    Type: Number
+    Default: 512
+    Description: Memory for the task in MB
+  
+  CreateLogGroups:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Create log groups if they don't exist
+  
+  BedrockModelId:
+    Type: String
+    Default: 'anthropic.claude-3-sonnet-20240229-v1:0'
+    Description: Bedrock model ID to use
+
+Conditions:
+  ShouldCreateLogGroups: !Equals [!Ref CreateLogGroups, 'true']
+
+Resources:
+  # CloudWatch Log Group for ECS
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/strands-agent-sample
+      RetentionInDays: 7
+
+  # CloudWatch Log Group for OpenTelemetry
+  OtelLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: strands-agent-logs-ecs
+      RetentionInDays: 7
+
+  # Log Stream for OpenTelemetry
+  OtelLogStream:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName: !Ref OtelLogGroup
+      LogStreamName: default
+
+  # ECS Task Execution Role
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: CloudWatchLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: 
+                  - !GetAtt LogGroup.Arn
+                  - !GetAtt OtelLogGroup.Arn
+
+  # ECS Task Role (for application permissions)
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ECRAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: '*'
+        - PolicyName: BedrockFullAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:GetFoundationModel
+                  - bedrock:ListFoundationModels
+                Resource: 
+                  - !Sub 'arn:aws:bedrock:us-west-2::foundation-model/*'
+                  - !Sub 'arn:aws:bedrock:us-west-2::foundation-model/us.anthropic.claude-sonnet-4-20250514-v1:0'
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: '*'
+        - PolicyName: CloudWatchFullAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                  - logs:PutRetentionPolicy
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:ListMetrics
+                Resource: '*'
+        - PolicyName: XRayAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                Resource: '*'
+        - PolicyName: OpenTelemetryPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:PutLogEvents
+                  - logs:CreateLogStream
+                  - logs:CreateLogGroup
+                  - logs:DescribeLogStreams
+                  - logs:DescribeLogGroups
+                Resource: 
+                  - !Sub 'arn:aws:logs:us-west-2:${AWS::AccountId}:log-group:*'
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'cloudwatch:namespace': 
+                      - 'agents'
+                      - 'AWS/ECS'
+                      - 'CWAgent'
+        - PolicyName: ECSExecPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssmmessages:CreateControlChannel
+                  - ssmmessages:CreateDataChannel
+                  - ssmmessages:OpenControlChannel
+                  - ssmmessages:OpenDataChannel
+                Resource: '*'
+
+  # Security Group for ECS Tasks
+  EcsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Strands Agent ECS console tasks
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  # ECS Task Definition
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: strands-agent-console
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref TaskCpu
+      Memory: !Ref TaskMemory
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: strands-agent-console
+          Image: !Ref DockerImage
+          Essential: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/strands-agent-sample
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+              awslogs-create-group: 'true'
+          Environment:
+            - Name: AWS_REGION
+              Value: us-west-2
+            - Name: AWS_DEFAULT_REGION
+              Value: us-west-2
+            - Name: BEDROCK_MODEL_ID
+              Value: !Ref BedrockModelId
+            - Name: OTEL_PYTHON_DISTRO
+              Value: aws_distro
+            - Name: OTEL_PYTHON_CONFIGURATOR
+              Value: aws_configurator
+            - Name: OTEL_EXPORTER_OTLP_PROTOCOL
+              Value: http/protobuf
+            - Name: OTEL_TRACES_EXPORTER
+              Value: otlp
+            - Name: OTEL_EXPORTER_OTLP_LOGS_HEADERS
+              Value: x-aws-log-group=strands-agent-logs-ecs,x-aws-log-stream=default,x-aws-metric-namespace=agents
+            - Name: OTEL_RESOURCE_ATTRIBUTES
+              Value: service.name=strands-agent-ecs,aws.log.group.names=strands-agent-logs-ecs
+            - Name: AGENT_OBSERVABILITY_ENABLED
+              Value: "true"
+
+  # ECS Service
+  EcsService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: strands-agent-console-service
+      Cluster: !Ref ClusterName
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      EnableExecuteCommand: true
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref EcsSecurityGroup
+          Subnets: !Ref SubnetIds
+          AssignPublicIp: ENABLED
+
+Outputs:
+  ServiceName:
+    Description: Name of the ECS service
+    Value: !Ref EcsService
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceName"
+  
+  TaskDefinitionArn:
+    Description: ARN of the task definition
+    Value: !Ref TaskDefinition
+    Export:
+      Name: !Sub "${AWS::StackName}-TaskDefinitionArn"
+  
+  LogGroupName:
+    Description: CloudWatch Log Group name
+    Value: !Ref LogGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-LogGroupName"
