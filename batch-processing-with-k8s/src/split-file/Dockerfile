@@ -21,9 +21,6 @@ RUN apk add --no-cache \
         python3 \
         py3-pip \
         ca-certificates \
-    && pip3 install --upgrade pip \
-    && pip3 install \
-        awscli \
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /etc/passwd /etc/passwd
