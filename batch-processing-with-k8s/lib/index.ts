@@ -6,7 +6,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import * as efs from 'aws-cdk-lib/aws-efs';
 import * as eks from 'aws-cdk-lib/aws-eks';
-import { KubectlV26Layer } from '@aws-cdk/lambda-layer-kubectl-v26';
+import { KubectlV33Layer } from '@aws-cdk/lambda-layer-kubectl-v33';
 import * as elasticcache from 'aws-cdk-lib/aws-elasticache';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -76,9 +76,9 @@ export class KubernetesFileBatchConstruct extends Construct {
 
     // EKS Cluster
     const cluster = new eks.Cluster(this, this.getId('ekscluster'), {
-      kubectlLayer: new KubectlV26Layer( this, 'kubectl' ),
+      kubectlLayer: new KubectlV33Layer( this, 'kubectl' ),
       vpc: this.vpc,
-      version: eks.KubernetesVersion.V1_26,
+      version: eks.KubernetesVersion.V1_33,
       outputClusterName: true,
       outputConfigCommand: true,
       outputMastersRoleArn: true,

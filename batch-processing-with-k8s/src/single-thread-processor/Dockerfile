@@ -17,6 +17,7 @@ FROM golang:alpine
 
 # Set necessary environmet variables needed for our image
 RUN apk add --no-cache \
+        aws-cli \
         python3 \
         py3-pip \
         ca-certificates \
