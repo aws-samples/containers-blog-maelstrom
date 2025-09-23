@@ -89,7 +89,7 @@ export class KubernetesFileBatchConstruct extends Construct {
     // Add NodeGroup
     new eks.Nodegroup(this, this.getId('eksNodeGroup'), {
       cluster: cluster,
-      amiType: eks.NodegroupAmiType.AL2_X86_64,
+      amiType: eks.NodegroupAmiType.AL2023_X86_64_STANDARD,
       instanceTypes: [new ec2.InstanceType('m5a.large')],
       minSize: this.minNodes,
       desiredSize: this.desiredNodes,
