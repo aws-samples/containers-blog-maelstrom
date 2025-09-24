@@ -181,6 +181,8 @@ export class KubernetesFileBatchConstruct extends Construct {
         'dynamodb:BatchWriteItem',
         'dynamodb:Query',
         'dynamodb:Scan',
+        'dynamodb:DescribeTable',
+        'dynamodb:CreateTable',
       ],
       resources: ['*'],
     }));
@@ -205,7 +207,7 @@ export class KubernetesFileBatchConstruct extends Construct {
     });
 
     // Invoke multi-threaded step function on cloudWatch event
-    const multiThreadedStepFunction = this.setMultiThreadMapFunction(cluster, stepFunctionRole, redisReplication, securityGroup);
+    const multiThreadedStepFunction = this.setMultiThreadMapFunction(cluster, stepFunctionRole, redisReplication, securityGroup, batchServiceAccount);
     const s3rule = new Rule(this, 's3ToSfnRule', {
       eventPattern: {
         source: ['aws.s3'],
@@ -228,7 +230,7 @@ export class KubernetesFileBatchConstruct extends Construct {
     });
 
     // Uncomment the below lines & comment lines from 177-179 to delete multithreaded and create single threaded step function
-    // const singleThreadedStepFunction = this.setUpSingleThreadedStepFunction(cluster, stepFunctionRole);
+    // const singleThreadedStepFunction = this.setUpSingleThreadedStepFunction(cluster, stepFunctionRole, batchServiceAccount);
     // this.inputBucket.onCloudTrailWriteObject('SingleThreadedWriteEvent', {
     //   target: new targets.SfnStateMachine(singleThreadedStepFunction),
     // });
@@ -358,7 +360,7 @@ export class KubernetesFileBatchConstruct extends Construct {
   setMultiThreadMapFunction(cluster: eks.Cluster, stepFunctionRole: iam.Role,
 
     // Docker image for split-file k8s job
-    redis: elasticcache.CfnReplicationGroup, securityGroup: ec2.SecurityGroup): stepFunctions.StateMachine {
+    redis: elasticcache.CfnReplicationGroup, securityGroup: ec2.SecurityGroup, batchServiceAccount: eks.ServiceAccount): stepFunctions.StateMachine {
     const splitFileAsset = new DockerImageAsset(this, this.getId('split-file-image'), {
       directory: path.join(__dirname, '../src/split-file'),
     });
@@ -606,7 +608,7 @@ export class KubernetesFileBatchConstruct extends Construct {
      * @param cluster EKS cluster
      * @param stepFunctionRole Step function IAM role
   */
-  setUpSingleThreadedStepFunction(cluster: eks.Cluster, stepFunctionRole: iam.Role) {
+  setUpSingleThreadedStepFunction(cluster: eks.Cluster, stepFunctionRole: iam.Role, batchServiceAccount: eks.ServiceAccount) {
 
     // file processor docker image
     const asset = new DockerImageAsset(this, this.getId('single-threaded-image'), {
