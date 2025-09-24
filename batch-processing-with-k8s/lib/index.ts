@@ -341,8 +341,8 @@ export class KubernetesFileBatchConstruct extends Construct {
               generateName: 'split-file',
             },
             spec: {
-              backoffLimit: 0,
-              ttlSecondsAfterFinished: 100,
+              backoffLimit: 3,
+              ttlSecondsAfterFinished: 300,
               template: {
                 metadata: {
                   name: 'split-file',
@@ -464,8 +464,8 @@ export class KubernetesFileBatchConstruct extends Construct {
               generateName: 'map-version',
             },
             spec: {
-              backoffLimit: 0,
-              ttlSecondsAfterFinished: 100,
+              backoffLimit: 3,
+              ttlSecondsAfterFinished: 300,
               template: {
                 metadata: {
                   name: 'map-version',
@@ -589,8 +589,8 @@ export class KubernetesFileBatchConstruct extends Construct {
               generateName: 'single-threaded',
             },
             spec: {
-              backoffLimit: 0,
-              ttlSecondsAfterFinished: 100,
+              backoffLimit: 3,
+              ttlSecondsAfterFinished: 300,
               template: {
                 metadata: {
                   name: 'single-threaded',
