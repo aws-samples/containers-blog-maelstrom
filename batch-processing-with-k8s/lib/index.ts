@@ -97,7 +97,7 @@ export class KubernetesFileBatchConstruct extends Construct {
       nodeRole: this.getRole('nodeRole', 'ec2.amazonaws.com',
         ['AmazonEKSWorkerNodePolicy', 'AmazonEC2ContainerRegistryReadOnly', 'AmazonEKS_CNI_Policy', 'AmazonElastiCacheFullAccess',
           'AmazonS3FullAccess', 'AmazonDynamoDBFullAccess', 'AmazonElasticFileSystemFullAccess', 'CloudWatchLogsFullAccess',
-          'AmazonDynamoDBFullAccess', 'AmazonEC2FullAccess']),
+          'AmazonEC2FullAccess']),
     });
 
     // VPC endpoints for STS
@@ -152,6 +152,49 @@ export class KubernetesFileBatchConstruct extends Construct {
 
     // Setup EFS artifacts
     const efsFileSystem = this.setupEfsArtifacts(cluster, securityGroup);
+    
+    // Create service account for batch processing jobs with AWS permissions
+    const batchServiceAccount = new eks.ServiceAccount(this, this.getId('batch-sa'), {
+      name: 'batch-processing-sa',
+      cluster: cluster,
+    });
+
+    // Add AWS permissions to the service account
+    batchServiceAccount.addToPrincipalPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        's3:GetObject',
+        's3:PutObject',
+        's3:DeleteObject',
+        's3:ListBucket',
+      ],
+      resources: ['*'],
+    }));
+
+    batchServiceAccount.addToPrincipalPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'dynamodb:PutItem',
+        'dynamodb:GetItem',
+        'dynamodb:UpdateItem',
+        'dynamodb:DeleteItem',
+        'dynamodb:BatchWriteItem',
+        'dynamodb:Query',
+        'dynamodb:Scan',
+        'dynamodb:DescribeTable',
+        'dynamodb:CreateTable',
+      ],
+      resources: ['*'],
+    }));
+
+    batchServiceAccount.addToPrincipalPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'elasticache:*',
+      ],
+      resources: ['*'],
+    }));
+
     const stepFunctionRole = this.getRole('stateRole', `states.${process.env.CDK_DEFAULT_REGION}.amazonaws.com`,
       ['AmazonEC2ContainerRegistryReadOnly', 'AmazonElastiCacheFullAccess', 'AmazonS3FullAccess',
         'AmazonDynamoDBFullAccess', 'AmazonElasticFileSystemFullAccess', 'CloudWatchLogsFullAccess',
@@ -164,7 +207,7 @@ export class KubernetesFileBatchConstruct extends Construct {
     });
 
     // Invoke multi-threaded step function on cloudWatch event
-    const multiThreadedStepFunction = this.setMultiThreadMapFunction(cluster, stepFunctionRole, redisReplication, securityGroup);
+    const multiThreadedStepFunction = this.setMultiThreadMapFunction(cluster, stepFunctionRole, redisReplication, securityGroup, batchServiceAccount);
     const s3rule = new Rule(this, 's3ToSfnRule', {
       eventPattern: {
         source: ['aws.s3'],
@@ -187,7 +230,7 @@ export class KubernetesFileBatchConstruct extends Construct {
     });
 
     // Uncomment the below lines & comment lines from 177-179 to delete multithreaded and create single threaded step function
-    // const singleThreadedStepFunction = this.setUpSingleThreadedStepFunction(cluster, stepFunctionRole);
+    // const singleThreadedStepFunction = this.setUpSingleThreadedStepFunction(cluster, stepFunctionRole, batchServiceAccount);
     // this.inputBucket.onCloudTrailWriteObject('SingleThreadedWriteEvent', {
     //   target: new targets.SfnStateMachine(singleThreadedStepFunction),
     // });
@@ -317,7 +360,7 @@ export class KubernetesFileBatchConstruct extends Construct {
   setMultiThreadMapFunction(cluster: eks.Cluster, stepFunctionRole: iam.Role,
 
     // Docker image for split-file k8s job
-    redis: elasticcache.CfnReplicationGroup, securityGroup: ec2.SecurityGroup): stepFunctions.StateMachine {
+    redis: elasticcache.CfnReplicationGroup, securityGroup: ec2.SecurityGroup, batchServiceAccount: eks.ServiceAccount): stepFunctions.StateMachine {
     const splitFileAsset = new DockerImageAsset(this, this.getId('split-file-image'), {
       directory: path.join(__dirname, '../src/split-file'),
     });
@@ -341,13 +384,14 @@ export class KubernetesFileBatchConstruct extends Construct {
               generateName: 'split-file',
             },
             spec: {
-              backoffLimit: 0,
-              ttlSecondsAfterFinished: 100,
+              backoffLimit: 3,
+              ttlSecondsAfterFinished: 300,
               template: {
                 metadata: {
                   name: 'split-file',
                 },
                 spec: {
+                  serviceAccountName: batchServiceAccount.serviceAccountName,
                   containers: [
                     {
                       name: 'split-file',
@@ -464,13 +508,14 @@ export class KubernetesFileBatchConstruct extends Construct {
               generateName: 'map-version',
             },
             spec: {
-              backoffLimit: 0,
-              ttlSecondsAfterFinished: 100,
+              backoffLimit: 3,
+              ttlSecondsAfterFinished: 300,
               template: {
                 metadata: {
                   name: 'map-version',
                 },
                 spec: {
+                  serviceAccountName: batchServiceAccount.serviceAccountName,
                   containers: [
                     {
                       name: 'map-version',
@@ -563,7 +608,7 @@ export class KubernetesFileBatchConstruct extends Construct {
      * @param cluster EKS cluster
      * @param stepFunctionRole Step function IAM role
   */
-  setUpSingleThreadedStepFunction(cluster: eks.Cluster, stepFunctionRole: iam.Role) {
+  setUpSingleThreadedStepFunction(cluster: eks.Cluster, stepFunctionRole: iam.Role, batchServiceAccount: eks.ServiceAccount) {
 
     // file processor docker image
     const asset = new DockerImageAsset(this, this.getId('single-threaded-image'), {
@@ -589,13 +634,14 @@ export class KubernetesFileBatchConstruct extends Construct {
               generateName: 'single-threaded',
             },
             spec: {
-              backoffLimit: 0,
-              ttlSecondsAfterFinished: 100,
+              backoffLimit: 3,
+              ttlSecondsAfterFinished: 300,
               template: {
                 metadata: {
                   name: 'single-threaded',
                 },
                 spec: {
+                  serviceAccountName: batchServiceAccount.serviceAccountName,
                   containers: [
                     {
                       name: 'single-threaded-container',
