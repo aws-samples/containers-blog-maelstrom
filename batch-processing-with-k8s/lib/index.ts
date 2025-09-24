@@ -97,7 +97,7 @@ export class KubernetesFileBatchConstruct extends Construct {
       nodeRole: this.getRole('nodeRole', 'ec2.amazonaws.com',
         ['AmazonEKSWorkerNodePolicy', 'AmazonEC2ContainerRegistryReadOnly', 'AmazonEKS_CNI_Policy', 'AmazonElastiCacheFullAccess',
           'AmazonS3FullAccess', 'AmazonDynamoDBFullAccess', 'AmazonElasticFileSystemFullAccess', 'CloudWatchLogsFullAccess',
-          'AmazonDynamoDBFullAccess', 'AmazonEC2FullAccess']),
+          'AmazonEC2FullAccess']),
     });
 
     // VPC endpoints for STS
@@ -152,6 +152,47 @@ export class KubernetesFileBatchConstruct extends Construct {
 
     // Setup EFS artifacts
     const efsFileSystem = this.setupEfsArtifacts(cluster, securityGroup);
+    
+    // Create service account for batch processing jobs with AWS permissions
+    const batchServiceAccount = new eks.ServiceAccount(this, this.getId('batch-sa'), {
+      name: 'batch-processing-sa',
+      cluster: cluster,
+    });
+
+    // Add AWS permissions to the service account
+    batchServiceAccount.addToPrincipalPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        's3:GetObject',
+        's3:PutObject',
+        's3:DeleteObject',
+        's3:ListBucket',
+      ],
+      resources: ['*'],
+    }));
+
+    batchServiceAccount.addToPrincipalPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'dynamodb:PutItem',
+        'dynamodb:GetItem',
+        'dynamodb:UpdateItem',
+        'dynamodb:DeleteItem',
+        'dynamodb:BatchWriteItem',
+        'dynamodb:Query',
+        'dynamodb:Scan',
+      ],
+      resources: ['*'],
+    }));
+
+    batchServiceAccount.addToPrincipalPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'elasticache:*',
+      ],
+      resources: ['*'],
+    }));
+
     const stepFunctionRole = this.getRole('stateRole', `states.${process.env.CDK_DEFAULT_REGION}.amazonaws.com`,
       ['AmazonEC2ContainerRegistryReadOnly', 'AmazonElastiCacheFullAccess', 'AmazonS3FullAccess',
         'AmazonDynamoDBFullAccess', 'AmazonElasticFileSystemFullAccess', 'CloudWatchLogsFullAccess',
@@ -348,6 +389,7 @@ export class KubernetesFileBatchConstruct extends Construct {
                   name: 'split-file',
                 },
                 spec: {
+                  serviceAccountName: batchServiceAccount.serviceAccountName,
                   containers: [
                     {
                       name: 'split-file',
@@ -471,6 +513,7 @@ export class KubernetesFileBatchConstruct extends Construct {
                   name: 'map-version',
                 },
                 spec: {
+                  serviceAccountName: batchServiceAccount.serviceAccountName,
                   containers: [
                     {
                       name: 'map-version',
@@ -596,6 +639,7 @@ export class KubernetesFileBatchConstruct extends Construct {
                   name: 'single-threaded',
                 },
                 spec: {
+                  serviceAccountName: batchServiceAccount.serviceAccountName,
                   containers: [
                     {
                       name: 'single-threaded-container',
