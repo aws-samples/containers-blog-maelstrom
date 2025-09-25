@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: langgraph-agent-sa
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::940019131157:role/strands-agent-role
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langgraph-travel-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: langgraph-travel-agent
+  template:
+    metadata:
+      labels:
+        app: langgraph-travel-agent
+    spec:
+      serviceAccountName: langgraph-agent-sa
+      containers:
+        - name: langgraph-travel-agent
+          image: 940019131157.dkr.ecr.us-west-2.amazonaws.com/langgraph-travel-agent:latest
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
