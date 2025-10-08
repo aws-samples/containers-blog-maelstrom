@@ -1,0 +1,21 @@
+# Python virtual environments
+app/keda/env/
+venv/
+env/
+.venv/
+
+# Temporary files
+*.tmp
+.DS_Store
+
+# AWS credentials
+.aws/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

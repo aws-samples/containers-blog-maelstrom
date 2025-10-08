@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqs-app
+  namespace: keda-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sqs-reader
+  template:
+    metadata:
+      labels:
+        app: sqs-reader
+    spec:
+      serviceAccountName: keda-service-account
+      containers:
+      - name: sqs-pull-app
+        image: khanasif1/sqs-reader:v0.12
+        imagePullPolicy: Always
+        env:
+        - name: SQS_QUEUE_URL
+          value: https://sqs.ap-southeast-2.amazonaws.com/809980971988/keda-demo-queue.fifo
+        - name: DYNAMODB_TABLE
+          value: payments
+        - name: AWS_REGION
+          value: ap-southeast-2
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
