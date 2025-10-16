@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vpa-sqs-scaling-demo
+  labels:
+    name: vpa-sqs-scaling-demo
+    purpose: vertical-pod-autoscaler-demonstration

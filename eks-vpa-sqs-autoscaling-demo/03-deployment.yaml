@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqs-consumer
+  namespace: vpa-sqs-scaling-demo
+  labels:
+    app: sqs-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sqs-consumer
+  template:
+    metadata:
+      labels:
+        app: sqs-consumer
+    spec:
+      serviceAccountName: sqs-consumer-sa
+      containers:
+      - name: sqs-consumer
+        image: ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/sqs-consumer:latest
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+        env:
+        - name: QUEUE_URL
+          value: "SQS_QUEUE_URL"
+        - name: AWS_DEFAULT_REGION
+          value: "REGION"

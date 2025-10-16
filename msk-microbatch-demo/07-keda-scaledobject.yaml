@@ -1,0 +1,36 @@
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: kafka-trigger-auth
+  namespace: msk-microbatch-demo
+spec:
+  secretTargetRef:
+  - parameter: username
+    name: kafka-credentials
+    key: username
+  - parameter: password
+    name: kafka-credentials
+    key: password
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: kafka-scaledobject
+  namespace: msk-microbatch-demo
+spec:
+  scaleTargetRef:
+    name: kafka-batch-processor
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  triggers:
+  - type: kafka
+    metadata:
+      bootstrapServers: b-1.mskdemocluster.z9izqk.c4.kafka.us-west-2.amazonaws.com:9096,b-2.mskdemocluster.z9izqk.c4.kafka.us-west-2.amazonaws.com:9096,b-3.mskdemocluster.z9izqk.c4.kafka.us-west-2.amazonaws.com:9096
+      consumerGroup: batch-processor-group
+      topic: microbatch-topic
+      lagThreshold: '5'
+      activationLagThreshold: '1'
+      sasl: scram_sha512
+      tls: enable
+    authenticationRef:
+      name: kafka-trigger-auth
