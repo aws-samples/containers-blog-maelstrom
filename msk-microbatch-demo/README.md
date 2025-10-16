@@ -2,7 +2,7 @@
 
 ## Overview
 
-This demo showcases **Horizontal Pod Autoscaling (HPA)** with **Amazon MSK (Managed Streaming for Apache Kafka)** using **KEDA (Kubernetes Event-driven Autoscaling)**. The solution demonstrates multi-partition fanout processing with automatic scaling based on Kafka queue depth.
+This demo showcases **Horizontal Pod Autoscaling (HPA)** with **Amazon MSK (Managed Streaming for Apache Kafka)** using **KEDA (Kubernetes Event-driven Autoscaling)**. The solution demonstrates multi-partition fanout processing with automatic scaling based on Kafka consumer group lag.
 
 ## Architecture
 
