@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-batch-processor
+  namespace: msk-microbatch-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-batch-processor
+  template:
+    metadata:
+      labels:
+        app: kafka-batch-processor
+    spec:
+      serviceAccountName: kafka-processor-sa
+      containers:
+      - name: processor
+        image: ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/kafka-batch-processor:latest
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        env:
+        - name: KAFKA_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: kafka-credentials
+              key: username
+        - name: KAFKA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-credentials
+              key: password
+        - name: BOOTSTRAP_SERVERS
+          valueFrom:
+            secretKeyRef:
+              name: kafka-credentials
+              key: bootstrap-servers
+        envFrom:
+        - configMapRef:
+            name: kafka-processor-config

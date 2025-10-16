@@ -1,0 +1,20 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: sqs-consumer-scaler
+  namespace: vpa-sqs-scaling-demo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sqs-consumer
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  cooldownPeriod: 30
+  triggers:
+  - type: aws-sqs-queue
+    metadata:
+      queueURL: SQS_QUEUE_URL
+      queueLength: "5"
+      awsRegion: "REGION"
+      identityOwner: operator
