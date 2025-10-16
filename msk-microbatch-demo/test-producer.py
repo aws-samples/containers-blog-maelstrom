@@ -8,8 +8,8 @@ import sys
 # Configuration
 BOOTSTRAP_SERVERS = "b-1.mskdemocluster.z9izqk.c4.kafka.us-west-2.amazonaws.com:9096,b-3.mskdemocluster.z9izqk.c4.kafka.us-west-2.amazonaws.com:9096,b-2.mskdemocluster.z9izqk.c4.kafka.us-west-2.amazonaws.com:9096"
 TOPIC = "microbatch-topic"
-USERNAME = "kafka-user"
-PASSWORD = "Bg3m13ATJK4jCx1TFUcI8fwsgSysAd/NSECeCWG1wp0="
+USERNAME = os.getenv("KAFKA_USERNAME", "your-kafka-username")
+PASSWORD = os.getenv("KAFKA_PASSWORD", "your-kafka-password")
 
 def create_producer():
     return KafkaProducer(

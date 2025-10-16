@@ -16,7 +16,7 @@ get_partition_stats() {
     kubectl run temp-stats --image=confluentinc/cp-kafka:latest --rm -i -n $NAMESPACE --restart=Never -- bash -c '
     echo "security.protocol=SASL_SSL
     sasl.mechanism=SCRAM-SHA-512
-    sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"kafka-user\" password=\"Bg3m13ATJK4jCx1TFUcI8fwsgSysAd/NSECeCWG1wp0=\";" > /tmp/client.properties
+    sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${KAFKA_USERNAME}\" password=\"${KAFKA_PASSWORD}\";" > /tmp/client.properties
     kafka-consumer-groups --bootstrap-server b-1.mskdemocluster.z9izqk.c4.kafka.us-west-2.amazonaws.com:9096 --command-config /tmp/client.properties --describe --group batch-processor-group 2>/dev/null | grep microbatch-topic | sort -k3 -n
     ' 2>/dev/null || echo "No consumer assignments yet"
 }
@@ -55,7 +55,7 @@ echo "Distributing messages across all 8 partitions with partition keys..."
 kubectl create job customer-load-$(date +%s) --image=confluentinc/cp-kafka:latest -n $NAMESPACE -- bash -c '
 echo "security.protocol=SASL_SSL
 sasl.mechanism=SCRAM-SHA-512
-sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"kafka-user\" password=\"Bg3m13ATJK4jCx1TFUcI8fwsgSysAd/NSECeCWG1wp0=\";" > /tmp/client.properties
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${KAFKA_USERNAME}\" password=\"${KAFKA_PASSWORD}\";" > /tmp/client.properties
 
 # Send 125 messages to each partition (1000 total)
 for partition in {0..7}; do
@@ -128,7 +128,7 @@ echo "Consumer group rebalancing with multiple pods per partition:"
 kubectl run fanout-analysis --image=confluentinc/cp-kafka:latest --rm -i -n $NAMESPACE --restart=Never -- bash -c '
 echo "security.protocol=SASL_SSL
 sasl.mechanism=SCRAM-SHA-512
-sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"kafka-user\" password=\"Bg3m13ATJK4jCx1TFUcI8fwsgSysAd/NSECeCWG1wp0=\";" > /tmp/client.properties
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${KAFKA_USERNAME}\" password=\"${KAFKA_PASSWORD}\";" > /tmp/client.properties
 kafka-consumer-groups --bootstrap-server b-1.mskdemocluster.z9izqk.c4.kafka.us-west-2.amazonaws.com:9096 --command-config /tmp/client.properties --describe --group batch-processor-group 2>/dev/null | grep microbatch-topic | wc -l
 ' 2>/dev/null | xargs echo "• Active partition assignments:"
 
