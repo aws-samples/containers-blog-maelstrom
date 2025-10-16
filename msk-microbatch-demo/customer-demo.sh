@@ -3,6 +3,11 @@
 # MSK Multi-Partition Microbatch Demo - Customer Presentation
 # Shows: Multiple partitions, multiple pods, KEDA scaling, microbatch processing
 
+# Load environment variables from .env file if it exists
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
 set -e
 NAMESPACE="msk-microbatch-demo"
 

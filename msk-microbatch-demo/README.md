@@ -19,6 +19,22 @@ MSK Topic (8 partitions) → Multiple Consumer Pods → KEDA (Horizontal Scaling
 
 ## Prerequisites
 
+### Credential Configuration
+
+1. **Copy the environment template:**
+   ```bash
+   cp .env.template .env
+   ```
+
+2. **Edit `.env` with your MSK credentials:**
+   ```bash
+   KAFKA_USERNAME=your-actual-kafka-username
+   KAFKA_PASSWORD=your-actual-kafka-password
+   BOOTSTRAP_SERVERS=your-msk-bootstrap-servers
+   ```
+
+The scripts will automatically load these credentials from the `.env` file.
+
 ### Required Infrastructure
 - **Amazon EKS Cluster** (v1.24+)
 - **Amazon MSK Cluster** with SASL/SCRAM authentication enabled
