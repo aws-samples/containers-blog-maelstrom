@@ -1,0 +1,223 @@
+# NGINX Ingress Scalable Client Routing - Complete Infrastructure
+# Zero-maintenance solution for unlimited pod scaling
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: client-demo
+---
+# Router Service - Handles all client ID routing logic
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-router
+  namespace: client-demo
+  labels:
+    app: client-router
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: client-router
+  template:
+    metadata:
+      labels:
+        app: client-router
+    spec:
+      serviceAccountName: client-router-sa
+      containers:
+      - name: router
+        image: python:3.9-slim
+        ports:
+        - containerPort: 8080
+        env:
+        - name: NAMESPACE
+          value: "client-demo"
+        command:
+        - /bin/bash
+        - -c
+        - |
+          pip install flask kubernetes requests
+          python /app/router.py
+        volumeMounts:
+        - name: app
+          mountPath: /app
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 5
+      volumes:
+      - name: app
+        configMap:
+          name: router-app
+---
+# Router Application Code
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: router-app
+  namespace: client-demo
+data:
+  router.py: |
+    #!/usr/bin/env python3
+    """
+    Zero-Maintenance Router Service
+    Handles all client ID routing logic with automatic service discovery
+    """
+    import os
+    import requests
+    from flask import Flask, request, jsonify, Response
+    from kubernetes import client, config
+    import logging
+    
+    app = Flask(__name__)
+    logging.basicConfig(level=logging.INFO)
+    
+    # Load Kubernetes config
+    try:
+        config.load_incluster_config()  # Running in cluster
+    except:
+        config.load_kube_config()  # Running locally
+    
+    k8s_client = client.CoreV1Api()
+    NAMESPACE = os.environ.get('NAMESPACE', 'client-demo')
+    
+    @app.route('/health')
+    def health():
+        return jsonify({'status': 'healthy', 'service': 'router'})
+    
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def route_request(path):
+        client_id = request.headers.get('X-Client-Id')
+        
+        if not client_id:
+            return jsonify({'error': 'Missing X-Client-Id header'}), 400
+        
+        if not client_id.isdigit():
+            return jsonify({'error': 'Client ID must be numeric'}), 400
+        
+        # Construct target service name
+        service_name = f"client-pod-{client_id}"
+        target_url = f"http://{service_name}.{NAMESPACE}.svc.cluster.local"
+        
+        try:
+            # Check if service exists via Kubernetes API
+            k8s_client.read_namespaced_service(name=service_name, namespace=NAMESPACE)
+            
+            # Forward request to target pod
+            full_url = f"{target_url}/{path}" if path else target_url
+            
+            response = requests.request(
+                method=request.method,
+                url=full_url,
+                headers={k: v for k, v in request.headers if k.lower() != 'host'},
+                data=request.get_data(),
+                params=request.args,
+                timeout=30
+            )
+            
+            # Return response
+            return Response(
+                response.content,
+                status=response.status_code,
+                headers=dict(response.headers)
+            )
+            
+        except client.exceptions.ApiException as e:
+            if e.status == 404:
+                return jsonify({'error': f'No pod found for client ID: {client_id}'}), 404
+            else:
+                app.logger.error(f"Kubernetes API error: {e}")
+                return jsonify({'error': 'Service discovery failed'}), 503
+        except requests.exceptions.RequestException as e:
+            app.logger.error(f"Error forwarding to {full_url}: {e}")
+            return jsonify({'error': f'Service unavailable for client ID: {client_id}'}), 503
+        except Exception as e:
+            app.logger.error(f"Unexpected error: {e}")
+            return jsonify({'error': 'Internal server error'}), 500
+    
+    if __name__ == '__main__':
+        app.run(host='0.0.0.0', port=8080)
+---
+# Router Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: client-router
+  namespace: client-demo
+  labels:
+    app: client-router
+spec:
+  selector:
+    app: client-router
+  ports:
+  - port: 80
+    targetPort: 8080
+---
+# NGINX Ingress - Single rule for ALL clients
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: scalable-ingress
+  namespace: client-demo
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: client-router
+            port:
+              number: 80
+---
+# RBAC Configuration
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: client-router-sa
+  namespace: client-demo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: client-router-role
+  namespace: client-demo
+rules:
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: client-router-binding
+  namespace: client-demo
+subjects:
+- kind: ServiceAccount
+  name: client-router-sa
+  namespace: client-demo
+roleRef:
+  kind: Role
+  name: client-router-role
+  apiGroup: rbac.authorization.k8s.io
