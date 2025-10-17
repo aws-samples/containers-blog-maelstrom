@@ -60,14 +60,65 @@ When you add new pods:
 
 ## 📋 Prerequisites
 
-- Kubernetes cluster (EKS, GKE, AKS, or local)
-- NGINX Ingress Controller installed
-- `kubectl` configured for your cluster
-- Basic understanding of Kubernetes concepts
+### AWS Infrastructure Requirements
 
-### Install NGINX Ingress Controller
+#### 1. EKS Cluster
+- **EKS Cluster Version**: 1.24 or higher
+- **Node Groups**: At least 2 nodes (t3.medium or larger recommended)
+- **Networking**: VPC with public and private subnets
+- **IAM Roles**: EKS cluster service role and node group instance role
+
+#### 2. VPC Configuration
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.1/deploy/static/provider/cloud/deploy.yaml
+# Required VPC setup for EKS
+- VPC with CIDR (e.g., 10.0.0.0/16)
+- Public subnets (2+ AZs) for load balancers
+- Private subnets (2+ AZs) for worker nodes
+- Internet Gateway for public subnets
+- NAT Gateway for private subnet internet access
+- Route tables configured properly
+```
+
+#### 3. Required AWS Services
+- **EKS**: Managed Kubernetes service
+- **EC2**: Worker nodes (managed node groups recommended)
+- **VPC**: Virtual Private Cloud with proper networking
+- **ELB**: Application/Network Load Balancer (created by ingress)
+- **Route53**: (Optional) For custom domain names
+
+#### 4. IAM Permissions
+Your AWS credentials need the following permissions:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "eks:*",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeSecurityGroups",
+        "iam:ListRoles"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### Kubernetes Requirements
+
+#### 1. Cluster Addons
+- **AWS Load Balancer Controller** (for ALB/NLB integration)
+- **EBS CSI Driver** (for persistent volumes)
+- **CoreDNS** (for service discovery)
+- **kube-proxy** (for networking)
+
+#### 2. NGINX Ingress Controller
+```bash
+# Install NGINX Ingress Controller for AWS
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.1/deploy/static/provider/aws/deploy.yaml
 ```
 
 Wait for controller to be ready:
@@ -76,6 +127,49 @@ kubectl wait --namespace ingress-nginx \
   --for=condition=ready pod \
   --selector=app.kubernetes.io/component=controller \
   --timeout=300s
+```
+
+#### 3. Required Tools
+- **kubectl**: Kubernetes CLI (version 1.24+)
+- **aws-cli**: AWS CLI v2 (configured with credentials)
+- **eksctl**: (Optional) For EKS cluster management
+
+### Quick EKS Cluster Setup
+
+If you need to create an EKS cluster, use this example:
+
+```bash
+# Using eksctl (recommended)
+eksctl create cluster \
+  --name nginx-demo-cluster \
+  --region us-west-2 \
+  --nodegroup-name standard-workers \
+  --node-type t3.medium \
+  --nodes 2 \
+  --nodes-min 1 \
+  --nodes-max 4 \
+  --managed
+
+# Configure kubectl
+aws eks update-kubeconfig --region us-west-2 --name nginx-demo-cluster
+```
+
+### Verification Commands
+
+Before deploying the solution, verify your setup:
+
+```bash
+# Check cluster connectivity
+kubectl cluster-info
+
+# Verify nodes are ready
+kubectl get nodes
+
+# Check NGINX Ingress Controller
+kubectl get pods -n ingress-nginx
+
+# Verify AWS Load Balancer Controller (if using ALB)
+kubectl get pods -n kube-system | grep aws-load-balancer-controller
 ```
 
 ## 🚀 Quick Start
