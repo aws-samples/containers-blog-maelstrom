@@ -123,16 +123,20 @@ spec:
           values: ["on-demand", "spot"]
         - key: node.kubernetes.io/instance-type
           operator: In
-          values: ["m5.xlarge", "m5.2xlarge"]
+          values: ["m5.2xlarge", "m5.4xlarge", "m5.8xlarge", "c5.2xlarge", "c5.4xlarge"]
       nodeClassRef:
         group: karpenter.k8s.aws
         kind: EC2NodeClass
         name: default
+      startupTaints:
+        - key: karpenter.sh/unschedulable
+          value: "true"
+          effect: NoSchedule
   limits:
-    cpu: 1000
+    cpu: 2000
   disruption:
     consolidationPolicy: WhenEmpty
-    consolidateAfter: 30s
+    consolidateAfter: 10s
 EOF
 
 
