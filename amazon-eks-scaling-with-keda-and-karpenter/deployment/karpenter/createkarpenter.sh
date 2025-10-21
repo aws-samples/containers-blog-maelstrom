@@ -128,10 +128,6 @@ spec:
         group: karpenter.k8s.aws
         kind: EC2NodeClass
         name: default
-      startupTaints:
-        - key: karpenter.sh/unschedulable
-          value: "true"
-          effect: NoSchedule
   limits:
     cpu: 2000
   disruption:
