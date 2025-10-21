@@ -84,15 +84,32 @@ helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --name
   --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${KARPENTER_IAM_ROLE_ARN}" \
   --set "settings.clusterName=${CLUSTER_NAME}" \
   --set "settings.interruptionQueue=${CLUSTER_NAME}" \
+  --set "settings.featureGates.staticCapacity=false" \
   --set controller.resources.requests.cpu=1 \
   --set controller.resources.requests.memory=1Gi \
   --set controller.resources.limits.cpu=1 \
   --set controller.resources.limits.memory=1Gi \
   --wait
 
-#deploy Provisioner & AWSNodeTemplate 
-echo "Providers & AWSNodeTemplate "
+#deploy NodePool & EC2NodeClass 
+echo "Creating NodePool & EC2NodeClass"
 cat <<EOF | envsubst | kubectl apply -f -
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2
+  amiSelectorTerms:
+    - alias: al2@latest
+  role: "KarpenterNodeRole-${CLUSTER_NAME}"
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+---
 apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
@@ -106,33 +123,20 @@ spec:
           values: ["on-demand", "spot"]
         - key: node.kubernetes.io/instance-type
           operator: In
-          values: ["m5.xlarge", "m5.2xlarge"]
+          values: ["m5.2xlarge", "m5.4xlarge", "m5.8xlarge", "c5.2xlarge", "c5.4xlarge"]
       nodeClassRef:
-        apiVersion: karpenter.k8s.aws/v1
+        group: karpenter.k8s.aws
         kind: EC2NodeClass
         name: default
+      startupTaints:
+        - key: karpenter.sh/unschedulable
+          value: "true"
+          effect: NoSchedule
   limits:
-    cpu: 1000
+    cpu: 2000
   disruption:
     consolidationPolicy: WhenEmpty
-    consolidateAfter: 30s
----
-apiVersion: karpenter.k8s.aws/v1
-kind: EC2NodeClass
-metadata:
-  name: default
-spec:
-  amiSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: "${CLUSTER_NAME}"
-  instanceStorePolicy: RAID0
-  role: "KarpenterNodeRole-${CLUSTER_NAME}"
-  subnetSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: "${CLUSTER_NAME}"
-  securityGroupSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: "${CLUSTER_NAME}"
+    consolidateAfter: 10s
 EOF
 
 
