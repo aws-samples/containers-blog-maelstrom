@@ -135,8 +135,8 @@ spec:
   limits:
     cpu: 2000
   disruption:
-    consolidationPolicy: WhenEmpty
-    consolidateAfter: 10s
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 5s
 EOF
 
 
