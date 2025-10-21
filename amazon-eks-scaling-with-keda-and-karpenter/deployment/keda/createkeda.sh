@@ -112,7 +112,7 @@ metadata:
   name: sqs-app
   namespace: keda-test
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: sqs-reader

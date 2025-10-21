@@ -84,15 +84,32 @@ helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --name
   --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${KARPENTER_IAM_ROLE_ARN}" \
   --set "settings.clusterName=${CLUSTER_NAME}" \
   --set "settings.interruptionQueue=${CLUSTER_NAME}" \
+  --set "settings.featureGates.staticCapacity=false" \
   --set controller.resources.requests.cpu=1 \
   --set controller.resources.requests.memory=1Gi \
   --set controller.resources.limits.cpu=1 \
   --set controller.resources.limits.memory=1Gi \
   --wait
 
-#deploy Provisioner & AWSNodeTemplate 
-echo "Providers & AWSNodeTemplate "
+#deploy NodePool & EC2NodeClass 
+echo "Creating NodePool & EC2NodeClass"
 cat <<EOF | envsubst | kubectl apply -f -
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2
+  amiSelectorTerms:
+    - alias: al2@latest
+  role: "KarpenterNodeRole-${CLUSTER_NAME}"
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+---
 apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
@@ -108,7 +125,7 @@ spec:
           operator: In
           values: ["m5.xlarge", "m5.2xlarge"]
       nodeClassRef:
-        apiVersion: karpenter.k8s.aws/v1
+        group: karpenter.k8s.aws
         kind: EC2NodeClass
         name: default
   limits:
@@ -116,23 +133,6 @@ spec:
   disruption:
     consolidationPolicy: WhenEmpty
     consolidateAfter: 30s
----
-apiVersion: karpenter.k8s.aws/v1
-kind: EC2NodeClass
-metadata:
-  name: default
-spec:
-  amiSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: "${CLUSTER_NAME}"
-  instanceStorePolicy: RAID0
-  role: "KarpenterNodeRole-${CLUSTER_NAME}"
-  subnetSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: "${CLUSTER_NAME}"
-  securityGroupSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: "${CLUSTER_NAME}"
 EOF
 
 
