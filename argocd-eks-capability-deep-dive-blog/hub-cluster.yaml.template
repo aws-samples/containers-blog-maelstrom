@@ -1,0 +1,52 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: hub-cluster
+  region: ${AWS_REGION}
+  version: "1.34"
+
+autoModeConfig:
+  enabled: true
+
+capabilities:
+  - name: argocd
+    type: ARGOCD
+    # IAM policies for native AWS integrations
+    attachPolicyARNs:
+      - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly
+      - arn:aws:iam::aws:policy/AWSSecretsManagerClientReadOnlyAccess
+      - arn:aws:iam::aws:policy/AWSCodeCommitReadOnly
+    # Custom policy for CodeConnections
+    attachPolicy:
+      Version: "2012-10-17"
+      Statement:
+      - Effect: Allow
+        Action:
+        - "codeconnections:UseConnection"
+        - "codeconnections:GetConnection"
+        Resource: '*'
+    # Grant Argo CD access to the hub cluster
+    accessPolicies:
+      - policyARN: arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy
+        accessScope:
+          type: cluster
+    # Retain Argo CD resources when capability is deleted
+    deletePropagationPolicy: RETAIN
+    configuration:
+      argocd:
+        namespace: argocd
+        # AWS IAM Identity Center configuration
+        awsIdc:
+          idcInstanceArn: ${AWS_IDC_INSTANCE_ARN}
+          idcRegion: ${AWS_REGION}
+        # Map Identity Center groups to Argo CD roles
+        rbacRoleMappings:
+          - role: ADMIN
+            identities:
+              - id: ${AWS_IDC_GROUP_ID_ADMIN}
+                type: SSO_GROUP
+          - role: VIEWER
+            identities:
+              - id: ${AWS_IDC_GROUP_ID_DEVELOPER}
+                type: SSO_GROUP

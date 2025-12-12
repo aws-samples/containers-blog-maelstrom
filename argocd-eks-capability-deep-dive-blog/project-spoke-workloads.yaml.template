@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: spoke-workloads
+  namespace: argocd
+spec:
+  description: Production workloads for spoke clusters
+
+  # Allowed source repositories
+  sourceRepos:
+  - "oci://${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/helm-charts/*"
+  - "https://github.com/your-org/approved-apps/*"
+
+  # Allowed deployment targets (cluster name pattern and namespace)
+  destinations:
+  - name: "spoke-cluster-*"
+    namespace: "guestbook"
+
+  # Cluster-scoped resources allowed
+  clusterResourceWhitelist:
+  - group: ""
+    kind: Namespace
+
+  # Namespace-scoped resources allowed
+  namespaceResourceWhitelist:
+  - group: apps
+    kind: Deployment
+  - group: apps
+    kind: ReplicaSet
+  - group: ""
+    kind: Service
+  - group: ""
+    kind: ConfigMap
+  - group: ""
+    kind: Pod
+
+  # Explicitly deny Secrets to enforce Secrets Manager usage
+  namespaceResourceBlacklist:
+  - group: ""
+    kind: Secret
+
+  # Project roles for RBAC
+  roles:
+  - name: ci-pipeline
+    description: CI/CD pipeline with sync-only access
+    policies:
+    - p, proj:spoke-workloads:ci-pipeline, applications, get, spoke-workloads/*, allow
+    - p, proj:spoke-workloads:ci-pipeline, applications, sync, spoke-workloads/*, allow
+
+  - name: developers
+    description: Read-only access for developers
+    policies:
+    - p, proj:spoke-workloads:developers, applications, get, spoke-workloads/*, allow
+    - p, proj:spoke-workloads:developers, logs, get, spoke-workloads/*, allow
+    groups:
+    - ${AWS_IDC_GROUP_ID_DEVELOPER}
+
+  # Allow Applications to be created in argocd namespace
+  sourceNamespaces:
+  - argocd

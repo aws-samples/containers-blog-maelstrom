@@ -1,0 +1,47 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: guestbook-workload-clusters
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+  # Select clusters with tier: workloads label
+  - clusters:
+      selector:
+        matchLabels:
+          tier: workloads
+  template:
+    metadata:
+      # Application name includes cluster name for uniqueness
+      name: 'guestbook-{{.name}}'
+    spec:
+      project: spoke-workloads
+      source:
+        repoURL: oci://${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/helm-charts/helm-guestbook
+        chart: guestbook
+        targetRevision: 0.1.0
+        helm:
+          releaseName: guestbook-from-appset
+          valuesObject:
+            replicaCount: 3
+      destination:
+        # Deploy to each matched cluster
+        name: '{{.name}}'
+        namespace: guestbook
+      syncPolicy:
+        syncOptions:
+        - CreateNamespace=true
+  # Override settings for dev environment
+  templatePatch: |
+    {{- if eq .metadata.labels.environment "dev" }}
+    spec:
+      source:
+        helm:
+          valuesObject:
+            replicaCount: 1
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+    {{- end }}

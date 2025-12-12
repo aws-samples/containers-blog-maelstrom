@@ -1,0 +1,8 @@
+hub-cluster.yaml
+spoke-dev-cluster.yaml
+spoke-prod-cluster.yaml
+cluster-secrets.yaml
+git-secret.yaml
+project-spoke-workloads.yaml
+applicationset-spoke-workloads.yaml
+argocd-example-apps/
