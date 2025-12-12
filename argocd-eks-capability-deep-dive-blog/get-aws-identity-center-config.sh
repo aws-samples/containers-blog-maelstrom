@@ -4,12 +4,12 @@
 export AWS_IDC_INSTANCE_ARN=$(aws sso-admin list-instances \
   --query 'Instances[0].InstanceArn' \
   --output text \
-  --region $AWS_IDC_REGION)
+  --region $AWS_IDC_REGION |head -1)
 
 export AWS_IDC_INSTANCE_ID=$(aws sso-admin list-instances \
   --query 'Instances[0].IdentityStoreId' \
   --output text \
-  --region $AWS_IDC_REGION)
+  --region $AWS_IDC_REGION |head -1)
 
 # Get the group ID for Argo CD administrators
 # Replace 'eks-argo-cd-admins' with your Identity Center group name
