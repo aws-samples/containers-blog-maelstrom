@@ -1,0 +1,19 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: spoke-cluster-dev
+  region: ${AWS_REGION_SPOKE_DEV}
+  version: "1.34"
+
+autoModeConfig:
+  enabled: true
+
+accessConfig:
+  accessEntries:
+  # Grant Argo CD IAM role permission to deploy to this cluster
+  - principalARN: ${AWS_IAM_ROLE_ARGO_CD_ARN}
+    accessPolicies:
+    - policyARN: arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy
+      accessScope:
+        type: cluster
