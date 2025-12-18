@@ -1,4 +1,6 @@
 # !/bin/bash
+# Get account ID
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 aws eks update-kubeconfig --name hub-cluster --region $AWS_REGION --alias hub-cluster
 # Store the cluster ARN for later use
