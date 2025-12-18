@@ -1,4 +1,6 @@
 # !/bin/bash
+# Get account ID
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 # Configure kubectl contexts
 aws eks update-kubeconfig --name spoke-cluster-dev \
