@@ -1,468 +1,240 @@
-# MSK Microbatch Processing with KEDA Demo
+# MSK EKS Microbatch Processing with Keda - Demo
 
-## Overview
+## Introduction
 
-This demo showcases **Horizontal Pod Autoscaling (HPA)** with **Amazon MSK (Managed Streaming for Apache Kafka)** using **KEDA (Kubernetes Event-driven Autoscaling)**. The solution demonstrates multi-partition fanout processing with automatic scaling based on Kafka consumer group lag.
+This architecture demonstrates how to process variable transaction volumes with speed and cost efficiency. 
 
-## Architecture
+The solution combines **AWS MSK** (managed Kafka) for durable message streaming with **Amazon EKS** and **KEDA** for event-driven autoscaling. It delivers:
 
-```
-MSK Topic (8 partitions) → Multiple Consumer Pods → KEDA (Horizontal Scaling) → Microbatch Processing
-```
+- **Massive parallelization** across Kafka partitions for high throughput
+- **Sub-minute scaling** from 0 to 20+ consumer pods based on real-time lag
+- **Message persistence and replay** for audit/compliance requirements
+- **Ordering guarantees** via Kafka partition keys when needed
+- **Multi-tenant isolation** for service providers managing multiple institutions
+- **Managed services** (MSK, EKS) to reduce operational overhead
+- **Built-in security** with IAM authentication and encryption
 
-### Components
+## Architecture Components
 
-- **Amazon MSK**: Managed Kafka cluster with SASL/SCRAM authentication
-- **Consumer Application**: Python application processing messages in configurable microbatches
-- **KEDA**: Event-driven autoscaler monitoring Kafka consumer group lag
-- **Multi-Partition Fanout**: Multiple consumer pods per partition for maximum throughput
+![Architecture Diagram](images/Architecture.png)
 
-## Prerequisites
+- **AWS MSK**: Managed Kafka cluster with IAM authentication and 24 partitions for parallelization
+- **Amazon EKS**: Kubernetes cluster with automatic compute management
+- **KEDA**: Event-driven autoscaler monitoring Kafka consumer lag (scales 0-20 replicas)
+- **Consumer Application**: Microbatch processor with cooperative rebalancing for zero-downtime scaling
+- **Producer Simulator**: Generates variable transaction loads to demonstrate elasticity
+- **Prometheus + Grafana**: Observability stack for metrics and dashboards
 
-### Credential Configuration
+## Tuning Autoscaling Behavior
 
-1. **Copy the environment template:**
-   ```bash
-   cp .env.template .env
-   ```
+Scaling responsiveness is configured in the KEDA ScaledObject YAML. The key challenge is balancing **reaction speed** vs **stability**:
 
-2. **Edit `.env` with your MSK credentials:**
-   ```bash
-   KAFKA_USERNAME=your-actual-kafka-username
-   KAFKA_PASSWORD=your-actual-kafka-password
-   BOOTSTRAP_SERVERS=your-msk-bootstrap-servers
-   ```
+- **Too reactive**: System becomes unstable, flapping up and down
+- **Too slow**: Messages accumulate in Kafka, increasing processing delays
 
-The scripts will automatically load these credentials from the `.env` file.
+Multiple factors add to scaling instability such as Kafka partition rebalancing when pods join or leave the consumer group, traffic variability, etc. Extra care should be taken to smooth out scaling and avoid a flapping system.
 
-### Required Infrastructure
-- **Amazon EKS Cluster** (v1.24+)
-- **Amazon MSK Cluster** with SASL/SCRAM authentication enabled
-- **VPC with private subnets** connecting EKS and MSK
-- **Security Groups** allowing EKS to MSK communication (port 9096)
-- **kubectl** configured to access your EKS cluster
+**Critical tuning steps:**
 
-### Required Add-ons
+1. **Optimize partition rebalancing** by using cooperative rebalancing in the consumer app. During scale events, Kafka redistributes partition assignments across pods. With default "eager" rebalancing, all consumers pause for 30-60 seconds—violating SLAs during critical moments. This demo uses **cooperative rebalancing**, allowing most pods to continue processing while only affected pods pause briefly, ensuring consistent throughput during scaling.
 
-1. **KEDA Controller** - Install using:
-   ```bash
-   kubectl apply -f https://github.com/kedacore/keda/releases/download/v2.12.0/keda-2.12.0.yaml
-   ```
+2. **Profile your application** to identify:
+   - Peak processing capacity per pod (~100 msg/s in this demo)
+   - Ramp-up time to reach peak capacity (~60 seconds)
+   - Time it takes for partition rebalance to complete and consumers to pick up processing speed again (~60 seconds)
 
-2. **Metrics Server** (usually pre-installed):
-   ```bash
-   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-   ```
+3. **Tune timing settings**:
+   Consider multiple configuration options for influencing scaling sensitivity:
+   - **Pod initialReadinessDelay**: Allow time for new pods to ramp up before HPA considers them ready
+   - **StabilizationWindowSeconds**: Consider metric values using a rolling window to smooth out fluctuations
+   - **Scaling policy periodSeconds**: Define an upper budget for scaling and wait for a period of time to scale again after the budget is consumed
 
-### AWS Services Setup
+## Deployment Steps
 
-#### 1. MSK Cluster Configuration
+### Prerequisites
+
+- AWS CLI configured with appropriate credentials
+- Docker installed and running
+- Terraform >= 1.3
+- kubectl
+- jq
+
+### Step 1: Deploy Infrastructure
+
+Deploy the underlying infrastructure using Terraform:
+
 ```bash
-# Create MSK cluster with SCRAM authentication
-aws kafka create-cluster \
-  --cluster-name msk-demo-cluster \
-  --broker-node-group-info file://broker-info.json \
-  --client-authentication file://client-auth.json \
-  --kafka-version "3.7.x"
+./deploy-infra.sh
 ```
 
-#### 2. SCRAM Credentials
+This creates:
+- **VPC** with public/private subnets across 2 AZs
+- **MSK cluster** with 2 brokers, 24 partitions, IAM authentication
+- **EKS cluster** with Auto Mode for managed compute
+- **IAM roles and policies** for Pod Identity (producer, consumer, KEDA)
+- **Prometheus + Grafana** for observability (in cluster kube-prometheus-stack)
+- **KEDA operator** for event-driven autoscaling
+
+**Verify MSK bootstrap servers were added to .env:**
 ```bash
-# Create secret in AWS Secrets Manager (must have AmazonMSK_ prefix)
-aws secretsmanager create-secret \
-  --name AmazonMSK_demo-credentials \
-  --description "MSK SCRAM credentials" \
-  --secret-string '{"username":"kafka-user","password":"your-secure-password"}' \
-  --kms-key-id your-kms-key-id
-
-# Associate secret with MSK cluster
-aws kafka batch-associate-scram-secret \
-  --cluster-arn your-cluster-arn \
-  --secret-arn-list your-secret-arn
+grep "KAFKA_BOOTSTRAP_SERVERS" .env
 ```
 
-### Network Configuration
+### Step 2: Deploy Consumer Application
 
-#### Security Group Rules
 ```bash
-# MSK Security Group - Allow EKS access
-aws ec2 authorize-security-group-ingress \
-  --group-id sg-msk-cluster \
-  --protocol tcp \
-  --port 9096 \
-  --source-group sg-eks-cluster
+./deploy-consumer.sh
 ```
 
-## Quick Start
+This deploys:
+- **Consumer Deployment**: Kubernetes deployment running the transaction processor
+  - Registers as consumer group `trade-tx-consumer` with MSK
+  - Polls messages from topic `trade-tx`
+  - Uses **microbatching** to aggregate records before processing (configurable `BATCH_SIZE`)
+  - Simulates batch DB writes by waiting `BATCH_PROCESSING_TIME` for each batch
+  - Implements **cooperative rebalancing** to minimize processing interruption during scale events
 
-### 1. Clone and Navigate
+- **KEDA ScaledObject**: Configures autoscaling behavior
+  - Monitors `OffsetLag` metric (pending messages per partition)
+  - Scales from **0 to 100 replicas** based on lag threshold (configurable `LAG_THRESHOLD = 5000`)
+  - When lag > 5000: KEDA scales up pods to meet demand
+  - When lag < 5000: KEDA scales down to save resources
+  - When lag = 0: KEDA scales to zero after cooldown period
+
+**Microbatching benefits**: Aggregating multiple records into a single DB operation significantly reduces write latency—the typical bottleneck in transaction processing.
+
+### Step 3: Deploy Producer (Low Load)
+
+Deploy the producer with initial low load:
+
 ```bash
-git clone <repository-url>
-cd containers-blog-maelstrom/msk-microbatch-demo
+./deploy-producer.sh 10
 ```
 
-### 2. Configure Credentials
-Update `03-secret.yaml` with your MSK bootstrap servers and credentials:
-```yaml
-stringData:
-  username: "kafka-user"
-  password: "your-password"
-  bootstrap-servers: "your-msk-bootstrap-servers:9096"
-```
+This creates a Kubernetes deployment generating simulated trade transactions at **~10 messages/second**. In production, this would be replaced by an ingress layer managing client connections.
 
-### 3. Deploy the Solution
+**Check producer logs:**
 ```bash
-# Deploy all components
-./deploy.sh
-
-# Or deploy step by step
-kubectl apply -f 01-namespace.yaml
-kubectl apply -f 02-configmap.yaml
-kubectl apply -f 03-secret.yaml
-kubectl apply -f 04-service-account.yaml
-kubectl apply -f 05-deployment.yaml
-kubectl apply -f 07-keda-scaledobject.yaml
+kubectl wait --for=condition=ready pod -l app=trade-tx-producer --timeout=60s
+sleep 5
+kubectl logs -l app=trade-tx-producer
 ```
 
-### 4. Run the Demo
+Expected output:
+```
+pod/trade-tx-producer-85f45bfd5f-8kcxd condition met
+[2025-12-30 16:12:06] INFO: Creating producer with bootstrap_servers: b-1.mskdemocluster.33uj55.c5.kafka.us-east-1.amazonaws.com:9098,b-2.mskdemocluster.33uj55.c5.kafka.us-east-1.amazonaws.com:9098
+[2025-12-30 16:12:06] INFO: Starting continuous producer: 10 messages/second
+[2025-12-30 16:12:06] INFO: Target interval: 0.100000 seconds
+[2025-12-30 16:12:11] INFO: Sent: 51 messages, Rate: 10.2 msg/s, Target: 10 msg/s
+```
+
+**Check consumer logs:**
 ```bash
-# Run comprehensive multi-partition demo
-./customer-demo.sh
-
-# Monitor scaling and processing
-./monitor.sh
+kubectl wait --for=condition=ready pod -l app=trade-tx-consumer --timeout=60s
+kubectl logs -l app=trade-tx-consumer
 ```
 
-## Configuration
-
-### Application Configuration (ConfigMap)
-```yaml
-data:
-  BATCH_SIZE: "10"              # Messages per microbatch
-  PROCESS_TIME_SECONDS: "2"     # Processing time per message
-  KAFKA_TOPIC: "microbatch-topic"
-  CONSUMER_GROUP: "batch-processor-group"
+Expected output:
+```
+pod/trade-tx-consumer-bdb4ff757-gh2bd condition met
+[2025-12-30 16:12:21] INFO: Batch size: 100, Batch timeout: 0.1s
+[2025-12-30 16:12:21] INFO: Metrics available at :8000/metrics
+[2025-12-30 16:12:25] INFO: Processing batch of 1 messages
+[2025-12-30 16:12:26] INFO: Processing batch of 100 messages
 ```
 
-### KEDA ScaledObject Configuration
-```yaml
-spec:
-  scaleTargetRef:
-    name: kafka-batch-processor
-  minReplicaCount: 1
-  maxReplicaCount: 24           # 3 pods per partition (8 partitions)
-  triggers:
-  - type: kafka
-    metadata:
-      bootstrapServers: "your-msk-brokers:9096"
-      consumerGroup: "batch-processor-group"
-      topic: "microbatch-topic"
-      lagThreshold: '3'          # Scale when lag > 3 messages
-      activationLagThreshold: '1' # Activate scaling when lag > 1
-      sasl: scram_sha512
-      tls: enable
+**Monitor autoscaling:**
+```bash
+kubectl get hpa
 ```
 
-## Demo Scenarios
+At 10 msg/s, lag stays below the 1000-message threshold, so only **1 replica** runs:
+```
+NAME                                REFERENCE                      TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+keda-hpa-trade-tx-consumer-scaler   Deployment/trade-tx-consumer   14/5k (avg)   1         100       1          32m
+```
 
-### Scenario 1: Multi-Partition Fanout
-- **Architecture**: 8 partitions → 24 consumer pods (3 per partition)
-- **Load**: 1000+ messages distributed across partitions
-- **Scaling**: KEDA scales based on aggregate consumer group lag
-- **Processing**: Microbatches of 10 messages with fault-tolerant commits
+### Step 4: Simulate Demand Spike
 
-### Scenario 2: High-Throughput Processing
-- **Load Pattern**: Burst of messages to specific partitions
-- **Expected Behavior**: Rapid horizontal scaling of consumer pods
-- **Fault Tolerance**: Automatic partition rebalancing on pod failures
+Increase load to simulate a market event:
 
-### Scenario 3: Cost Optimization
-- **Idle State**: Scales down to 1 pod when no messages
-- **Load Response**: Scales up within seconds of message arrival
-- **Resource Efficiency**: Only pay for compute when processing messages
+```bash
+./deploy-producer.sh 1000
+```
+
+This increases message generation to **~1000 messages/second** (100x spike).
+
+**Watch HPA scale out:**
+```bash
+watch kubectl get hpa
+```
+
+HPA scales up to meet demand after waiting for the configured stabilization windows and timing delays to smooth out scaling decisions.
+```
+NAME                                REFERENCE                      TARGETSMINP         MINPODS   MAXPODS   REPLICAS   AGE
+keda-hpa-trade-tx-consumer-scaler   Deployment/trade-tx-consumer   3580813m/5k (avg)   1         100       16         37m
+```
+
+As consumers process the backlog, HPA gradually scales down to match demand:
+```
+NAME                                REFERENCE                      TARGETS             MINPODS   MAXPODS   REPLICAS   AGE
+keda-hpa-trade-tx-consumer-scaler   Deployment/trade-tx-consumer   3038462m/5k (avg)   1         100       13         16m
+```
+
+### Step 5: Scale to Zero
+
+Stop the producer to simulate zero load:
+
+```bash
+kubectl delete deployment -n default trade-tx-producer
+```
+
+Once the consumer pods process all remaining messages and lag reaches zero, KEDA waits for the cooldown period, then:
+1. Deletes the HPA
+2. Scales the deployment to **0 replicas**
+
+This eliminates compute costs during idle periods while maintaining instant readiness to scale back up when new messages arrive.
 
 ## Monitoring
 
-### Key Metrics to Monitor
-
-#### KEDA Metrics
+**Access Grafana dashboard:**
 ```bash
-# Check KEDA ScaledObject status
-kubectl get scaledobject -n msk-microbatch-demo
-
-# View HPA created by KEDA
-kubectl get hpa -n msk-microbatch-demo
-
-# KEDA operator logs
-kubectl logs -n keda deployment/keda-operator
+kubectl port-forward -n kube-system svc/kube-prometheus-stack-grafana 3000:80
 ```
+Open http://localhost:3000 (default credentials: admin/prom-operator)
 
-#### Kafka Consumer Metrics
-```bash
-# Consumer group lag
-kubectl run kafka-admin --image=confluentinc/cp-kafka:latest --rm -i -n msk-microbatch-demo --restart=Never -- \
-  kafka-consumer-groups --bootstrap-server your-brokers:9096 \
-  --command-config /tmp/client.properties \
-  --describe --group batch-processor-group
+**Access provided dashboard:**
+Title: "MSK & KEDA Monitoring"
 
-# Topic partition details
-kubectl run kafka-admin --image=confluentinc/cp-kafka:latest --rm -i -n msk-microbatch-demo --restart=Never -- \
-  kafka-topics --bootstrap-server your-brokers:9096 \
-  --command-config /tmp/client.properties \
-  --describe --topic microbatch-topic
-```
+![Grafana Dashboard](images/Grafana-Dash.png)
 
-#### Application Metrics
-```bash
-# Pod resource usage
-kubectl top pods -n msk-microbatch-demo
+## Configuration
 
-# Processing logs
-kubectl logs -f -l app=kafka-batch-processor -n msk-microbatch-demo
+Edit `.env` files in application directories:
 
-# Scaling events
-kubectl get events -n msk-microbatch-demo --sort-by='.lastTimestamp'
-```
+**Producer (`trade-tx-producer/.env`):**
+- `MESSAGES_PER_SECOND`: Message generation rate
 
-### CloudWatch Integration
-- **MSK Metrics**: Broker CPU, disk usage, network throughput
-- **Consumer Lag**: Per-partition consumer lag metrics
-- **Custom Metrics**: Application-specific processing metrics
+**Consumer (`trade-tx-consumer/.env`):**
+- `BATCH_SIZE`: Messages per microbatch
+- `BATCH_PROCESSING_TIME`: Simulated DB write time in seconds
 
-## Troubleshooting
-
-### Common Issues
-
-#### 1. KEDA Not Scaling
-```bash
-# Check KEDA operator status
-kubectl get pods -n keda
-
-# Verify ScaledObject configuration
-kubectl describe scaledobject kafka-scaledobject -n msk-microbatch-demo
-
-# Check HPA status
-kubectl describe hpa -n msk-microbatch-demo
-```
-
-#### 2. MSK Connection Issues
-```bash
-# Test connectivity from pod
-kubectl run kafka-test --image=confluentinc/cp-kafka:latest --rm -i -n msk-microbatch-demo --restart=Never -- \
-  kafka-broker-api-versions --bootstrap-server your-brokers:9096 \
-  --command-config /tmp/client.properties
-
-# Check security group rules
-aws ec2 describe-security-groups --group-ids your-msk-sg-id
-```
-
-#### 3. Authentication Problems
-```bash
-# Verify SCRAM secret association
-aws kafka list-scram-secrets --cluster-arn your-cluster-arn
-
-# Check pod logs for auth errors
-kubectl logs -l app=kafka-batch-processor -n msk-microbatch-demo | grep -i auth
-```
-
-#### 4. Partition Assignment Issues
-```bash
-# Check consumer group status
-kubectl logs -l app=kafka-batch-processor -n msk-microbatch-demo | grep -i "partition assignment"
-
-# Verify topic partition count
-kubectl run kafka-admin --image=confluentinc/cp-kafka:latest --rm -i -n msk-microbatch-demo --restart=Never -- \
-  kafka-topics --bootstrap-server your-brokers:9096 \
-  --command-config /tmp/client.properties \
-  --list
-```
-
-### Debug Commands
-```bash
-# KEDA metrics
-kubectl get --raw /apis/external.metrics.k8s.io/v1beta1/namespaces/msk-microbatch-demo/s0-kafka-microbatch-topic
-
-# Pod resource requests/limits
-kubectl describe pod -l app=kafka-batch-processor -n msk-microbatch-demo
-
-# Network connectivity test
-kubectl run netshoot --image=nicolaka/netshoot --rm -i -n msk-microbatch-demo --restart=Never -- \
-  nc -zv your-msk-broker 9096
-```
-
-## Performance Tuning
-
-### KEDA Configuration
-```yaml
-# Faster scaling response
-pollingInterval: 15    # Check metrics every 15 seconds (default: 30)
-cooldownPeriod: 60     # Wait 60 seconds before scaling down (default: 300)
-
-# More aggressive scaling
-triggers:
-- type: kafka
-  metadata:
-    lagThreshold: '2'           # Lower threshold for faster scaling
-    activationLagThreshold: '1'
-```
-
-### Consumer Application Tuning
-```yaml
-# Optimize batch processing
-env:
-- name: BATCH_SIZE
-  value: "20"                   # Larger batches for higher throughput
-- name: PROCESS_TIME_SECONDS
-  value: "1"                    # Faster processing per message
-```
-
-### Kafka Topic Configuration
-```bash
-# Optimize topic for high throughput
-kafka-configs --bootstrap-server your-brokers:9096 \
-  --command-config /tmp/client.properties \
-  --entity-type topics \
-  --entity-name microbatch-topic \
-  --alter --add-config min.insync.replicas=2,unclean.leader.election.enable=false
-```
-
-## Best Practices
-
-### Scaling Strategy
-- **Partition Design**: Use 8+ partitions for optimal parallelism
-- **Consumer Groups**: One consumer group per application
-- **Pod Distribution**: Target 2-3 pods per partition for fault tolerance
-- **Resource Limits**: Set appropriate CPU/memory limits
-
-### Fault Tolerance
-- **Offset Management**: Manual commits after successful batch processing
-- **Dead Letter Queues**: Handle poison messages appropriately
-- **Circuit Breakers**: Implement retry logic with exponential backoff
-- **Health Checks**: Proper liveness and readiness probes
-
-### Security
-- **SCRAM Authentication**: Use strong passwords and rotate regularly
-- **TLS Encryption**: Enable in-transit encryption
-- **Network Isolation**: Use private subnets and security groups
-- **IAM Integration**: Use IRSA for AWS service access
-
-### Cost Optimization
-- **Right-sizing**: Monitor actual resource usage vs requests
-- **Spot Instances**: Use for non-critical consumer workloads
-- **Scaling Policies**: Tune KEDA thresholds for cost vs performance
-- **Resource Requests**: Set appropriate requests to avoid over-provisioning
-
-## Advanced Scenarios
-
-### Multi-Tenant Processing
-```yaml
-# Separate consumer groups per tenant
-spec:
-  triggers:
-  - type: kafka
-    metadata:
-      consumerGroup: "tenant-a-processors"
-      lagThreshold: '5'
-  - type: kafka
-    metadata:
-      consumerGroup: "tenant-b-processors"
-      lagThreshold: '3'
-```
-
-### Cross-Region Replication
-- Configure MSK cross-region replication
-- Deploy consumers in multiple regions
-- Implement failover logic
-
-### Schema Evolution
-- Use Confluent Schema Registry
-- Implement backward-compatible message formats
-- Version your consumer applications
-
-## Cleanup
+## Clean Up
 
 ```bash
-# Remove all resources
-./cleanup.sh
-
-# Or manually
-kubectl delete namespace msk-microbatch-demo
-
-# Clean up MSK resources (optional)
-aws kafka delete-cluster --cluster-arn your-cluster-arn
+cd infra-tf
+terraform destroy
 ```
 
-## Files Structure
+## Project Structure
 
 ```
-msk-microbatch-demo/
-├── README.md                    # This comprehensive documentation
-├── 01-namespace.yaml            # Kubernetes namespace
-├── 02-configmap.yaml           # Application configuration
-├── 03-secret.yaml              # MSK credentials and bootstrap servers
-├── 04-service-account.yaml     # Service account
-├── 05-deployment.yaml          # Consumer deployment
-├── 07-keda-scaledobject.yaml   # KEDA scaling configuration
-├── app.py                      # Kafka consumer application
-├── requirements.txt            # Python dependencies
-├── Dockerfile                  # Container image definition
-├── customer-demo.sh            # Comprehensive demo script
-├── deploy.sh                   # Deployment script
-├── monitor.sh                  # Monitoring script
-├── cleanup.sh                  # Cleanup script
-├── setup-msk.sh               # MSK cluster setup script
-└── run-demo.sh                 # Basic demo runner
+.
+├── deploy-infra.sh           # Deploy infrastructure
+├── deploy-producer.sh        # Deploy producer
+├── deploy-consumer.sh        # Deploy consumer
+├── infra-tf/                 # Terraform configuration
+├── trade-tx-producer/        # Producer application
+└── trade-tx-consumer/        # Consumer application
 ```
-
-## Integration Examples
-
-### CloudWatch Dashboard
-```json
-{
-  "widgets": [
-    {
-      "type": "metric",
-      "properties": {
-        "metrics": [
-          ["AWS/Kafka", "ConsumerLag", "Consumer Group", "batch-processor-group"]
-        ],
-        "period": 300,
-        "stat": "Average",
-        "region": "us-west-2",
-        "title": "Consumer Lag"
-      }
-    }
-  ]
-}
-```
-
-### Prometheus Monitoring
-```yaml
-# ServiceMonitor for Prometheus
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: kafka-consumer-metrics
-spec:
-  selector:
-    matchLabels:
-      app: kafka-batch-processor
-  endpoints:
-  - port: metrics
-```
-
-## Troubleshooting Guide
-
-### Performance Issues
-1. **High Consumer Lag**: Increase partition count or consumer pods
-2. **Slow Processing**: Optimize batch size and processing logic
-3. **Memory Issues**: Adjust JVM heap settings for Kafka clients
-4. **Network Latency**: Ensure EKS and MSK are in same AZ
-
-### Scaling Issues
-1. **KEDA Not Responding**: Check metrics server and KEDA operator logs
-2. **Pods Not Starting**: Verify resource quotas and node capacity
-3. **Authentication Failures**: Validate SCRAM credentials and MSK association
-4. **Network Connectivity**: Test security group rules and VPC configuration
-
-This comprehensive documentation provides everything needed to deploy, configure, monitor, and troubleshoot the MSK microbatch processing solution with KEDA autoscaling.

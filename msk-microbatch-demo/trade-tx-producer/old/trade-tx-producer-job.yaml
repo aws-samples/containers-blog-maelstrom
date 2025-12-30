@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: producer-sa
+  namespace: default
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: trade-tx-producer
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        app: trade-tx-producer
+    spec:
+      serviceAccountName: producer-sa
+      restartPolicy: OnFailure
+      containers:
+      - name: producer
+        image: ${IMAGE_URI}
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "${KAFKA_BOOTSTRAP_SERVERS}"
+        - name: KAFKA_TOPIC
+          value: "${KAFKA_TOPIC}"
+        - name: PRODUCER_MESSAGES
+          value: "${PRODUCER_MESSAGES}"
+        - name: MESSAGE_PRODUCE_TIME
+          value: "${MESSAGE_PRODUCE_TIME}"
+        - name: AWS_REGION
+          value: "${AWS_REGION}"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

@@ -1,0 +1,178 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: consumer-sa
+  namespace: default
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: trade-tx-consumer-pdb
+spec:
+  maxUnavailable: 90%
+  selector:
+    matchLabels:
+      app: trade-tx-consumer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trade-tx-consumer
+  labels:
+    app: trade-tx-consumer
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: trade-tx-consumer
+  template:
+    metadata:
+      labels:
+        app: trade-tx-consumer
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      serviceAccountName: consumer-sa
+      containers:
+      - name: consumer
+        image: ${IMAGE_URI}
+        ports:
+        - containerPort: 8000
+          name: metrics
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "${KAFKA_BOOTSTRAP_SERVERS}"
+        - name: KAFKA_TOPIC
+          value: "${KAFKA_TOPIC}"
+        - name: CONSUMER_GROUP
+          value: "${CONSUMER_GROUP}"
+        - name: BATCH_SIZE
+          value: "${BATCH_SIZE}"
+        - name: BATCH_TIMEOUT_SECONDS
+          value: "${BATCH_TIMEOUT_SECONDS}"
+        - name: BATCH_PROCESSING_TIME
+          value: "${BATCH_PROCESSING_TIME}"
+        - name: MESSAGE_PROCESSING_TIME
+          value: "${MESSAGE_PROCESSING_TIME}"
+        - name: AWS_REGION
+          value: "${AWS_REGION}"
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trade-tx-consumer
+  labels:
+    app: trade-tx-consumer
+spec:
+  ports:
+  - port: 8000
+    name: metrics
+  selector:
+    app: trade-tx-consumer
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-msk-iam-auth
+  namespace: default
+spec:
+  podIdentity:
+    provider: aws
+    identityOwner: keda
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: trade-tx-consumer-scaler
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: trade-tx-consumer
+  minReplicaCount: 0
+  maxReplicaCount: 100
+  pollingInterval: 60
+  cooldownPeriod: 300
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          tolerance: "0.5"
+          stabilizationWindowSeconds: 120
+          selectPolicy: Max
+          policies:
+          - type: Percent
+            value: 50
+            periodSeconds: 120
+        scaleUp:
+          tolerance: "0.5"
+          stabilizationWindowSeconds: 120
+          selectPolicy: Min
+          policies:
+          - type: Pods
+            value: 10
+            periodSeconds: 120
+          - type: Percent
+            value: 500
+            periodSeconds: 120
+  triggers:
+  - type: kafka
+    metricType: AverageValue
+    metadata:
+      bootstrapServers: "${KAFKA_BOOTSTRAP_SERVERS}"
+      consumerGroup: "${CONSUMER_GROUP}"
+      topic: "${KAFKA_TOPIC}"
+      lagThreshold: "${LAG_THRESHOLD}"
+      # useCachedMetrics: "true"
+      awsRegion: "us-east-1"
+      tls: enable
+      sasl: oauthbearer
+      saslTokenProvider: aws_msk_iam
+    authenticationRef:  
+      name: keda-msk-iam-auth
+  # - type: prometheus
+  #   # metricType: AverageValue
+  #   metadata:
+  #     serverAddress: http://kube-prometheus-stack-prometheus.kube-system.svc.cluster.local:9090
+  #     query: sum(rate(kafka_server_BrokerTopicMetrics_Count{name="MessagesInPerSec", topic="trade-tx"}[5m]))
+  #     threshold: "100"  # Scale up when incoming rate > 100 msg/s
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: trade-tx-consumer
+  namespace: kube-system
+  labels:
+    app: trade-tx-consumer
+    release: "kube-prometheus-stack"
+spec:
+  namespaceSelector:
+    matchNames:
+    - default
+  selector:
+    matchLabels:
+      app: trade-tx-consumer
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s

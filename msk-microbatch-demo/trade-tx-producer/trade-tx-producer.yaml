@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: producer-sa
+  namespace: default
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trade-tx-producer
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trade-tx-producer
+  template:
+    metadata:
+      labels:
+        app: trade-tx-producer
+    spec:
+      serviceAccountName: producer-sa
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      containers:
+      - name: producer
+        image: ${IMAGE_URI}
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "${KAFKA_BOOTSTRAP_SERVERS}"
+        - name: KAFKA_TOPIC
+          value: "${KAFKA_TOPIC}"
+        - name: MESSAGES_PER_SECOND
+          value: "${MESSAGES_PER_SECOND}"
+        - name: AWS_REGION
+          value: "${AWS_REGION}"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 256Mi
