@@ -62,14 +62,14 @@ spec:
           value: "${MESSAGE_PROCESSING_TIME}"
         - name: AWS_REGION
           value: "${AWS_REGION}"
-        readinessProbe:
-          httpGet:
-            path: /metrics
-            port: 8000
-          initialDelaySeconds: 60
-          periodSeconds: 5
-          timeoutSeconds: 5
-          failureThreshold: 3
+        # readinessProbe:
+        #   httpGet:
+        #     path: /metrics
+        #     port: 8000
+        #   initialDelaySeconds: 90
+        #   periodSeconds: 5
+        #   timeoutSeconds: 5
+        #   failureThreshold: 3
         resources:
           requests:
             cpu: 100m
@@ -110,13 +110,13 @@ spec:
     name: trade-tx-consumer
   minReplicaCount: 0
   maxReplicaCount: 100
-  pollingInterval: 60
+  pollingInterval: 30
   cooldownPeriod: 300
   advanced:
     horizontalPodAutoscalerConfig:
       behavior:
         scaleDown:
-          tolerance: "0.5"
+          tolerance: "0.1"
           stabilizationWindowSeconds: 120
           selectPolicy: Max
           policies:
@@ -124,16 +124,16 @@ spec:
             value: 50
             periodSeconds: 120
         scaleUp:
-          tolerance: "0.5"
-          stabilizationWindowSeconds: 120
+          tolerance: "0.1"
+          stabilizationWindowSeconds: 60
           selectPolicy: Min
           policies:
           - type: Pods
             value: 10
-            periodSeconds: 120
+            periodSeconds: 60
           - type: Percent
             value: 500
-            periodSeconds: 120
+            periodSeconds: 60
   triggers:
   - type: kafka
     metricType: AverageValue
@@ -150,11 +150,11 @@ spec:
     authenticationRef:  
       name: keda-msk-iam-auth
   # - type: prometheus
-  #   # metricType: AverageValue
+  #   metricType: AverageValue
   #   metadata:
   #     serverAddress: http://kube-prometheus-stack-prometheus.kube-system.svc.cluster.local:9090
-  #     query: sum(rate(kafka_server_BrokerTopicMetrics_Count{name="MessagesInPerSec", topic="trade-tx"}[5m]))
-  #     threshold: "100"  # Scale up when incoming rate > 100 msg/s
+  #     query: kafka_consumer_group_ConsumerLagMetrics_Value{topic="trade-tx", name="SumOffsetLag"}
+  #     threshold: "1000" 
 
 ---
 apiVersion: monitoring.coreos.com/v1

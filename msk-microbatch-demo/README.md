@@ -7,10 +7,10 @@ This architecture demonstrates how to process variable transaction volumes with 
 The solution combines **AWS MSK** (managed Kafka) for durable message streaming with **Amazon EKS** and **KEDA** for event-driven autoscaling. It delivers:
 
 - **Massive parallelization** across Kafka partitions for high throughput
-- **Sub-minute scaling** from 0 to 20+ consumer pods based on real-time lag
+- **Responsive scaling** of processing capacity as soon as unprocessed messages increase
 - **Message persistence and replay** for audit/compliance requirements
 - **Ordering guarantees** via Kafka partition keys when needed
-- **Multi-tenant isolation** for service providers managing multiple institutions
+- **Multi-tenant isolation** using kafka topics and consumer groups for service providers managing multiple institutions
 - **Managed services** (MSK, EKS) to reduce operational overhead
 - **Built-in security** with IAM authentication and encryption
 
@@ -22,28 +22,29 @@ The solution combines **AWS MSK** (managed Kafka) for durable message streaming 
 - **Amazon EKS**: Kubernetes cluster with automatic compute management
 - **KEDA**: Event-driven autoscaler monitoring Kafka consumer lag (scales 0-20 replicas)
 - **Consumer Application**: Microbatch processor with cooperative rebalancing for zero-downtime scaling
-- **Producer Simulator**: Generates variable transaction loads to demonstrate elasticity
+- **Producer Simulator**: Generates transaction loads to demonstrate elasticity
 - **Prometheus + Grafana**: Observability stack for metrics and dashboards
 
 ## Tuning Autoscaling Behavior
 
-Scaling responsiveness is configured in the KEDA ScaledObject YAML. The key challenge is balancing **reaction speed** vs **stability**:
+Scaling responsiveness is configured using KEDA ScaledObject YAML. The key challenge is balancing **scaling speed** vs **stability** to avoid flapping:
 
-- **Too reactive**: System becomes unstable, flapping up and down
+- **Too reactive**: System becomes unstable, flapping up and down the number of pods
 - **Too slow**: Messages accumulate in Kafka, increasing processing delays
 
 Multiple factors add to scaling instability such as Kafka partition rebalancing when pods join or leave the consumer group, traffic variability, etc. Extra care should be taken to smooth out scaling and avoid a flapping system.
 
 **Critical tuning steps:**
 
-1. **Optimize partition rebalancing** by using cooperative rebalancing in the consumer app. During scale events, Kafka redistributes partition assignments across pods. With default "eager" rebalancing, all consumers pause for 30-60 seconds—violating SLAs during critical moments. This demo uses **cooperative rebalancing**, allowing most pods to continue processing while only affected pods pause briefly, ensuring consistent throughput during scaling.
+1. **Optimize partition rebalancing** by using cooperative rebalancing in the consumer app. 
+During scale events, Kafka redistributes partition assignments across pods. With default "eager" rebalancing, all consumers pause processing, which dramatically reduces processing throughput and risks breaching SLA. This architecture uses **cooperative rebalancing**, allowing most pods to continue processing while only affected pods pause briefly, reducing the impact on processing throughput during scaling.
 
 2. **Profile your application** to identify:
    - Peak processing capacity per pod (~100 msg/s in this demo)
-   - Ramp-up time to reach peak capacity (~60 seconds)
-   - Time it takes for partition rebalance to complete and consumers to pick up processing speed again (~60 seconds)
+   - Ramp-up time to reach peak capacity (~60 seconds in this demo)
+   - Time it takes for partition rebalance to complete and consumers to pick up processing speed again (~60 seconds in this demo)
 
-3. **Tune timing settings**:
+3. **Tune Keda timing settings**:
    Consider multiple configuration options for influencing scaling sensitivity:
    - **Pod initialReadinessDelay**: Allow time for new pods to ramp up before HPA considers them ready
    - **StabilizationWindowSeconds**: Consider metric values using a rolling window to smooth out fluctuations
@@ -92,13 +93,13 @@ This deploys:
   - Polls messages from topic `trade-tx`
   - Uses **microbatching** to aggregate records before processing (configurable `BATCH_SIZE`)
   - Simulates batch DB writes by waiting `BATCH_PROCESSING_TIME` for each batch
-  - Implements **cooperative rebalancing** to minimize processing interruption during scale events
+  - Implements **Kafka cooperative rebalancing** to minimize processing interruption during scale events
 
 - **KEDA ScaledObject**: Configures autoscaling behavior
   - Monitors `OffsetLag` metric (pending messages per partition)
-  - Scales from **0 to 100 replicas** based on lag threshold (configurable `LAG_THRESHOLD = 5000`)
-  - When lag > 5000: KEDA scales up pods to meet demand
-  - When lag < 5000: KEDA scales down to save resources
+  - Scales from **0 to 100 replicas** based on lag threshold (configurable `LAG_THRESHOLD = 10000`)
+  - When lag > 10000: KEDA scales up pods to meet demand
+  - When lag < 10000: KEDA scales down to reduce costs
   - When lag = 0: KEDA scales to zero after cooldown period
 
 **Microbatching benefits**: Aggregating multiple records into a single DB operation significantly reduces write latency—the typical bottleneck in transaction processing.
@@ -144,7 +145,7 @@ pod/trade-tx-consumer-bdb4ff757-gh2bd condition met
 [2025-12-30 16:12:26] INFO: Processing batch of 100 messages
 ```
 
-**Monitor autoscaling:**
+**Monitor HPA autoscaling:**
 ```bash
 kubectl get hpa
 ```
@@ -152,7 +153,7 @@ kubectl get hpa
 At 10 msg/s, lag stays below the 1000-message threshold, so only **1 replica** runs:
 ```
 NAME                                REFERENCE                      TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
-keda-hpa-trade-tx-consumer-scaler   Deployment/trade-tx-consumer   14/5k (avg)   1         100       1          32m
+keda-hpa-trade-tx-consumer-scaler   Deployment/trade-tx-consumer   14/10k (avg)   1         100       1          32m
 ```
 
 ### Step 4: Simulate Demand Spike
@@ -165,22 +166,18 @@ Increase load to simulate a market event:
 
 This increases message generation to **~1000 messages/second** (100x spike).
 
-**Watch HPA scale out:**
+**Monitor HPA autoscaling:**
 ```bash
-watch kubectl get hpa
+kubectl get hpa
 ```
 
-HPA scales up to meet demand after waiting for the configured stabilization windows and timing delays to smooth out scaling decisions.
-```
-NAME                                REFERENCE                      TARGETSMINP         MINPODS   MAXPODS   REPLICAS   AGE
-keda-hpa-trade-tx-consumer-scaler   Deployment/trade-tx-consumer   3580813m/5k (avg)   1         100       16         37m
+Increase load again to **~5000 messages/second** (5x spike).:
+
+```bash
+./deploy-producer.sh 5000
 ```
 
-As consumers process the backlog, HPA gradually scales down to match demand:
-```
-NAME                                REFERENCE                      TARGETS             MINPODS   MAXPODS   REPLICAS   AGE
-keda-hpa-trade-tx-consumer-scaler   Deployment/trade-tx-consumer   3038462m/5k (avg)   1         100       13         16m
-```
+HPA scales up to meet demand after waiting for the configured stabilization windows and timing delays that smooth out scaling events.
 
 ### Step 5: Scale to Zero
 
@@ -209,6 +206,15 @@ Title: "MSK & KEDA Monitoring"
 
 ![Grafana Dashboard](images/Grafana-Dash.png)
 
+The chart shows how the system autoscales during a traffic spike from 1k msg/s to 5k msg/s
+
+## Clean Up
+
+```bash
+cd infra-tf
+terraform destroy
+```
+
 ## Configuration
 
 Edit `.env` files in application directories:
@@ -219,13 +225,6 @@ Edit `.env` files in application directories:
 **Consumer (`trade-tx-consumer/.env`):**
 - `BATCH_SIZE`: Messages per microbatch
 - `BATCH_PROCESSING_TIME`: Simulated DB write time in seconds
-
-## Clean Up
-
-```bash
-cd infra-tf
-terraform destroy
-```
 
 ## Project Structure
 
