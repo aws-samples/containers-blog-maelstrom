@@ -42,7 +42,7 @@ aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --
 echo ""
 echo "Building Docker image with tag: $IMAGE_TAG"
 echo ""
-docker build -t $IMAGE_NAME:$IMAGE_TAG .
+docker build --platform=linux/amd64 -t $IMAGE_NAME:$IMAGE_TAG .
 docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_URI
 
 echo ""

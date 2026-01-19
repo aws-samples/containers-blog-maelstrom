@@ -1,40 +1,3 @@
-# CloudWatch Observability addon + pod identity
-
-# resource "aws_iam_role" "cloudwatch_pod_identity" {
-#   name = "${local.name}-cloudwatch-pod-identity"
-
-#   assume_role_policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [{
-#       Effect = "Allow"
-#       Principal = {
-#         Service = "pods.eks.amazonaws.com"
-#       }
-#       Action = ["sts:AssumeRole", "sts:TagSession"]
-#     }]
-#   })
-
-#   tags = local.tags
-# }
-
-# resource "aws_iam_role_policy_attachment" "cloudwatch_pod_identity" {
-#   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
-#   role       = aws_iam_role.cloudwatch_pod_identity.name
-# }
-
-# resource "aws_eks_addon" "cloudwatch_observability" {
-#   cluster_name  = module.eks.cluster_name
-#   addon_name    = "amazon-cloudwatch-observability"
-#   addon_version = "v4.7.0-eksbuild.1"
-
-#   pod_identity_association {
-#     role_arn        = aws_iam_role.cloudwatch_pod_identity.arn
-#     service_account = "cloudwatch-agent"
-#   }
-
-#   depends_on = [module.eks, aws_iam_role_policy_attachment.cloudwatch_pod_identity]
-# }
-
 # KEDA Operator
 
 resource "helm_release" "keda" {
@@ -44,6 +7,8 @@ resource "helm_release" "keda" {
   namespace        = "kube-system"
   version          = "2.18.1"
   replace          = true
+  cleanup_on_fail  = true
+  wait             = true
 
   values = [yamlencode({
     ## Global tolerations and nodeSelector for all KEDA pods
@@ -110,6 +75,9 @@ resource "helm_release" "kube_prometheus_stack" {
   chart            = "kube-prometheus-stack"
   namespace        = "kube-system"
   version          = "65.1.1"
+  replace          = true
+  cleanup_on_fail  = true
+  wait             = true
 
   values = [yamlencode({
     prometheusOperator = {
@@ -199,6 +167,7 @@ resource "kubectl_manifest" "k8s_yamls" {
   for_each = local.k8s_yaml_files
   
   yaml_body = file("${path.module}/K8s-yaml/${each.value}")
+  wait      = false
 
   depends_on = [module.eks]
 }
@@ -209,6 +178,7 @@ resource "kubectl_manifest" "k8s_templates" {
   yaml_body = templatefile("${path.module}/K8s-yaml/${each.value}", {
     brokers = local.msk_brokers
   })
+  wait      = false
 
   depends_on = [helm_release.kube_prometheus_stack]
 }

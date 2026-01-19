@@ -65,6 +65,7 @@ During scale events, Kafka redistributes partition assignments across pods. With
 Deploy the underlying infrastructure using Terraform:
 
 ```bash
+chmod +x deploy-infra.sh
 ./deploy-infra.sh
 ```
 
@@ -84,6 +85,7 @@ grep "KAFKA_BOOTSTRAP_SERVERS" .env
 ### Step 2: Deploy Consumer Application
 
 ```bash
+chmod +x deploy-consumer.sh
 ./deploy-consumer.sh
 ```
 
@@ -109,6 +111,7 @@ This deploys:
 Deploy the producer with initial low load:
 
 ```bash
+chmod +x deploy-producer.sh
 ./deploy-producer.sh 10
 ```
 
