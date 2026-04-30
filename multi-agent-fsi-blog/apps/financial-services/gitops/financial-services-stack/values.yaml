@@ -58,6 +58,12 @@ litellm:
   apiKeySecret:
     name: litellm-api-key
     key: api-key
+  # When true, the chart creates the Secret named above containing
+  # apiKeyValue. Must match LiteLLM's masterkey in
+  # gitops/addons/litellm/values.yaml. Set to false and provision the Secret
+  # externally (ExternalSecrets, SealedSecrets, etc.) for production.
+  createApiKeySecret: true
+  apiKeyValue: sk-finops-demo-master
 
 # Git source for the Flux Terraform controller. The app-of-apps root app
 # overrides `terraform.git.url` and `terraform.git.branch` via helm parameters

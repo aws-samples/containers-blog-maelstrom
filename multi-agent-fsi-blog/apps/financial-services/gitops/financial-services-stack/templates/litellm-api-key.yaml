@@ -1,0 +1,24 @@
+{{- /*
+LiteLLM API key Secret.
+
+The four Strands agent Deployments reference `{{ .Values.litellm.apiKeySecret.name }}`
+with `optional: true` so pods start even when the key is missing. When
+`litellm.createApiKeySecret` is true (default), we materialize the Secret here
+so the agents authenticate with the LiteLLM proxy out of the box. The key value
+must match LiteLLM's `masterkey` in `gitops/addons/litellm/values.yaml`.
+
+For production, set `litellm.createApiKeySecret: false` and manage the Secret
+externally (ExternalSecrets, SealedSecrets, AWS Secrets Manager, etc.).
+*/}}
+{{- if .Values.litellm.createApiKeySecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.litellm.apiKeySecret.name | quote }}
+  namespace: {{ .Values.namespace | quote }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+type: Opaque
+stringData:
+  {{ .Values.litellm.apiKeySecret.key }}: {{ .Values.litellm.apiKeyValue | quote }}
+{{- end }}
