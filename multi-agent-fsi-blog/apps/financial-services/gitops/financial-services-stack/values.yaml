@@ -28,19 +28,19 @@ images:
   registry: docker.io/sriram430
   mcpServer:
     repository: financial-services-agents
-    tag: financial-tools-mcp-v2
+    tag: financial-tools-mcp-v3
   financialAdvisor:
     repository: financial-services-agents
-    tag: financial-advisor-v2
+    tag: financial-advisor-v3
   portfolioAnalyst:
     repository: financial-services-agents
-    tag: portfolio-analyst-v2
+    tag: portfolio-analyst-v3
   riskAssessment:
     repository: financial-services-agents
-    tag: risk-assessment-v2
+    tag: risk-assessment-v3
   marketData:
     repository: financial-services-agents
-    tag: market-data-v2
+    tag: market-data-v3
 
 # Agent Gateway (already installed in the cluster)
 agentGateway:
