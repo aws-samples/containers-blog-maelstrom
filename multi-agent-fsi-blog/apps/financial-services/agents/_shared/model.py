@@ -39,29 +39,32 @@ def build_model():
     """Return a Strands-compatible model instance, or None to use the
     Strands default (which hardcodes a model id that may be Bedrock-legacy).
     """
-    try:
-        from strands.models.litellm import LiteLLMModel  # type: ignore
-
-        log.info("Using LiteLLM provider → %s (model=%s)", LITELLM_URL, LITELLM_MODEL)
-        return LiteLLMModel(
-            model_id=LITELLM_MODEL,
-            api_base=LITELLM_URL,
-            api_key=LITELLM_API_KEY,
-        )
-    except Exception as exc:
-        log.info("LiteLLM provider unavailable (%s), trying OpenAI provider", exc)
-
+    # NOTE: strands.models.litellm.LiteLLMModel embeds the litellm *SDK*
+    # in-process and ignores api_base — it requires provider-prefixed model
+    # ids like "bedrock/us.anthropic...". That bypasses the LiteLLM HTTP
+    # proxy entirely (no spend tracking, no routing). To go *through* the
+    # in-cluster LiteLLM proxy, we use the OpenAI provider against its
+    # OpenAI-compatible /v1 endpoint with the proxy's model alias.
     try:
         from strands.models.openai import OpenAIModel  # type: ignore
 
-        log.info("Using OpenAI provider → %s/v1", LITELLM_URL)
+        log.info(
+            "Using OpenAI provider → %s/v1 (model alias=%s)",
+            LITELLM_URL,
+            LITELLM_MODEL,
+        )
         return OpenAIModel(
             model_id=LITELLM_MODEL,
-            base_url=f"{LITELLM_URL}/v1",
-            api_key=LITELLM_API_KEY,
+            client_args={
+                "base_url": f"{LITELLM_URL}/v1",
+                "api_key": LITELLM_API_KEY,
+            },
         )
     except Exception as exc:
-        log.info("OpenAI provider unavailable (%s), falling back to Bedrock direct", exc)
+        log.info(
+            "OpenAI provider unavailable (%s), falling back to Bedrock direct",
+            exc,
+        )
 
     try:
         from strands.models.bedrock import BedrockModel  # type: ignore
