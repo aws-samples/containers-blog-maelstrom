@@ -8,3 +8,4 @@ fastapi
 uvicorn
 httpx
 rich
+litellm
