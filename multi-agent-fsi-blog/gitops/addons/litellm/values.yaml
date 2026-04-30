@@ -66,9 +66,9 @@ proxy_config:
   litellm_settings:
     drop_params: true
     set_verbose: false
-    # Budget + alerting (per-agent budgets set via API at runtime).
-    success_callback: ["prometheus"]
-    failure_callback: ["prometheus"]
+    # Prometheus callbacks require a LiteLLM Enterprise license — leaving
+    # them out so the open-source proxy starts cleanly. Spend is still
+    # persisted to Postgres and exposed on the /spend endpoint.
     telemetry: false
 
   general_settings:
@@ -87,3 +87,13 @@ replicaCount: 2
 
 serviceMonitor:
   enabled: false
+
+# --- Postgres subchart override ---
+# Bitnami moved their free container images to docker.io/bitnamilegacy/* in
+# mid-2025. The subchart default (docker.io/bitnami/postgresql) now 401s.
+# Pin the legacy registry so `helm install` works without a Bitnami license.
+postgresql:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+    tag: 16.2.0-debian-12-r6
