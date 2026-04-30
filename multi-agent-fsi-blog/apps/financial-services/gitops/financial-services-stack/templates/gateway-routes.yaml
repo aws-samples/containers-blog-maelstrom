@@ -23,7 +23,9 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   parentRefs:
-    - name: {{ $gw.gatewayName }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ $gw.gatewayName }}
       namespace: {{ $gw.gatewayNamespace }}
   rules:
     - matches:
@@ -31,9 +33,10 @@ spec:
             type: PathPrefix
             value: /mcp
       backendRefs:
-        - name: financial-tools-mcp-backend
+        - group: agentgateway.dev
           kind: AgentgatewayBackend
-          group: agentgateway.dev
+          name: financial-tools-mcp-backend
+          weight: 1
 
 {{ range list "financial-advisor" "portfolio-analyst" "risk-assessment" "market-data" }}
 {{ $agent := . -}}
@@ -60,7 +63,9 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   parentRefs:
-    - name: {{ $gw.gatewayName }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ $gw.gatewayName }}
       namespace: {{ $gw.gatewayNamespace }}
   rules:
     - matches:
@@ -74,7 +79,8 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: /
       backendRefs:
-        - name: {{ $agent }}-backend
+        - group: agentgateway.dev
           kind: AgentgatewayBackend
-          group: agentgateway.dev
+          name: {{ $agent }}-backend
+          weight: 1
 {{- end }}
