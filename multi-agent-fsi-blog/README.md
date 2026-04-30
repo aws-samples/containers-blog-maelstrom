@@ -60,7 +60,7 @@ For the blog, this means the Terraform for the cluster is ~60 lines and all the 
 ## Repository layout
 
 ```
-blog-walkthrough/
+multi-agent-fsi-blog/
 ├── terraform/
 │   ├── cluster/        # EKS Auto Mode + VPC + Pod Identity + tf-runner IAM
 │   └── bootstrap/      # ArgoCD + app-of-apps root Application
@@ -75,12 +75,12 @@ blog-walkthrough/
 │       ├── mcp-server/       # FastAPI JSON-RPC tools server
 │       ├── terraform/        # AgentCore Memory/Browser/CodeInterp + IAM
 │       ├── gitops/           # Helm chart (synced by platform-root)
-│       └── deploy.sh         # builds + pushes 5 images to ECR
+│       └── deploy.sh         # builds + pushes 5 images to Docker Hub
 └── scripts/
     └── bootstrap.sh    # Runs both Terraform stacks and waits for sync
 ```
 
-Everything under `blog-walkthrough/` is self-contained — no dependencies on other folders in this repo.
+Everything under `multi-agent-fsi-blog/` is self-contained — no dependencies on other folders in this repo.
 
 ---
 
@@ -91,14 +91,14 @@ Everything under `blog-walkthrough/` is self-contained — no dependencies on ot
   - Bedrock AgentCore access (Memory, Browser, Code Interpreter).
   - Permissions to create EKS clusters, IAM roles, VPCs, ECR repositories.
 - Local tools: `aws` CLI, `terraform` ≥ 1.5, `kubectl` ≥ 1.31, `helm` ≥ 3.14, `podman` or `docker`.
-- A fork of this repo (or your own repo hosting `blog-walkthrough/gitops/`) so ArgoCD can pull manifests.
+- A clone of this repo (or your own fork hosting `multi-agent-fsi-blog/gitops/`) so ArgoCD can pull manifests.
 
 ---
 
 ## Step 1 — Provision the cluster
 
 ```bash
-cd blog-walkthrough/terraform/cluster
+cd multi-agent-fsi-blog/terraform/cluster
 
 terraform init
 terraform apply \
@@ -128,15 +128,15 @@ Nodes appear lazily — Auto Mode provisions them on demand when the first workl
 ## Step 2 — Bootstrap ArgoCD + app-of-apps
 
 ```bash
-cd blog-walkthrough/terraform/bootstrap
+cd multi-agent-fsi-blog/terraform/bootstrap
 
 terraform apply \
   -var "cluster_name=finops-agents" \
-  -var "gitops_repo_url=https://github.com/<you>/finops-agents-demo" \
-  -var "gitops_repo_branch=main"
+  -var "gitops_repo_url=https://github.com/aws-samples/containers-blog-maelstrom" \
+  -var "gitops_repo_branch=multi-agent-fsi-blog"
 ```
 
-This installs the ArgoCD Helm chart and then applies one `Application` named `platform-root` that points at `blog-walkthrough/gitops/root/`. ArgoCD reads every file under that path and creates one Application per addon.
+This installs the ArgoCD Helm chart and then applies one `Application` named `platform-root` that points at `multi-agent-fsi-blog/gitops/root/`. ArgoCD reads every file under that path and creates one Application per addon.
 
 ---
 
@@ -260,7 +260,7 @@ kubectl delete application financial-services -n argocd
 # Platform addons
 kubectl delete application platform-root -n argocd
 
-cd blog-walkthrough/terraform/bootstrap && terraform destroy -auto-approve
+cd multi-agent-fsi-blog/terraform/bootstrap && terraform destroy -auto-approve
 cd ../cluster && terraform destroy -auto-approve
 ```
 
