@@ -38,22 +38,22 @@ env:
 # Prometheus metrics at /metrics are scraped for FinOps dashboards.
 proxy_config:
   model_list:
-    # ---- Primary: Bedrock Claude Sonnet ----
+    # ---- Primary: Bedrock Claude Sonnet 4.6 (active) ----
     - model_name: claude-sonnet
       litellm_params:
-        model: bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0
+        model: bedrock/us.anthropic.claude-sonnet-4-6
         aws_region_name: us-west-2
 
-    # ---- Fallback: cheaper/smaller model on the same provider ----
+    # ---- Fallback: smaller, cheaper Haiku 4.5 ----
     - model_name: claude-haiku
       litellm_params:
-        model: bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0
+        model: bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0
         aws_region_name: us-west-2
 
     # ---- Alias used by Strands agents (financial-*) ----
     - model_name: finops-primary
       litellm_params:
-        model: bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0
+        model: bedrock/us.anthropic.claude-sonnet-4-6
         aws_region_name: us-west-2
 
   router_settings:

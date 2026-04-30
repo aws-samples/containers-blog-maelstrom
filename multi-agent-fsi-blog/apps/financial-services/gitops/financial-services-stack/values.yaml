@@ -16,8 +16,9 @@ capabilities:
   browser: true
   codeInterpreter: true
 
-# Bedrock model used by Strands/langchain_aws inside agents
-bedrockModelId: us.anthropic.claude-3-7-sonnet-20250219-v1:0
+# Bedrock model used by direct Bedrock calls (agent Browser tasks, code-gen
+# inner Agent). LiteLLM handles most traffic; this is the fallback path.
+bedrockModelId: us.anthropic.claude-sonnet-4-6
 
 # Image references. All five components share one Docker Hub repo and are
 # distinguished by tag prefix — see deploy.sh for the build+push script.
