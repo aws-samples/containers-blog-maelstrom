@@ -1,0 +1,20 @@
+# EKS Auto Mode ships the EBS CSI driver managed (provisioner name:
+# ebs.csi.eks.amazonaws.com) but does NOT create any default StorageClass.
+# Workloads that request a PVC without naming a StorageClass (e.g. the
+# LiteLLM Postgres subchart) fail with "no default StorageClass" until
+# one is created here.
+#
+# gp3 is cheaper and faster than gp2 for the demo workloads.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: auto-ebs-gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.eks.amazonaws.com
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+parameters:
+  type: gp3
+  encrypted: "true"
