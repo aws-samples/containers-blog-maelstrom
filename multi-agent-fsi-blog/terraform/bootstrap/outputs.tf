@@ -17,3 +17,8 @@ output "root_application_name" {
   description = "Name of the app-of-apps root Application"
   value       = "platform-root"
 }
+
+output "eks_oidc_issuer" {
+  description = "EKS cluster OIDC issuer URL — flowed into Agent Gateway jwtAuthentication policy"
+  value       = local.oidc_issuer
+}

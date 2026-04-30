@@ -75,3 +75,12 @@ terraform:
     branch: multi-agent-fsi-blog
   path: ./multi-agent-fsi-blog/apps/financial-services/terraform/financial-services-components
   serviceAccountName: tf-runner
+
+# EKS cluster identity used by the Gateway's jwtAuthentication policy.
+# Populated by the app-of-apps root chart (which in turn is fed by
+# terraform/bootstrap reading the live cluster's OIDC issuer and JWKS).
+# When both values are empty the gateway-policies template skips rendering
+# authn + authz — useful for standalone testing without the Terraform flow.
+eks:
+  oidcIssuer: ""
+  jwksJson: ""

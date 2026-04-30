@@ -13,3 +13,12 @@ namespaces:
   fluxSystem: flux-system
   litellm: litellm
   financialServices: financial-services
+
+# EKS cluster identity used by Agent Gateway to validate ServiceAccount tokens.
+# These are populated at bootstrap time by terraform/bootstrap (helm.parameters
+# on the platform-root ArgoCD Application). Empty defaults mean downstream
+# templates skip JWT authn rendering gracefully if the chart is installed
+# without going through the bootstrap Terraform.
+eks:
+  oidcIssuer: ""
+  jwksJson: ""

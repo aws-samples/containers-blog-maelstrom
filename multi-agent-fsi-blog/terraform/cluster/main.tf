@@ -64,9 +64,10 @@ module "vpc" {
 # ----------------------------------------------------------------------------
 # EKS Auto Mode cluster
 #   - Auto Mode provides compute (managed NodePools), EBS CSI, VPC CNI,
-#     kube-proxy, CoreDNS, and the AWS Load Balancer Controller out of the box.
-#   - We only add the Pod Identity agent addon so workloads can assume IAM
-#     roles without IRSA wiring.
+#     kube-proxy, CoreDNS, AWS Load Balancer Controller, AND Pod Identity
+#     out of the box — no managed addons needed.
+#   - StorageClass + IngressClass still have to be created separately; see
+#     gitops/addons/auto-mode-defaults/.
 # ----------------------------------------------------------------------------
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
@@ -90,12 +91,6 @@ module "eks" {
   # Give the Terraform caller cluster-admin so we can Helm-install ArgoCD
   # from the bootstrap stack.
   enable_cluster_creator_admin_permissions = true
-
-  cluster_addons = {
-    eks-pod-identity-agent = {
-      most_recent = true
-    }
-  }
 
   tags = local.tags
 }

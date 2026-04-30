@@ -18,6 +18,10 @@ terraform {
       source  = "alekc/kubectl"
       version = "~> 2.1"
     }
+    http = {
+      source  = "hashicorp/http"
+      version = "~> 3.4"
+    }
   }
 }
 
@@ -31,6 +35,26 @@ data "aws_eks_cluster" "cluster" {
 
 data "aws_eks_cluster_auth" "cluster" {
   name = var.cluster_name
+}
+
+# ----------------------------------------------------------------------------
+# EKS OIDC issuer + JWKS — used by Agent Gateway to validate ServiceAccount
+# tokens. The issuer URL is cluster-specific (set at creation time). The JWKS
+# is a public static document at <issuer>/keys. Both are captured at bootstrap
+# time and plumbed into the platform-root ArgoCD Application so child charts
+# (specifically the financial-services AgentgatewayPolicy for jwtAuthentication)
+# can render without any manual edits.
+# ----------------------------------------------------------------------------
+locals {
+  oidc_issuer = data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+}
+
+data "http" "eks_jwks" {
+  url = "${local.oidc_issuer}/keys"
+
+  request_headers = {
+    Accept = "application/json"
+  }
 }
 
 provider "kubernetes" {
@@ -85,6 +109,36 @@ resource "helm_release" "argocd" {
         params = {
           "server.insecure" = true
         }
+        # Custom health check for Flux Terraform CR. Without this ArgoCD
+        # marks the Terraform resource Healthy the instant the manifest is
+        # accepted by the API server, so sync-wave 0 "completes" before
+        # Tofu Controller has actually run `terraform apply`. Downstream
+        # waves (MCP server, agents) then pull the outputs Secret that
+        # doesn't exist yet and pods start with empty env vars.
+        # Gate on the Ready condition instead.
+        cm = {
+          "resource.customizations.health.infra.contrib.fluxcd.io_Terraform" = <<-EOT
+            hs = {}
+            if obj.status ~= nil and obj.status.conditions ~= nil then
+              for i, c in ipairs(obj.status.conditions) do
+                if c.type == "Ready" then
+                  if c.status == "True" then
+                    hs.status = "Healthy"
+                    hs.message = c.message
+                    return hs
+                  elseif c.status == "False" then
+                    hs.status = "Degraded"
+                    hs.message = c.message
+                    return hs
+                  end
+                end
+              end
+            end
+            hs.status = "Progressing"
+            hs.message = "Waiting for Terraform Ready condition"
+            return hs
+          EOT
+        }
       }
       dex = {
         enabled = false
@@ -132,6 +186,15 @@ resource "kubectl_manifest" "root_app" {
             {
               name  = "gitOpsRepo.branch"
               value = var.gitops_repo_branch
+            },
+            {
+              name  = "eks.oidcIssuer"
+              value = local.oidc_issuer
+            },
+            {
+              name        = "eks.jwksJson"
+              value       = data.http.eks_jwks.response_body
+              forceString = true
             },
           ]
         }

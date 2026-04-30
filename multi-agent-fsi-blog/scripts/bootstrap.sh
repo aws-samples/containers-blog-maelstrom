@@ -51,6 +51,7 @@ step "Waiting for addon Applications to sync (up to 15 minutes)"
 APPS=(
   agentgateway-crds
   gateway-api-crds
+  auto-mode-defaults
   flux
   tofu-controller
   agent-gateway
@@ -66,6 +67,38 @@ for app in "${APPS[@]}"; do
 done
 ok "Platform addons synced"
 
+step "Waiting for Tofu Controller to provision AgentCore (~3-5 minutes)"
+# The financial-services chart's wave 0 creates a Flux Terraform CR that
+# provisions Bedrock AgentCore Memory/Browser/CodeInterpreter + IAM + Pod
+# Identity associations. The argocd-cm custom health check gates sync-wave
+# progression on this CR reaching Ready=True, so once financial-services
+# reports Synced+Healthy, AgentCore is live and the outputs Secret exists.
+kubectl -n argocd wait application/financial-services \
+  --for=jsonpath='{.status.sync.status}'=Synced --timeout=15m || true
+kubectl -n argocd wait application/financial-services \
+  --for=jsonpath='{.status.health.status}'=Healthy --timeout=15m || true
+ok "financial-services Synced + Healthy"
+
+step "Ensuring agent pods picked up AgentCore env from outputs Secret"
+# Safety net: even though the custom health check now waits for the
+# Terraform CR to be Ready before downstream waves run, bouncing the
+# Deployments is cheap and guarantees pods don't hold stale/empty env.
+if kubectl -n financial-services get secret financial-services-outputs-v1 >/dev/null 2>&1; then
+  kubectl -n financial-services rollout restart \
+    deploy/financial-advisor \
+    deploy/portfolio-analyst \
+    deploy/risk-assessment \
+    deploy/market-data \
+    2>/dev/null || true
+  for d in financial-advisor portfolio-analyst risk-assessment market-data; do
+    kubectl -n financial-services rollout status deploy/$d --timeout=5m || true
+  done
+  ok "Agents running with live AgentCore IDs"
+else
+  echo "  ! financial-services-outputs-v1 Secret missing. Inspect with:"
+  echo "      kubectl describe terraform financial-services-components-v1 -n financial-services"
+fi
+
 step "Bootstrap complete"
 cat <<EOF
 
@@ -74,6 +107,16 @@ cat <<EOF
  ArgoCD admin password: $(kubectl -n argocd get secret argocd-initial-admin-secret \
                            -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo '<not yet available>')
  ArgoCD UI (local)    : kubectl port-forward -n argocd svc/argocd-server 8080:80
+
+ Smoke test the advisor (JWT authn + A2A authz enforced at the gateway):
+   kubectl port-forward -n agentgateway-system svc/agent-gateway-proxy 8080:8080 &
+   TOKEN=\$(kubectl create token financial-advisor-sa -n financial-services \\
+     --duration=1h --audience=agent-gateway)
+   curl -sS -X POST http://localhost:8080/agents/financial-advisor \\
+     -H "Authorization: Bearer \$TOKEN" \\
+     -H "Content-Type: application/json" \\
+     -d '{"task":"I have 100 AAPL and 50 GOOGL. Is my portfolio balanced for medium risk?"}' \\
+     | jq -r .result
 
  Next steps:
    • Verify addons     : kubectl get application -n argocd

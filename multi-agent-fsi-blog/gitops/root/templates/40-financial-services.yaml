@@ -23,6 +23,13 @@ spec:
           value: {{ .Values.gitOpsRepo.branch | quote }}
         - name: terraform.path
           value: {{ printf "./%s/apps/financial-services/terraform/financial-services-components" .Values.basePath | quote }}
+        # EKS OIDC values for Agent Gateway jwtAuthentication. Empty strings
+        # mean the gateway-policies template skips authn/authz rendering.
+        - name: eks.oidcIssuer
+          value: {{ .Values.eks.oidcIssuer | quote }}
+        - name: eks.jwksJson
+          value: {{ .Values.eks.jwksJson | quote }}
+          forceString: true
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.financialServices | quote }}

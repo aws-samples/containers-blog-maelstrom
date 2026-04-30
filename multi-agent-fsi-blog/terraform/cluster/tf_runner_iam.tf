@@ -59,8 +59,27 @@ resource "aws_iam_role_policy" "tf_runner" {
           "bedrock:GetFoundationModel",
           "bedrock:ListFoundationModels",
           "bedrock:ListInferenceProfiles",
+          "bedrock:GetInferenceProfile",
         ]
         Resource = "*"
+      },
+      # LiteLLM reuses this role (via Pod Identity in the litellm ns) to
+      # actually call Bedrock models. Without Invoke* it can auth but every
+      # completion returns 500 "not authorized to perform: bedrock:
+      # InvokeModelWithResponseStream".
+      {
+        Sid    = "BedrockInvoke"
+        Effect = "Allow"
+        Action = [
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream",
+          "bedrock:Converse",
+          "bedrock:ConverseStream",
+        ]
+        Resource = [
+          "arn:aws:bedrock:*::foundation-model/*",
+          "arn:aws:bedrock:*:*:inference-profile/*",
+        ]
       },
       # IAM for creating the agent execution role + attaching inline policies.
       {
@@ -137,6 +156,19 @@ resource "aws_eks_pod_identity_association" "tf_runner_financial_services" {
   cluster_name    = module.eks.cluster_name
   namespace       = "financial-services"
   service_account = local.tf_runner_sa
+  role_arn        = aws_iam_role.tf_runner.arn
+
+  tags = local.tags
+}
+
+# LiteLLM proxy calls Bedrock directly via boto3. Reuse the same IAM role
+# so it can InvokeModel on foundation models and inference profiles. For a
+# production cluster you'd scope this to a dedicated LiteLLM role limited to
+# the model subset the proxy is allowed to route to.
+resource "aws_eks_pod_identity_association" "litellm" {
+  cluster_name    = module.eks.cluster_name
+  namespace       = "litellm"
+  service_account = "litellm"
   role_arn        = aws_iam_role.tf_runner.arn
 
   tags = local.tags
