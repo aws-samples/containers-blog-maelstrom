@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace }}
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: financial-services-terraform-{{ .Values.version }}
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  interval: 1m
+  url: {{ .Values.terraform.git.url }}
+  ref:
+    branch: {{ .Values.terraform.git.branch }}
+---
+apiVersion: infra.contrib.fluxcd.io/v1alpha2
+kind: Terraform
+metadata:
+  name: financial-services-components-{{ .Values.version }}
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  interval: 1m
+  path: {{ .Values.terraform.path }}
+  serviceAccountName: {{ .Values.terraform.serviceAccountName }}
+  sourceRef:
+    kind: GitRepository
+    name: financial-services-terraform-{{ .Values.version }}
+  vars:
+    - name: aws_region
+      value: {{ .Values.awsRegion }}
+    - name: project_name
+      value: {{ .Values.projectName }}
+    - name: eks_cluster_name
+      value: {{ .Values.eksClusterName }}
+    - name: namespace
+      value: {{ .Values.namespace }}
+    - name: network_mode
+      value: {{ .Values.networkMode }}
+    - name: enable_memory
+      value: {{ .Values.capabilities.memory }}
+    - name: enable_browser
+      value: {{ .Values.capabilities.browser }}
+    - name: enable_code_interpreter
+      value: {{ .Values.capabilities.codeInterpreter }}
+  writeOutputsToSecret:
+    name: financial-services-outputs-{{ .Values.version }}
+  destroyResourcesOnDeletion: true
+  approvePlan: auto

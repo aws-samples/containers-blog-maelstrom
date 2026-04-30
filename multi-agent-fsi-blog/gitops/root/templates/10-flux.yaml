@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flux
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://fluxcd-community.github.io/helm-charts
+    chart: flux2
+    targetRevision: 2.14.0
+    helm:
+      releaseName: flux2
+      values: |
+        # Only install the controllers the platform needs.
+        # source-controller + notification-controller feed Tofu Controller.
+        imageAutomationController:
+          create: false
+        imageReflectionController:
+          create: false
+        helmController:
+          create: false
+        kustomizeController:
+          create: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.fluxSystem | quote }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

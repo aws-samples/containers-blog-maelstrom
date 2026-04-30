@@ -1,0 +1,4 @@
+apiVersion: v2
+name: financial-services-stack
+description: Multi-agent financial services system (Strands + AgentCore + agentgateway.dev)
+version: 1.0.0

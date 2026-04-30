@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: financial-services-standalone
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    # Optional standalone entry point. The normal deploy path is through the
+    # platform-root app-of-apps (multi-agent-fsi-blog/gitops/root/).
+    repoURL: https://github.com/aws-samples/containers-blog-maelstrom
+    targetRevision: multi-agent-fsi-blog
+    path: multi-agent-fsi-blog/apps/financial-services/gitops/financial-services-stack
+    helm:
+      valueFiles:
+        - values.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: financial-services
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

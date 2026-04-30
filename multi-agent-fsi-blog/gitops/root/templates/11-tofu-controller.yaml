@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tofu-controller
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://flux-iac.github.io/tofu-controller
+    chart: tf-controller
+    targetRevision: 0.16.0-rc.4
+    helm:
+      releaseName: tf-controller
+      values: |
+        runner:
+          serviceAccount:
+            # Pod Identity associates this SA with an IAM role that can create
+            # AgentCore + IAM + Pod Identity associations (see blog post §5).
+            create: true
+            name: tf-runner
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.fluxSystem | quote }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

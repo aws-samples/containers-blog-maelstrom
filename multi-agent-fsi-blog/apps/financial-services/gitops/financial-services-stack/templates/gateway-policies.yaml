@@ -1,0 +1,90 @@
+{{- $ns := .Values.namespace -}}
+{{- $audience := .Values.agentGateway.audience -}}
+{{- $jwtIssuer := "https://kubernetes.default.svc" -}}
+
+# ----------------------------------------------------------------------------
+# JWT authentication: validate projected ServiceAccount tokens on every route
+# attached to the gateway in this namespace. Applied to the Gateway so it
+# covers /mcp and /agents/* routes uniformly.
+# ----------------------------------------------------------------------------
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: financial-services-jwt-authn
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  targetRefs:
+    - kind: Gateway
+      group: gateway.networking.k8s.io
+      name: {{ .Values.agentGateway.gatewayName }}
+  frontend:
+    jwtAuth:
+      issuer: {{ $jwtIssuer | quote }}
+      audiences:
+        - {{ $audience | quote }}
+      jwksUri: "https://kubernetes.default.svc/openid/v1/jwks"
+      claimToHeaders:
+        - claim: sub
+          header: x-agent-identity
+
+---
+# ----------------------------------------------------------------------------
+# MCP authorization: limit each specialist SA to the tools it actually uses.
+# financial-advisor does NOT call MCP tools directly (delegates to specialists).
+# ----------------------------------------------------------------------------
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: financial-tools-mcp-authz
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  targetRefs:
+    - kind: HTTPRoute
+      group: gateway.networking.k8s.io
+      name: financial-tools-mcp-route
+  frontend:
+    mcpAuthz:
+      rules:
+        - principal: "system:serviceaccount:{{ $ns }}:portfolio-analyst-sa"
+          allowedTools:
+            - calculate_portfolio_value
+            - get_stock_price
+        - principal: "system:serviceaccount:{{ $ns }}:risk-assessment-sa"
+          allowedTools:
+            - get_stock_price
+        - principal: "system:serviceaccount:{{ $ns }}:market-data-sa"
+          allowedTools:
+            - get_stock_price
+            - get_market_trends
+
+---
+# ----------------------------------------------------------------------------
+# A2A authorization: only financial-advisor-sa may call specialist agents.
+# Specialists cannot call each other; advisor may re-enter itself for smoke tests.
+# ----------------------------------------------------------------------------
+{{- range list "financial-advisor" "portfolio-analyst" "risk-assessment" "market-data" }}
+{{- $target := . }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: {{ $target }}-a2a-authz
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  targetRefs:
+    - kind: HTTPRoute
+      group: gateway.networking.k8s.io
+      name: {{ $target }}-a2a-route
+  frontend:
+    a2aAuthz:
+      rules:
+        - source: "system:serviceaccount:{{ $ns }}:financial-advisor-sa"
+          target: {{ $target }}
+          allowed: true
+{{- end }}

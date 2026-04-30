@@ -1,0 +1,80 @@
+{{- $gw := .Values.agentGateway -}}
+{{- $ns := .Values.namespace -}}
+
+# -------- Financial-tools MCP backend + route --------
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: financial-tools-mcp-backend
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  static:
+    host: financial-tools-mcp.{{ $ns }}.svc.cluster.local
+    port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: financial-tools-mcp-route
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  parentRefs:
+    - name: {{ $gw.gatewayName }}
+      namespace: {{ $gw.gatewayNamespace }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /mcp
+      backendRefs:
+        - name: financial-tools-mcp-backend
+          kind: AgentgatewayBackend
+          group: agentgateway.dev
+
+{{- range list "financial-advisor" "portfolio-analyst" "risk-assessment" "market-data" }}
+{{- $agent := . -}}
+---
+# -------- {{ $agent }} A2A backend + route --------
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: {{ $agent }}-backend
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  static:
+    host: {{ $agent }}.{{ $ns }}.svc.cluster.local
+    port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $agent }}-a2a-route
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  parentRefs:
+    - name: {{ $gw.gatewayName }}
+      namespace: {{ $gw.gatewayNamespace }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /agents/{{ $agent }}
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: {{ $agent }}-backend
+          kind: AgentgatewayBackend
+          group: agentgateway.dev
+{{- end }}

@@ -1,0 +1,26 @@
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: tracing-policy
+  namespace: agentgateway-system
+spec:
+  targetRefs:
+    - kind: Gateway
+      group: gateway.networking.k8s.io
+      name: agent-gateway-proxy
+  frontend:
+    tracing:
+      backendRef:
+        name: jaeger
+        namespace: agentgateway-system
+        port: 4317
+      protocol: GRPC
+      clientSampling: "true"
+      randomSampling: "true"
+      resources:
+        - name: service.name
+          expression: '"agent-gateway"'
+      attributes:
+        add:
+          - name: agent.identity
+            expression: 'request.headers["x-agent-identity"]'

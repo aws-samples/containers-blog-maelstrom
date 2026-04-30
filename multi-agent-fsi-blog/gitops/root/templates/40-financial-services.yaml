@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: financial-services
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.gitOpsRepo.url | quote }}
+    targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
+    path: {{ printf "%s/apps/financial-services/gitops/financial-services-stack" .Values.basePath | quote }}
+    helm:
+      valueFiles:
+        - values.yaml
+      parameters:
+        - name: terraform.git.url
+          value: {{ .Values.gitOpsRepo.url | quote }}
+        - name: terraform.git.branch
+          value: {{ .Values.gitOpsRepo.branch | quote }}
+        - name: terraform.path
+          value: {{ printf "./%s/apps/financial-services/terraform/financial-services-components" .Values.basePath | quote }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.financialServices | quote }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true

@@ -1,0 +1,15 @@
+# Where this repo is hosted. Addon Applications inherit these values so a
+# single override at bootstrap time (terraform/bootstrap) propagates.
+gitOpsRepo:
+  url: https://github.com/aws-samples/containers-blog-maelstrom
+  branch: multi-agent-fsi-blog
+
+# Root path under the repo that holds the multi-agent-fsi-blog tree.
+basePath: multi-agent-fsi-blog
+
+# Optional: ArgoCD destination namespace overrides per addon (rarely changed).
+namespaces:
+  agentGateway: agentgateway-system
+  fluxSystem: flux-system
+  litellm: litellm
+  financialServices: financial-services
