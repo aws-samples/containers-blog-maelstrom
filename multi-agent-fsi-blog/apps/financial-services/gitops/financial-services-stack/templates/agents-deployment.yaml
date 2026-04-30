@@ -38,8 +38,8 @@
 {{- $secretName := printf "financial-services-outputs-%s" .Values.version -}}
 
 {{- range list "financial-advisor" "portfolio-analyst" "risk-assessment" "market-data" }}
-{{- $agent := . -}}
-{{- $sa := printf "%s-sa" $agent -}}
+{{ $agent := . -}}
+{{ $sa := printf "%s-sa" $agent -}}
 ---
 apiVersion: v1
 kind: ServiceAccount

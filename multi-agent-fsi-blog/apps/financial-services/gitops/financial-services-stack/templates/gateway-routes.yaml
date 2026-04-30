@@ -35,8 +35,8 @@ spec:
           kind: AgentgatewayBackend
           group: agentgateway.dev
 
-{{- range list "financial-advisor" "portfolio-analyst" "risk-assessment" "market-data" }}
-{{- $agent := . -}}
+{{ range list "financial-advisor" "portfolio-analyst" "risk-assessment" "market-data" }}
+{{ $agent := . -}}
 ---
 # -------- {{ $agent }} A2A backend + route --------
 apiVersion: agentgateway.dev/v1alpha1
