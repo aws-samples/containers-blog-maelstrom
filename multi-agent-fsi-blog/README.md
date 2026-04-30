@@ -1,38 +1,41 @@
 # Building a Multi-Agent Financial Services Platform on EKS Auto Mode
 
-> End-to-end walkthrough for the AWS blog. Provisions an EKS Auto Mode cluster with ArgoCD, bootstraps a full agent platform (Flux, Tofu Controller, Agent Gateway, LiteLLM), and deploys a four-agent Strands + Amazon Bedrock AgentCore financial services demo.
+A turn-key, GitOps-driven reference architecture for a production-shaped **multi-agent AI platform** on Amazon EKS Auto Mode. Four Strands agents coordinate through **Agent Gateway** (with real JWT authentication and per-principal authorization), use **Amazon Bedrock AgentCore** for Memory, Browser, and Code Interpreter, and route every LLM call through **LiteLLM** for spend tracking and fallback routing.
+
+One `./scripts/bootstrap.sh` runs the whole thing.
 
 ---
 
-## What you build
+## Architecture at a glance
 
 ```
-                                 Client / UI
-                                     │ HTTPS (JWT: SA token, audience=agent-gateway)
-                                     ▼
+                                 Client / Caller
+                                        │ POST /agents/financial-advisor
+                                        │ Authorization: Bearer <K8s SA JWT>
+                                        ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                         Agent Gateway (agentgateway.dev)               │
-│   JWT authn  │  MCP authz  │  A2A authz  │  OTLP → Jaeger              │
+│                     Agent Gateway (agentgateway.dev)                   │
+│   JWT authn (EKS OIDC)  ·  MCP authz  ·  A2A authz  ·  OTLP → Jaeger   │
 └───────┬─────────────────────────────────────┬──────────────────────────┘
-        │ /agents/financial-advisor          │ /mcp
+        │ /agents/<name>                      │ /mcp
         ▼                                     ▼
 ┌────────────────────────┐         ┌──────────────────────┐
-│ financial-advisor      │ A2A ──▶ │ portfolio-analyst     │── MCP ──▶ financial-tools-mcp
-│  (Memory)              │ A2A ──▶ │ risk-assessment       │             (FastAPI JSON-RPC)
-│                        │ A2A ──▶ │ market-data           │
-└────────────────────────┘         └──────────────────────┘
-        │                                   │
-        │ LiteLLM (OpenAI-compatible)       │ Bedrock AgentCore
-        ▼                                   ▼
+│ financial-advisor      │ A2A ──▶ │ portfolio-analyst    │── MCP ──▶ financial-tools-mcp
+│  (Memory)              │ A2A ──▶ │ risk-assessment      │             (FastAPI JSON-RPC)
+│                        │ A2A ──▶ │ market-data          │
+└───────────┬────────────┘         └───────────┬──────────┘
+            │                                  │
+            │   LiteLLM (OpenAI-compatible)    │  Bedrock AgentCore
+            ▼                                  ▼
 ┌────────────────────────┐         ┌──────────────────────┐
 │  LiteLLM proxy         │ ──────▶ │  Bedrock              │
-│  (cost, fallback)      │         │  Claude / AgentCore   │
+│  (cost, fallback, SLA) │         │  Claude / AgentCore   │
 └────────────────────────┘         │  Memory, CodeInterp,  │
                                    │  Browser              │
                                    └──────────────────────┘
 ```
 
-**Capabilities used**
+**Who calls whom:**
 
 | Agent | AgentCore capability | MCP tools | A2A targets |
 |---|---|---|---|
@@ -41,7 +44,7 @@
 | risk-assessment | Code Interpreter (LLM-generated risk scoring) | — | — |
 | market-data | Browser (live Yahoo Finance quotes) | `get_stock_price`, `get_market_trends` | — |
 
-All LLM calls route through **LiteLLM** for per-agent token spend tracking and model fallback. All agent-to-agent and agent-to-MCP calls route through **Agent Gateway** for identity-based authz and distributed tracing.
+Every inter-agent hop is authenticated with a Kubernetes ServiceAccount JWT, authorized at the gateway on the `sub` claim, and traced into Jaeger.
 
 ---
 
@@ -49,11 +52,12 @@ All LLM calls route through **LiteLLM** for per-agent token spend tracking and m
 
 Auto Mode removes the largest chunks of ops toil for agent platforms:
 
-- **Compute:** managed NodePools (`system`, `general-purpose`) autoscale without installing Karpenter.
-- **Networking:** VPC CNI, kube-proxy, CoreDNS, and the AWS Load Balancer Controller ship preinstalled.
-- **Storage:** EBS CSI driver is managed.
+- **Compute**: managed NodePools (`system`, `general-purpose`) autoscale without installing Karpenter.
+- **Networking**: VPC CNI, kube-proxy, CoreDNS, and the AWS Load Balancer Controller ship preinstalled.
+- **Storage**: the EBS CSI driver is managed (this walkthrough creates a default `StorageClass` that points at it).
+- **Identity**: EKS Pod Identity is in the data plane — no separate addon to manage.
 
-For the blog, this means the Terraform for the cluster is ~60 lines and all the platform-specific addons (Flux, Tofu Controller, Agent Gateway, LiteLLM, Jaeger) can be ArgoCD Applications instead of Helm charts we manage outside GitOps.
+For the blog, that means the cluster Terraform is ~100 lines and every platform component lands via ArgoCD instead of a bespoke set of Helm releases.
 
 ---
 
@@ -61,23 +65,26 @@ For the blog, this means the Terraform for the cluster is ~60 lines and all the 
 
 ```
 multi-agent-fsi-blog/
+├── scripts/bootstrap.sh        # one-command end-to-end bring-up
 ├── terraform/
-│   ├── cluster/        # EKS Auto Mode + VPC + Pod Identity + tf-runner IAM
-│   └── bootstrap/      # ArgoCD + app-of-apps root Application
+│   ├── cluster/                # EKS Auto Mode + VPC + tf-runner IAM
+│   └── bootstrap/              # ArgoCD install + platform-root Application
+│                                 (reads cluster OIDC issuer + JWKS,
+│                                  plumbs into ArgoCD helm parameters)
 ├── gitops/
-│   ├── root/           # One Argo Application per addon (app-of-apps)
-│   └── addons/         # Manifests backing those Applications
-│       ├── agent-gateway-config/   (Gateway, tracing, RBAC, Jaeger)
-│       └── litellm/                (values.yaml for the Helm chart)
-├── apps/
-│   └── financial-services/   # Strands + AgentCore + MCP financial demo
-│       ├── agents/           # 4 Strands agents + _shared clients
-│       ├── mcp-server/       # FastAPI JSON-RPC tools server
-│       ├── terraform/        # AgentCore Memory/Browser/CodeInterp + IAM
-│       ├── gitops/           # Helm chart (synced by platform-root)
-│       └── deploy.sh         # builds + pushes 5 images to Docker Hub
-└── scripts/
-    └── bootstrap.sh    # Runs both Terraform stacks and waits for sync
+│   ├── root/                   # Helm chart. One Argo Application per addon.
+│   │                             Sync waves order the bring-up end-to-end.
+│   └── addons/
+│       ├── agent-gateway-config/   Gateway, Jaeger, tracing policy, RBAC
+│       ├── auto-mode-defaults/     default StorageClass + IngressClass
+│       └── litellm/                values.yaml for the BerriAI Helm chart
+└── apps/
+    └── financial-services/
+        ├── agents/             # 4 Strands agents (+_shared clients)
+        ├── mcp-server/         # FastAPI JSON-RPC tools server
+        ├── terraform/          # AgentCore Memory/Browser/CodeInterpreter
+        ├── gitops/             # Helm chart (synced by platform-root)
+        └── deploy.sh           # finch build+push 5 images to Docker Hub
 ```
 
 Everything under `multi-agent-fsi-blog/` is self-contained — no dependencies on other folders in this repo.
@@ -86,97 +93,223 @@ Everything under `multi-agent-fsi-blog/` is self-contained — no dependencies o
 
 ## Prerequisites
 
-- AWS account with:
-  - Bedrock model access enabled for Claude 3.5/3.7 Sonnet + Claude 3.5 Haiku in your region.
-  - Bedrock AgentCore access (Memory, Browser, Code Interpreter).
-  - Permissions to create EKS clusters, IAM roles, VPCs, ECR repositories.
-- Local tools: `aws` CLI, `terraform` ≥ 1.5, `kubectl` ≥ 1.31, `helm` ≥ 3.14, `podman` or `docker`.
-- A clone of this repo (or your own fork hosting `multi-agent-fsi-blog/gitops/`) so ArgoCD can pull manifests.
+**AWS account**
+- Bedrock model access enabled in your region for **Claude Sonnet 4.6** and **Claude Haiku 4.5** (or equivalents — update `gitops/addons/litellm/values.yaml` if you pick different ids).
+- Bedrock AgentCore access (Memory, Browser, Code Interpreter — `us-west-2` and `us-east-1` are the best-supported regions today).
+- Permissions to create VPCs, EKS clusters, IAM roles, and EC2 resources.
+
+**Local tools**
+- `aws` CLI configured with credentials that can `eks:CreateCluster` etc.
+- `terraform` ≥ 1.5, `kubectl` ≥ 1.31, `helm` ≥ 3.14, `jq`.
+- `finch` (or any OCI builder) if you want to rebuild the agent images. Prebuilt images are on Docker Hub under `sriram430/financial-services-agents`.
+
+**A git clone**
+- Just clone this repo. The default `gitops_repo_url` + `gitops_repo_branch` point here. No fork needed to run the walkthrough.
 
 ---
 
-## Step 1 — Provision the cluster
+## Quick start — one command
 
 ```bash
-cd multi-agent-fsi-blog/terraform/cluster
-
-terraform init
-terraform apply \
-  -var "aws_region=us-west-2" \
-  -var "cluster_name=finops-agents"
+git clone https://github.com/aws-samples/containers-blog-maelstrom
+cd containers-blog-maelstrom/multi-agent-fsi-blog
+./scripts/bootstrap.sh
 ```
 
-What this creates (via `terraform-aws-modules/eks/aws` v20):
+That kicks off five phases (about 20 minutes end-to-end, most of it EKS cluster creation):
 
-- A `/16` VPC with public + private subnets across 3 AZs, tagged for EKS LB discovery.
-- EKS Auto Mode cluster (`cluster_compute_config.enabled = true`, node pools `system` + `general-purpose`).
-- Pod Identity addon.
-- IAM admin association for the Terraform caller so the next step can Helm-install ArgoCD.
-- IAM role `<cluster>-tf-runner` with AgentCore + IAM + Pod-Identity + EC2-describe permissions, bound via Pod Identity to `flux-system/tf-runner` so Tofu Controller can provision Bedrock AgentCore resources once it's synced. Terraform creates the role up front; the SA itself is created by the tf-controller Helm chart when ArgoCD brings Wave 1 online.
+1. `terraform apply` on `terraform/cluster/` — VPC + EKS Auto Mode cluster + IAM roles + Pod Identity associations for every workload SA.
+2. `aws eks update-kubeconfig` — so you can talk to the cluster.
+3. `terraform apply` on `terraform/bootstrap/` — installs ArgoCD via Helm, reads the cluster's OIDC issuer + JWKS, and plumbs both into the `platform-root` ArgoCD Application via `helm.parameters` (see [Identity wiring](#identity-wiring-the-interesting-part) below).
+4. Waits for every addon Application to reach `Synced / Healthy` — Gateway API + agentgateway CRDs, Flux, Tofu Controller, Agent Gateway, LiteLLM, and the financial-services chart.
+5. Rollout-restarts the agent Deployments once the AgentCore outputs Secret materializes.
 
-About 15 minutes. Then:
+Environment overrides (optional):
 
 ```bash
-aws eks update-kubeconfig --region us-west-2 --name finops-agents
-kubectl get nodes
+AWS_REGION=us-west-2 \
+CLUSTER_NAME=finops-agents \
+GITOPS_REPO_URL=https://github.com/<your-fork>/containers-blog-maelstrom \
+./scripts/bootstrap.sh
 ```
-
-Nodes appear lazily — Auto Mode provisions them on demand when the first workloads land.
 
 ---
 
-## Step 2 — Bootstrap ArgoCD + app-of-apps
+## Sync waves — how ArgoCD times the rollout
 
-```bash
-cd multi-agent-fsi-blog/terraform/bootstrap
+```
+platform-root (Application) ── orchestrates ──▶
 
-terraform apply \
-  -var "cluster_name=finops-agents" \
-  -var "gitops_repo_url=https://github.com/aws-samples/containers-blog-maelstrom" \
-  -var "gitops_repo_branch=multi-agent-fsi-blog"
+Wave │ Application          │ Why
+─────┼──────────────────────┼─────────────────────────────────────────
+ -1  │ gateway-api-crds     │ HTTPRoute CRD must exist before any route
+ -1  │ agentgateway-crds    │ AgentgatewayBackend / AgentgatewayPolicy CRDs
+  0  │ auto-mode-defaults   │ default StorageClass + IngressClass for Auto Mode
+  0  │ flux                 │ Source + notification controllers (Tofu dep)
+  1  │ tofu-controller      │ Runs Terraform in-cluster for AgentCore
+  2  │ agent-gateway        │ The proxy itself (needs CRDs + Pod Identity)
+  2  │ agent-gateway-config │ Gateway resource, Jaeger, tracing policy, RBAC
+  3  │ litellm              │ OpenAI-compatible proxy in front of Bedrock
+  4  │ financial-services   │ The 4 Strands agents + MCP server
 ```
 
-This installs the ArgoCD Helm chart and then applies one `Application` named `platform-root` that points at `multi-agent-fsi-blog/gitops/root/`. ArgoCD reads every file under that path and creates one Application per addon.
+**Inside `financial-services`** (nested waves):
 
----
+```
+Wave │ Resource
+─────┼────────────────────────────────────────────────────────
+ -1  │ tf-runner ServiceAccount + ClusterRoleBinding
+  0  │ Flux Terraform CR → provisions AgentCore
+      │   (blocks further waves until Ready=True)
+  1  │ financial-tools-mcp Deployment + Secrets
+  2  │ 4× agent Deployments, Gateway routes + backends, authz policies
+```
 
-## Step 3 — How the platform comes up (sync waves)
-
-`gitops/root/` uses ArgoCD sync-wave annotations to order the bring-up:
-
-| Wave | Application | Why it runs here |
-|:---:|---|---|
-| −1 | `gateway-api-crds` | Gateway API CRDs must exist before any HTTPRoute |
-| −1 | `agentgateway-crds` | `AgentgatewayBackend` / `AgentgatewayPolicy` CRDs |
-| 0 | `flux` | Source + notification controllers (Tofu Controller depends on them) |
-| 1 | `tofu-controller` | Runs Terraform-in-cluster for AgentCore resources |
-| 2 | `agent-gateway` | The Agent Gateway proxy (needs CRDs + Pod Identity) |
-| 2 | `agent-gateway-config` | Gateway resource, Jaeger, tracing policy, token-reviewer RBAC |
-| 3 | `litellm` | OpenAI-compatible proxy in front of Bedrock |
-| 4 | `financial-services` | The four Strands agents + MCP server (Helm chart at `apps/financial-services/`) |
-
-Watch it reconcile:
+Watch it happen:
 
 ```bash
 kubectl get application -n argocd -w
 ```
 
-Expected end state: all 7 addon Applications `Synced / Healthy`.
+Expected end state: every Application `Synced / Healthy`.
 
 ---
 
-## Step 4 — LiteLLM configuration
+## Identity wiring (the interesting part)
 
-`gitops/addons/litellm/values.yaml` defines:
+The Agent Gateway's JWT authentication requires the cluster's OIDC issuer URL and the matching JWKS. Both are produced by EKS at cluster-creation time. Rather than make the reader copy values around, the Terraform reads them directly:
 
-- A **primary model** `finops-primary` backed by Bedrock Claude 3.7 Sonnet.
-- A **fallback** chain to `claude-haiku` if the primary errors or is rate-limited.
-- `prometheus` success/failure callbacks so token spend lands in your existing dashboards.
-- A master API key (override with your own Secret in production).
+```hcl
+# terraform/bootstrap/main.tf
+locals {
+  oidc_issuer = data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer
+}
 
-The financial-services agents read `LITELLM_URL`, `LITELLM_MODEL`, and `LITELLM_API_KEY` at startup (see `_shared/model.py`). Strands' LiteLLM provider — or its OpenAI provider pointed at LiteLLM's `/v1` endpoint — wraps every inference in a proxy call, so each agent's token usage shows up in LiteLLM's `/spend` report.
+data "http" "eks_jwks" {
+  url = "${local.oidc_issuer}/keys"
+}
 
-**FinOps dashboard (quick peek):**
+resource "kubectl_manifest" "root_app" {
+  yaml_body = yamlencode({
+    # ...
+    spec = {
+      source = {
+        helm = {
+          parameters = [
+            # ... existing parameters ...
+            { name = "eks.oidcIssuer", value = local.oidc_issuer },
+            { name = "eks.jwksJson",   value = data.http.eks_jwks.response_body, forceString = true },
+          ]
+        }
+      }
+    }
+  })
+}
+```
+
+Those parameters cascade through the app-of-apps chain until they reach `apps/financial-services/gitops/financial-services-stack/templates/gateway-policies.yaml`, which renders the actual `AgentgatewayPolicy`. No manual values edits.
+
+**JWKS rotation.** EKS rotates its signing key roughly annually. Rotation is: re-run `terraform apply` on `terraform/bootstrap/`. The `data "http"` call picks up the new JWKS, ArgoCD re-renders the policy, traffic keeps flowing. A more automated path is to swap `jwks.inline` for `jwks.remote` pointed at an in-cluster proxy or ExternalName Service — left as a follow-up.
+
+---
+
+## Policy model: authn + authz in practice
+
+After bootstrap, five `AgentgatewayPolicy` objects are live:
+
+```bash
+kubectl get agentgatewaypolicy -A
+#
+# NAMESPACE             NAME                            ATTACHED
+# agentgateway-system   financial-services-jwt-authn    True
+# agentgateway-system   tracing-policy                  True
+# financial-services    financial-tools-mcp-authz       True
+# financial-services    market-data-a2a-authz           True
+# financial-services    portfolio-analyst-a2a-authz     True
+# financial-services    risk-assessment-a2a-authz       True
+```
+
+**Authentication (Gateway-level, `mode: Strict`)**
+- Every request must carry a JWT signed by the EKS OIDC issuer with audience `agent-gateway`.
+- Requests missing a token, presenting a bad signature, or using the wrong audience are rejected with **401**.
+
+**Authorization (per HTTPRoute, CEL expressions on JWT claims)**
+- `/agents/portfolio-analyst`, `/agents/risk-assessment`, `/agents/market-data` → allow only `jwt.sub == "system:serviceaccount:financial-services:financial-advisor-sa"`.
+- `/mcp` → allow the three specialist SAs; deny the advisor SA (the advisor delegates, never calls MCP directly).
+- `/agents/financial-advisor` has no authz policy — it's the public entry point, still gated by Gateway-level authn.
+
+The seven one-liner tests that prove this works end-to-end:
+
+```bash
+kubectl port-forward -n agentgateway-system svc/agent-gateway-proxy 8080:8080 &
+
+ADVISOR=$(kubectl create token financial-advisor-sa -n financial-services \
+  --duration=1h --audience=agent-gateway)
+MARKET=$(kubectl create token market-data-sa -n financial-services \
+  --duration=1h --audience=agent-gateway)
+WRONG_AUD=$(kubectl create token financial-advisor-sa -n financial-services \
+  --duration=1h --audience=wrong-aud)
+
+status() { curl -sS -o /dev/null -w "$1 -> HTTP %{http_code}\n" -m 30 "${@:2}"; }
+
+# authn
+status "no auth header   " -X POST http://localhost:8080/agents/financial-advisor -d '{"task":"x"}' -H "Content-Type: application/json"
+status "bad bearer       " -X POST http://localhost:8080/agents/financial-advisor -d '{"task":"x"}' -H "Content-Type: application/json" -H "Authorization: Bearer nope"
+status "wrong audience   " -X POST http://localhost:8080/agents/financial-advisor -d '{"task":"x"}' -H "Content-Type: application/json" -H "Authorization: Bearer $WRONG_AUD"
+
+# authz (A2A)
+status "advisor -> pa    " -X POST http://localhost:8080/agents/portfolio-analyst -d '{"task":"ping"}' -H "Content-Type: application/json" -H "Authorization: Bearer $ADVISOR"
+status "market  -> pa    " -X POST http://localhost:8080/agents/portfolio-analyst -d '{"task":"ping"}' -H "Content-Type: application/json" -H "Authorization: Bearer $MARKET"
+
+# authz (MCP)
+status "advisor -> /mcp  " -X POST http://localhost:8080/mcp -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' -H "Content-Type: application/json" -H "Authorization: Bearer $ADVISOR"
+status "market  -> /mcp  " -X POST http://localhost:8080/mcp -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' -H "Content-Type: application/json" -H "Authorization: Bearer $MARKET"
+```
+
+Expected output:
+
+```
+no auth header    -> HTTP 401
+bad bearer        -> HTTP 401
+wrong audience    -> HTTP 401
+advisor -> pa     -> HTTP 200
+market  -> pa     -> HTTP 403
+advisor -> /mcp   -> HTTP 403
+market  -> /mcp   -> HTTP 200
+```
+
+---
+
+## The demo query
+
+```bash
+kubectl port-forward -n agentgateway-system svc/agent-gateway-proxy 8080:8080 &
+
+TOKEN=$(kubectl create token financial-advisor-sa -n financial-services \
+  --duration=1h --audience=agent-gateway)
+
+curl -sS -X POST http://localhost:8080/agents/financial-advisor \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"task":"I have 100 AAPL and 50 GOOGL. Is my portfolio balanced for medium risk?"}' \
+  | jq -r .result
+```
+
+What happens:
+
+1. Advisor calls `get_client_profile()` (AgentCore **Memory**) to recall prior tolerance / goals.
+2. Delegates to **market-data** over A2A; that agent uses AgentCore **Browser** to fetch live AAPL + GOOGL quotes from finance.yahoo.com, falling back to MCP `get_stock_price` if scraping fails.
+3. Delegates to **portfolio-analyst**; it pulls prices via MCP, asks the LLM (routed through LiteLLM) to generate Python for valuation, and executes it in AgentCore **Code Interpreter**. Returns total value + per-holding weights.
+4. Delegates to **risk-assessment**; it generates scoring code, runs it in Code Interpreter, and scores against the client's `medium` tolerance.
+5. Advisor synthesizes a recommendation and `save_client_profile(...)` persists any new info to Memory for next session.
+
+In Jaeger (`kubectl port-forward -n agentgateway-system svc/jaeger 16686:16686`), the full span tree with `x-agent-identity` on every edge shows up under service `agent-gateway`.
+
+---
+
+## FinOps view
+
+Because every LLM call goes through LiteLLM, per-agent token spend and latency land in the proxy's Postgres backend:
 
 ```bash
 kubectl port-forward -n litellm svc/litellm 4000:4000 &
@@ -184,101 +317,65 @@ curl -s -H "Authorization: Bearer sk-finops-demo-master" \
   http://localhost:4000/spend/tags | jq
 ```
 
+Wire it up further:
+
+- **Per-agent budget**: create a LiteLLM "team" per agent SA and set a budget via the LiteLLM admin API.
+- **Cost attribution**: tag outbound LiteLLM calls in `_shared/model.py` with the agent name so `/spend/tags` slices cleanly.
+- **Join with traces**: Agent Gateway emits per-call latency + identity; LiteLLM emits per-call tokens + model. Joining on `trace_id` gives per-request, per-model cost.
+
 ---
 
-## Step 5 — Agent Gateway identity model
+## Teardown
 
-- Every agent pod mounts a **projected ServiceAccount token** with `audience: agent-gateway` at `/var/run/secrets/agent-gateway/token`.
-- Agent Gateway validates the token via `TokenReview` against the Kubernetes API.
-- The `sub` claim (e.g. `system:serviceaccount:financial-services:financial-advisor-sa`) becomes the principal for authz.
-- Two `AgentgatewayPolicy` documents gate traffic:
-  - **MCP authz** — which SAs can call which tools on `/mcp`.
-  - **A2A authz** — which SAs can call which agents on `/agents/<name>`.
-
-Only `financial-advisor-sa` is allowed to reach the three specialists; specialists cannot call each other. Negative test:
+Full reversal, in the exact reverse order of creation so nothing references a resource that's already gone:
 
 ```bash
-TOKEN=$(kubectl create token market-data-sa -n financial-services \
-  --duration=1h --audience=agent-gateway)
+cd multi-agent-fsi-blog
 
-curl -s -o /dev/null -w '%{http_code}\n' -X POST \
-  http://agent-gateway-proxy.agentgateway-system.svc.cluster.local:8080/agents/portfolio-analyst \
-  -H "Authorization: Bearer $TOKEN"
-# → 403
-```
-
----
-
-## Step 6 — Run the end-to-end demo
-
-```bash
-TOKEN=$(kubectl create token financial-advisor-sa -n financial-services \
-  --duration=1h --audience=agent-gateway)
-
-kubectl run curl --rm -it --image=curlimages/curl --restart=Never -- \
-  curl -s -X POST \
-    http://agent-gateway-proxy.agentgateway-system.svc.cluster.local:8080/agents/financial-advisor \
-    -H "Authorization: Bearer $TOKEN" \
-    -H "Content-Type: application/json" \
-    -d '{"task":"I have 100 AAPL and 50 GOOGL. Is my portfolio balanced for medium risk?"}'
-```
-
-**What happens under the hood:**
-
-1. The advisor calls `get_client_profile()` (AgentCore Memory) to recall stored tolerance/goals.
-2. It `delegate_market(...)` → Agent Gateway `/agents/market-data`. market-data uses AgentCore Browser to scrape live AAPL + GOOGL prices from finance.yahoo.com, falling back to the MCP `get_stock_price` tool if scraping fails.
-3. It `delegate_portfolio(...)` → portfolio-analyst fetches prices via MCP `get_stock_price`, then asks the LLM (routed through LiteLLM) to generate Python, runs it in AgentCore **Code Interpreter**, and returns total value + per-holding weights.
-4. It `delegate_risk(...)` → risk-assessment generates a scoring script, executes it in Code Interpreter, and compares the score against the client's `medium` tolerance.
-5. The advisor synthesizes a recommendation and calls `save_client_profile(...)` to persist any new info via Memory.
-
-**Expected Jaeger trace** (`kubectl port-forward -n agentgateway-system svc/jaeger 16686:16686`):
-
-- Root `POST /agents/financial-advisor`
-  - child `POST /agents/market-data` → child `POST /mcp` × 2
-  - child `POST /agents/portfolio-analyst` → child `POST /mcp` × 3
-  - child `POST /agents/risk-assessment`
-
-All spans carry `agent.identity` attribute matching the caller's SA.
-
----
-
-## Step 7 — FinOps view
-
-Because every LLM call goes through LiteLLM, you get token spend + latency per request without touching agent code. Wire it up:
-
-- **Per-agent budget:** create a LiteLLM "team" per agent SA and set a budget via the LiteLLM admin API.
-- **Cost attribution:** tag requests in `_shared/model.py` with the agent name so LiteLLM's `/spend/tags` report slices by agent.
-- **Jaeger + Prometheus:** Agent Gateway emits per-call latency + identity; LiteLLM emits per-call token counts + model. Join them on `trace_id` for per-request, per-model cost.
-
----
-
-## Cleanup
-
-```bash
-# Strands demo
-kubectl delete application financial-services -n argocd
-# Platform addons
+# 1. Delete the ArgoCD app-of-apps. Tofu Controller sees the Terraform CR
+#    being deleted and runs `terraform destroy` inside the cluster, which
+#    removes AgentCore Memory/Browser/CodeInterpreter and the IAM role.
 kubectl delete application platform-root -n argocd
+# Wait for children to fully drain (~2 min):
+kubectl get application -n argocd -w
 
-cd multi-agent-fsi-blog/terraform/bootstrap && terraform destroy -auto-approve
-cd ../cluster && terraform destroy -auto-approve
+# 2. Destroy the bootstrap stack (ArgoCD + root Application).
+cd terraform/bootstrap
+terraform destroy -auto-approve -var "cluster_name=finops-agents"
+
+# 3. Destroy the cluster + VPC + IAM.
+cd ../cluster
+terraform destroy -auto-approve -var "cluster_name=finops-agents"
 ```
 
-Tofu Controller deletes the AgentCore resources (Memory, Browser, Code Interpreter) because the Terraform CR has `destroyResourcesOnDeletion: true`.
+If step 1 stalls (usually because the in-cluster `terraform destroy` can't auth Bedrock anymore), you can force it:
+
+```bash
+kubectl patch application financial-services -n argocd \
+  -p '{"metadata":{"finalizers":null}}' --type=merge
+kubectl patch terraform financial-services-components-v1 -n financial-services \
+  -p '{"metadata":{"finalizers":null}}' --type=merge
+# Then manually clean up in the console:
+#   Bedrock AgentCore → delete Memory / Browser / CodeInterpreter
+#   IAM → delete the financial-services-agent-role
+```
 
 ---
 
-## What to tell readers
+## Trade-offs worth naming in the blog post
 
-**Trade-offs worth calling out in the post:**
+- **LiteLLM hop** adds ~30–80 ms per inference. Worth it for unified spend tracking, retry, and fallback; but if a reader wants Bedrock-direct, `LITELLM_URL=""` in the agent env makes `_shared/model.py` fall back to the Bedrock provider.
+- **Agent Gateway is not the Google A2A spec.** This walkthrough uses plain JSON over HTTP to `/agents/<name>`. For A2A-spec-compliant interop, wrap the agent's FastAPI `POST /` handler with the task/artifact envelope.
+- **Browser reliability.** Yahoo Finance layout drifts. The market-data agent already falls back to MCP deterministic prices on scraping failures — fine for a demo, not for production.
+- **JWKS is pinned in-chart.** Inline JWKS is simple and fast; rotation is `terraform apply`. For automatic rotation, swap `jwks.inline` for `jwks.remote` pointing at an in-cluster proxy with the EKS issuer cert installed.
+- **Role sharing.** `finops-agents-tf-runner` is currently reused by Tofu Controller runners, LiteLLM, and agent Pods. Fine for a demo; production deployments should split into per-workload roles.
 
-- **LiteLLM hop** adds ~30–80 ms per inference; worth it for unified cost tracking and fallback routing, but some readers will want Bedrock-direct. `LITELLM_URL=""` in the agent env disables the proxy — `_shared/model.py` falls back to Strands' default provider.
-- **Agent Gateway ≠ Google A2A spec.** This walkthrough uses plain JSON over HTTP to `/agents/<name>`. If you need A2A spec compliance, wrap the agent's FastAPI `POST /` with the task/artifact envelope.
-- **Browser reliability.** Yahoo Finance layout drifts. The market-data agent always falls back to MCP deterministic prices — fine for a demo, but real production needs a stable data provider.
-- **Pod Identity requirement.** Auto Mode supports Pod Identity out of the box, but the addon must be enabled (Terraform does this). IRSA also works but costs a second IAM role and an OIDC hop.
+---
 
-**Where to go next**
+## Where to go next
 
-- Add Keycloak in front of Agent Gateway for external-facing auth instead of K8s SA tokens — OIDC discovery + bearer-token rewrites replace the Kubernetes TokenReview path.
+- Put Keycloak in front of Agent Gateway for external-facing auth instead of Kubernetes SA tokens — the `jwtAuthentication.providers` list takes multiple entries, so you can accept both.
 - Add a second specialist (e.g. `compliance-agent`) using the same template to show the platform scales.
-- Replace the deterministic MCP tools with a real data provider (Bloomberg, Alpaca, etc.) and benchmark throughput.
+- Replace the deterministic MCP tools with a real data provider (Bloomberg, Alpaca, etc.).
+- Swap the demo LiteLLM masterkey for an External Secrets / AWS Secrets Manager lookup.
+- Turn on Prometheus scraping for Agent Gateway + LiteLLM and add a Grafana dashboard for the FinOps story.
