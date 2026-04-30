@@ -16,6 +16,18 @@ image:
   repository: ghcr.io/berriai/litellm-database
   tag: main-v1.83.10-stable
 
+# Make the schema-migration Job a regular resource instead of an ArgoCD
+# PreSync hook. The PreSync flow was getting stuck on "waiting for hook"
+# after forced re-syncs because the hook phase bookkeeping never cleared.
+# As a regular Job, ArgoCD prunes+recreates it on every sync and the
+# Deployment's own DB-ready probe handles ordering.
+migrationJob:
+  hooks:
+    argocd:
+      enabled: false
+    helm:
+      enabled: false
+
 # Master API key used by clients. Override via secret in production.
 masterkey: sk-finops-demo-master
 
