@@ -83,11 +83,11 @@ proxy_config:
 
 resources:
   requests:
-    cpu: 200m
-    memory: 512Mi
-  limits:
-    cpu: "1"
+    cpu: 500m
     memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 3Gi
 
 replicaCount: 2
 
