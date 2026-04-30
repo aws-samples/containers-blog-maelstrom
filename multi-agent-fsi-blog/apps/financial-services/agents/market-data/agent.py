@@ -44,7 +44,10 @@ async def _fetch_live_quote(symbol: str) -> str:
         await session.start()
         try:
             llm = ChatBedrockConverse(
-                model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+                model_id=os.getenv(
+                    "BEDROCK_MODEL_ID",
+                    "us.anthropic.claude-sonnet-4-6",
+                ),
                 region_name=AWS_REGION,
             )
             task = (
