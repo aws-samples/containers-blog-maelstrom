@@ -4,7 +4,7 @@ version: v1
 
 # AWS / EKS
 awsRegion: us-west-2
-eksClusterName: dev
+eksClusterName: finops-agents
 networkMode: PUBLIC
 
 # Kubernetes
