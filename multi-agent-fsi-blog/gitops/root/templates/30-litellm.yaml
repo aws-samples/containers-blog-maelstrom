@@ -12,7 +12,7 @@ spec:
   sources:
     - repoURL: {{ .Values.gitOpsRepo.url | quote }}
       targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
-      path: {{ printf "%s/gitops/addons/litellm" .Values.basePath | quote }}
+      ref: values
     - repoURL: https://github.com/BerriAI/litellm
       targetRevision: v1.55.10
       path: deploy/charts/litellm-helm
@@ -20,7 +20,6 @@ spec:
         releaseName: litellm
         valueFiles:
           - {{ printf "$values/%s/gitops/addons/litellm/values.yaml" .Values.basePath | quote }}
-      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.litellm | quote }}

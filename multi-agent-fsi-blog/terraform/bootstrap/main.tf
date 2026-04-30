@@ -122,8 +122,18 @@ resource "kubectl_manifest" "root_app" {
         repoURL        = var.gitops_repo_url
         targetRevision = var.gitops_repo_branch
         path           = var.gitops_root_path
-        directory = {
-          recurse = true
+        helm = {
+          valueFiles = ["values.yaml"]
+          parameters = [
+            {
+              name  = "gitOpsRepo.url"
+              value = var.gitops_repo_url
+            },
+            {
+              name  = "gitOpsRepo.branch"
+              value = var.gitops_repo_branch
+            },
+          ]
         }
       }
       destination = {
