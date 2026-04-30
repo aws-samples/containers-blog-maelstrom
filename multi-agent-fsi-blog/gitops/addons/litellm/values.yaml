@@ -10,6 +10,12 @@ db:
   deployStandalone: true
   useExisting: false
 
+# Chart appVersion (v1.80.12) resolves to an image tag that doesn't exist
+# on ghcr. Pin to a tag that actually exists and matches the chart revision.
+image:
+  repository: ghcr.io/berriai/litellm-database
+  tag: main-v1.83.10-stable
+
 # Master API key used by clients. Override via secret in production.
 masterkey: sk-finops-demo-master
 
