@@ -1,0 +1,16 @@
+# tf-runner ServiceAccount in the financial-services namespace.
+# The tf-controller (in flux-system) creates runner Pods in the namespace
+# that owns the Terraform CR (financial-services), and those Pods mount this
+# SA. Pod Identity binds it to the finops-agents-tf-runner IAM role via
+# terraform/cluster/tf_runner_iam.tf so the runner can create Bedrock
+# AgentCore resources, IAM roles, and Pod Identity associations from within
+# the cluster.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tf-runner
+  namespace: {{ .Values.namespace }}
+  annotations:
+    # Sync-wave -1 runs before the Terraform CR (wave 0) so the runner SA
+    # exists the first time tf-controller tries to spawn a runner Pod.
+    argocd.argoproj.io/sync-wave: "-1"

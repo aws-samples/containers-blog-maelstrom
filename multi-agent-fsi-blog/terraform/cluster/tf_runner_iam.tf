@@ -128,3 +128,16 @@ resource "aws_eks_pod_identity_association" "tf_runner" {
 
   tags = local.tags
 }
+
+# The tf-controller executes `terraform apply` inside a Pod that lives in the
+# same namespace as the Terraform CR it's reconciling — not in flux-system.
+# Every namespace hosting a Terraform CR therefore needs its own tf-runner
+# ServiceAccount, and each needs a Pod Identity binding to the same IAM role.
+resource "aws_eks_pod_identity_association" "tf_runner_financial_services" {
+  cluster_name    = module.eks.cluster_name
+  namespace       = "financial-services"
+  service_account = local.tf_runner_sa
+  role_arn        = aws_iam_role.tf_runner.arn
+
+  tags = local.tags
+}
