@@ -14,7 +14,7 @@ spec:
       targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
       ref: values
     - repoURL: https://github.com/BerriAI/litellm
-      targetRevision: v1.55.10
+      targetRevision: v1.83.10-stable
       path: deploy/charts/litellm-helm
       helm:
         releaseName: litellm
