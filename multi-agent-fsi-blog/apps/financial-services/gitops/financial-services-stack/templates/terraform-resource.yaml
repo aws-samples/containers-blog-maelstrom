@@ -41,17 +41,22 @@ spec:
   # lifecycle, which is the single biggest flake we kept hitting: the
   # default Kubernetes backend ties state to a Secret that only gets
   # written on clean pod exit.
+  # Remote S3 backend with DynamoDB locking. State survives the runner Pod
+  # lifecycle — the default Kubernetes Secret backend only writes state on
+  # clean pod exit and corrupts on SIGKILL.
+  #
+  # Tofu Controller wraps backendConfig.customConfiguration with its own
+  # `terraform { ... }` block when it writes backend_override.tf, so we
+  # supply ONLY the inner backend stanza (no outer terraform wrapper).
   {{- if .Values.terraform.s3Backend.bucket }}
   backendConfig:
     customConfiguration: |-
-      terraform {
-        backend "s3" {
-          bucket         = "{{ .Values.terraform.s3Backend.bucket }}"
-          key            = "{{ .Values.terraform.s3Backend.key }}"
-          region         = "{{ .Values.awsRegion }}"
-          dynamodb_table = "{{ .Values.terraform.s3Backend.lockTable }}"
-          encrypt        = true
-        }
+      backend "s3" {
+        bucket         = "{{ .Values.terraform.s3Backend.bucket }}"
+        key            = "{{ .Values.terraform.s3Backend.key }}"
+        region         = "{{ .Values.awsRegion }}"
+        dynamodb_table = "{{ .Values.terraform.s3Backend.lockTable }}"
+        encrypt        = true
       }
   {{- end }}
 
