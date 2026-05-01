@@ -47,7 +47,7 @@ Per-agent outputs Secret name. Each agent reads only its own Secret,
 which is populated by the agent-scoped Terraform CR in wave 0.
 */}}
 {{- range $agent := .Values.agents }}
-{{- $outputsSecret := printf "%s-%s-outputs-%s" $.Values.projectName $agent.name $.Values.version -}}
+{{ $outputsSecret := printf "%s-%s-outputs-%s" $.Values.projectName $agent.name $.Values.version -}}
 {{- $sa := printf "%s-sa" $agent.name -}}
 ---
 apiVersion: v1
