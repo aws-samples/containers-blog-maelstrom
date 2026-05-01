@@ -58,6 +58,11 @@ spec:
   # Runner Pod template — the biggest source of flakiness was the runner
   # getting SIGKILL'd mid-apply (OOMKilled at the default 1Gi, or evicted
   # by Auto Mode node consolidation). These settings give it room + time.
+  # Note: the Tofu Controller CRD restricts runnerPodTemplate.spec to a
+  # small allowlist (affinity, env, image, resources, securityContext,
+  # tolerations, volumes, etc.) — it does NOT expose
+  # terminationGracePeriodSeconds. For long applies the S3 backend is
+  # the real defense; controller restarts never lose state.
   runnerPodTemplate:
     metadata:
       annotations:
@@ -66,11 +71,6 @@ spec:
         # keeps the runner Pod alive for the entire apply.
         karpenter.sh/do-not-disrupt: "true"
     spec:
-      # 30 minutes. terraform apply on AgentCore Memory alone takes ~3min.
-      # Default is 30s which is far shorter than any real apply — if the
-      # controller SIGTERMs the runner mid-apply, state corruption is
-      # all but guaranteed.
-      terminationGracePeriodSeconds: 1800
       resources:
         requests:
           cpu: 250m
