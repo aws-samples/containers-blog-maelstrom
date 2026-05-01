@@ -3,10 +3,22 @@
 {{- $audience := .Values.agentGateway.audience -}}
 {{- $gwName := .Values.agentGateway.gatewayName -}}
 {{- $gwNs := .Values.agentGateway.gatewayNamespace -}}
-{{- $advisorSub := printf "system:serviceaccount:%s:financial-advisor-sa" $ns -}}
-{{- $portfolioSub := printf "system:serviceaccount:%s:portfolio-analyst-sa" $ns -}}
-{{- $riskSub := printf "system:serviceaccount:%s:risk-assessment-sa" $ns -}}
-{{- $marketSub := printf "system:serviceaccount:%s:market-data-sa" $ns -}}
+
+{{- /* Build SA lists grouped by role, derived from .Values.agents. */ -}}
+{{- $orchestratorSubs := list -}}
+{{- $mcpCallerSubs := list -}}
+{{- range $a := .Values.agents -}}
+  {{- $sub := printf "system:serviceaccount:%s:%s-sa" $ns $a.name -}}
+  {{- if eq $a.role "orchestrator" -}}
+    {{- $orchestratorSubs = append $orchestratorSubs $sub -}}
+  {{- end -}}
+  {{- /* Any agent that declared MCP tools is an MCP caller. */ -}}
+  {{- if $a.tools -}}
+    {{- if gt (len $a.tools) 0 -}}
+      {{- $mcpCallerSubs = append $mcpCallerSubs $sub -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
 
 # ----------------------------------------------------------------------------
 # 1. Gateway-level JWT authentication
@@ -40,22 +52,22 @@ spec:
           jwks:
             inline: {{ .Values.eks.jwksJson | b64dec | quote }}
 
----
 # ----------------------------------------------------------------------------
-# 2. A2A authorization — only financial-advisor-sa may call specialists
+# 2. A2A authorization — only orchestrators may call specialists
 #
-# Attached per-HTTPRoute (one policy per specialist). The CEL expression
-# matches the JWT `sub` claim against the advisor's SA identity. Rules are
-# deny-by-default once any Allow rule is attached, so no explicit Deny
-# policy is needed — unknown principals get 403.
+# One AgentgatewayPolicy per specialist HTTPRoute. CEL matchExpressions are
+# OR-combined, so listing every orchestrator SA allows any of them. Rules
+# are deny-by-default once Allow is attached, so unknown principals get 403.
+# Orchestrators have no policy attached to their own /agents/<name> route —
+# they are the public entry points.
 # ----------------------------------------------------------------------------
-{{- range list "portfolio-analyst" "risk-assessment" "market-data" }}
-{{- $target := . }}
+{{- range $a := .Values.agents }}
+{{- if eq $a.role "specialist" }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
 metadata:
-  name: {{ $target }}-a2a-authz
+  name: {{ $a.name }}-a2a-authz
   namespace: {{ $ns }}
   annotations:
     argocd.argoproj.io/sync-wave: "2"
@@ -63,22 +75,26 @@ spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      name: {{ $target }}-a2a-route
+      name: {{ $a.name }}-a2a-route
   traffic:
     authorization:
       action: Allow
       policy:
         matchExpressions:
-          - 'jwt.sub == "{{ $advisorSub }}"'
+          {{- range $sub := $orchestratorSubs }}
+          - 'jwt.sub == "{{ $sub }}"'
+          {{- end }}
+{{- end }}
 {{- end }}
 
 ---
 # ----------------------------------------------------------------------------
-# 3. MCP authorization — only the three specialists may call financial-tools
+# 3. MCP authorization — only agents that declared `tools` may call /mcp
 #
-# financial-advisor-sa is deliberately absent: the advisor delegates to
-# specialists, never calls MCP tools directly. A caller presenting the
-# advisor's SA token for /mcp gets 403.
+# Derived from .Values.agents[].tools. Any agent with a non-empty tools list
+# is an allowed MCP caller. This is specialist-level granularity — per-tool
+# allow-lists would require HTTPRoute-per-tool surgery which isn't worth it
+# for the blog's scale. Fine-grained tool scoping is a production follow-up.
 # ----------------------------------------------------------------------------
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -97,12 +113,13 @@ spec:
       action: Allow
       policy:
         matchExpressions:
-          - 'jwt.sub == "{{ $portfolioSub }}"'
-          - 'jwt.sub == "{{ $riskSub }}"'
-          - 'jwt.sub == "{{ $marketSub }}"'
+          {{- range $sub := $mcpCallerSubs }}
+          - 'jwt.sub == "{{ $sub }}"'
+          {{- end }}
 
-# The `financial-advisor-a2a-route` HTTPRoute intentionally has no
-# authorization policy — it is the public entry point for external callers.
-# The Gateway-level jwtAuthentication still requires a valid token with
-# audience=agent-gateway, so unauthenticated traffic is blocked at the edge.
+# Orchestrator HTTPRoutes (e.g. /agents/financial-advisor) intentionally have
+# no authorization policy — they are the public entry points for external
+# callers. The Gateway-level jwtAuthentication still requires a valid SA
+# token with audience=agent-gateway, so unauthenticated traffic is blocked
+# at the edge.
 {{- end }}

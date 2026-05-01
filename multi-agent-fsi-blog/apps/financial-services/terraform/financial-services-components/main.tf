@@ -9,7 +9,24 @@ data "aws_eks_cluster" "cluster" {
 }
 
 # ============================================================================
-# AgentCore Memory (advisor profile recall)
+# Per-agent AgentCore provisioning
+#
+# This module is instantiated once per agent by the Flux Terraform CRs
+# rendered from apps/financial-services/gitops/.../templates/terraform-resource.yaml.
+# Each invocation receives:
+#   - project_name: per-agent (e.g. "financial-services-portfolio-analyst")
+#     so AWS resource names don't collide.
+#   - agent_sa: the single ServiceAccount name this agent's pod uses.
+#   - enable_*: toggles for each AgentCore capability this agent opted into.
+#
+# The module creates:
+#   - 0..3 AgentCore resources (Memory/Browser/CodeInterpreter) scoped to
+#     this agent, gated by the enable_* flags.
+#   - Exactly 1 IAM role (the agent's Pod Identity target).
+#   - Exactly 1 Pod Identity association binding var.agent_sa to that role.
+#
+# Agents that don't need any AgentCore capability still get the IAM role
+# and Pod Identity association so Bedrock model invocation works.
 # ============================================================================
 
 module "memory" {
@@ -17,53 +34,55 @@ module "memory" {
   source = "../modules/memory"
 
   name                  = var.project_name
-  description           = "Memory for ${var.project_name} financial advisor"
+  description           = "Memory for ${var.project_name}"
   event_expiry_duration = 30
 
   tags = {
     Name    = "${var.project_name}-memory"
     Project = var.project_name
+    Agent   = var.agent_sa
   }
 }
-
-# ============================================================================
-# AgentCore Browser (market-data live quotes)
-# ============================================================================
 
 module "browser" {
   count  = var.enable_browser ? 1 : 0
   source = "../modules/browser"
 
   name         = var.project_name
-  description  = "Browser for ${var.project_name} market-data agent"
+  description  = "Browser for ${var.project_name}"
   network_mode = var.network_mode
 
   tags = {
     Name    = "${var.project_name}-browser"
     Project = var.project_name
+    Agent   = var.agent_sa
   }
 }
-
-# ============================================================================
-# AgentCore Code Interpreter (portfolio-analyst + risk-assessment)
-# ============================================================================
 
 module "code_interpreter" {
   count  = var.enable_code_interpreter ? 1 : 0
   source = "../modules/code-interpreter"
 
   name         = var.project_name
-  description  = "Code Interpreter for ${var.project_name} analysis agents"
+  description  = "Code Interpreter for ${var.project_name}"
   network_mode = var.network_mode
 
   tags = {
     Name    = "${var.project_name}-code-interpreter"
     Project = var.project_name
+    Agent   = var.agent_sa
   }
 }
 
 # ============================================================================
-# Shared IAM Role (Pod Identity target for all 4 agents + MCP server)
+# Per-agent IAM role (Pod Identity target)
+#
+# Named after the project_name so each agent gets its own role. Grants
+# AgentCore tool invocation (scoped to anything under this account) and
+# Bedrock model invocation. Fine-grained scoping to only the agent's own
+# resources is a production follow-up — the blog's threat model is in-cluster
+# workload isolation via Pod Identity + Gateway authz, not least-privilege
+# IAM within a single agent's role.
 # ============================================================================
 
 resource "aws_iam_role" "financial_agent_role" {
@@ -82,6 +101,11 @@ resource "aws_iam_role" "financial_agent_role" {
       ]
     }]
   })
+
+  tags = {
+    Project = var.project_name
+    Agent   = var.agent_sa
+  }
 }
 
 resource "aws_iam_role_policy" "financial_agent_policy" {
@@ -122,14 +146,12 @@ resource "aws_iam_role_policy" "financial_agent_policy" {
 }
 
 # ============================================================================
-# Pod Identity Associations (one per agent SA + MCP server SA)
+# Pod Identity Association (exactly one, for this agent's SA)
 # ============================================================================
 
 resource "aws_eks_pod_identity_association" "agent_pod_identity" {
-  for_each = toset(var.agent_service_accounts)
-
   cluster_name    = var.eks_cluster_name
   namespace       = var.namespace
-  service_account = each.value
+  service_account = var.agent_sa
   role_arn        = aws_iam_role.financial_agent_role.arn
 }

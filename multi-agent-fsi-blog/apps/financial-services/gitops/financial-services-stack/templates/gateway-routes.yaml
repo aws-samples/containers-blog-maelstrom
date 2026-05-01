@@ -38,26 +38,25 @@ spec:
           name: financial-tools-mcp-backend
           weight: 1
 
-{{ range list "financial-advisor" "portfolio-analyst" "risk-assessment" "market-data" }}
-{{ $agent := . -}}
+{{- range $agent := .Values.agents }}
 ---
-# -------- {{ $agent }} A2A backend + route --------
+# -------- {{ $agent.name }} A2A backend + route --------
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayBackend
 metadata:
-  name: {{ $agent }}-backend
+  name: {{ $agent.name }}-backend
   namespace: {{ $ns }}
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   static:
-    host: {{ $agent }}.{{ $ns }}.svc.cluster.local
+    host: {{ $agent.name }}.{{ $ns }}.svc.cluster.local
     port: 8080
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: {{ $agent }}-a2a-route
+  name: {{ $agent.name }}-a2a-route
   namespace: {{ $ns }}
   annotations:
     argocd.argoproj.io/sync-wave: "2"
@@ -71,7 +70,7 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /agents/{{ $agent }}
+            value: /agents/{{ $agent.name }}
       filters:
         - type: URLRewrite
           urlRewrite:
@@ -81,6 +80,6 @@ spec:
       backendRefs:
         - group: agentgateway.dev
           kind: AgentgatewayBackend
-          name: {{ $agent }}-backend
+          name: {{ $agent.name }}-backend
           weight: 1
 {{- end }}

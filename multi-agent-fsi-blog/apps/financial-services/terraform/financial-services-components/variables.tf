@@ -1,7 +1,6 @@
 variable "project_name" {
-  description = "Project name prefix for all resources"
+  description = "Per-agent project prefix (e.g. financial-services-financial-advisor). AWS resource names are derived from this — it must be unique per Terraform CR to avoid AgentCore name collisions across agents."
   type        = string
-  default     = "financial-services"
 }
 
 variable "aws_region" {
@@ -17,42 +16,35 @@ variable "network_mode" {
 }
 
 variable "eks_cluster_name" {
-  description = "EKS cluster name for Pod Identity associations"
+  description = "EKS cluster name for the Pod Identity association"
   type        = string
 }
 
 variable "namespace" {
-  description = "Kubernetes namespace hosting the agents and MCP server"
+  description = "Kubernetes namespace hosting this agent"
   type        = string
   default     = "financial-services"
 }
 
+variable "agent_sa" {
+  description = "ServiceAccount name for this one agent. Creates exactly one Pod Identity association binding this SA to the per-agent IAM role."
+  type        = string
+}
+
 variable "enable_memory" {
-  description = "Provision AgentCore Memory (used by financial-advisor)"
+  description = "Provision a dedicated AgentCore Memory for this agent"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "enable_browser" {
-  description = "Provision AgentCore Browser (used by market-data)"
+  description = "Provision a dedicated AgentCore Browser for this agent"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "enable_code_interpreter" {
-  description = "Provision AgentCore Code Interpreter (used by portfolio-analyst and risk-assessment)"
+  description = "Provision a dedicated AgentCore Code Interpreter for this agent"
   type        = bool
-  default     = true
-}
-
-variable "agent_service_accounts" {
-  description = "ServiceAccount names for the four Strands agents and the MCP server"
-  type        = list(string)
-  default = [
-    "financial-advisor-sa",
-    "portfolio-analyst-sa",
-    "risk-assessment-sa",
-    "market-data-sa",
-    "financial-tools-mcp-sa",
-  ]
+  default     = false
 }

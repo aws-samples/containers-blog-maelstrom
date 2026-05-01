@@ -10,37 +10,82 @@ networkMode: PUBLIC
 # Kubernetes
 namespace: financial-services
 
-# AgentCore toggles (wire through to Terraform)
-capabilities:
-  memory: true
-  browser: true
-  codeInterpreter: true
-
 # Bedrock model used by direct Bedrock calls (agent Browser tasks, code-gen
 # inner Agent). LiteLLM handles most traffic; this is the fallback path.
 bedrockModelId: us.anthropic.claude-sonnet-4-6
 
-# Image references. All five components share one Docker Hub repo and are
-# distinguished by tag prefix — see deploy.sh for the build+push script.
-# Full image path rendered by the chart is `{registry}/{repository}:{tag}`.
+# ---------------------------------------------------------------------------
+# Agent definitions
+# ---------------------------------------------------------------------------
+# One list entry per agent. Each entry owns:
+#   name               Pod/Service/SA/Route name
+#   role               orchestrator | specialist — drives gateway authz
+#   image.tag          unique per agent (repo is shared)
+#   agentcore.*        per-agent AgentCore capability toggles. Setting any of
+#                      these to true spawns a dedicated Flux Terraform CR that
+#                      provisions an AgentCore resource for *this* agent only
+#                      (no cross-agent sharing). Setting all to false skips
+#                      the Terraform CR entirely — the agent still gets
+#                      Bedrock model access via the base agent-iam CR.
+#   tools              List of MCP tool names this agent is allowed to call
+#                      through /mcp. Used by the Gateway MCP authz policy.
+# ---------------------------------------------------------------------------
+agents:
+  - name: financial-advisor
+    role: orchestrator
+    image:
+      repository: financial-services-agents
+      tag: financial-advisor-v3
+    agentcore:
+      memory: true
+      browser: false
+      codeInterpreter: false
+    tools: []
+
+  - name: portfolio-analyst
+    role: specialist
+    image:
+      repository: financial-services-agents
+      tag: portfolio-analyst-v3
+    agentcore:
+      memory: false
+      browser: false
+      codeInterpreter: true
+    tools:
+      - get_stock_price
+      - calculate_portfolio_value
+
+  - name: risk-assessment
+    role: specialist
+    image:
+      repository: financial-services-agents
+      tag: risk-assessment-v3
+    agentcore:
+      memory: false
+      browser: false
+      codeInterpreter: true
+    tools: []
+
+  - name: market-data
+    role: specialist
+    image:
+      repository: financial-services-agents
+      tag: market-data-v3
+    agentcore:
+      memory: false
+      browser: true
+      codeInterpreter: false
+    tools:
+      - get_stock_price
+      - get_market_trends
+
+# Shared image config — the registry and MCP server image.
 images:
   pullPolicy: Always
   registry: docker.io/sriram430
   mcpServer:
     repository: financial-services-agents
     tag: financial-tools-mcp-v3
-  financialAdvisor:
-    repository: financial-services-agents
-    tag: financial-advisor-v3
-  portfolioAnalyst:
-    repository: financial-services-agents
-    tag: portfolio-analyst-v3
-  riskAssessment:
-    repository: financial-services-agents
-    tag: risk-assessment-v3
-  marketData:
-    repository: financial-services-agents
-    tag: market-data-v3
 
 # Agent Gateway (already installed in the cluster)
 agentGateway:
@@ -76,14 +121,6 @@ terraform:
     branch: multi-agent-fsi-blog
   path: ./multi-agent-fsi-blog/apps/financial-services/terraform/financial-services-components
   serviceAccountName: tf-runner
-  # Remote S3 backend. Empty `bucket` -> Tofu Controller falls back to the
-  # default Kubernetes Secret backend. We don't recommend that for anything
-  # beyond "run the demo once" because the in-cluster Secret backend stores
-  # state only on clean pod exit, which has bitten us repeatedly.
-  s3Backend:
-    bucket: ""     # populated by terraform/bootstrap from terraform/cluster outputs
-    key: financial-services-components.tfstate
-    lockTable: "" # populated by terraform/bootstrap from terraform/cluster outputs
 
 # EKS cluster identity used by the Gateway's jwtAuthentication policy.
 # Populated by the app-of-apps root chart (which in turn is fed by

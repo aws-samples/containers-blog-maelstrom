@@ -1,3 +1,6 @@
+{{/*
+Common env vars every agent gets.
+*/}}
 {{- define "fs.agentEnv" -}}
 - name: AWS_REGION
   value: {{ .root.Values.awsRegion | quote }}
@@ -19,6 +22,10 @@
       optional: true
 {{- end }}
 
+{{/*
+Projected SA token (audience: agent-gateway) consumed by the agent's
+_shared/a2a_client.py + mcp_client.py.
+*/}}
 {{- define "fs.projectedToken" -}}
 - name: agent-gateway-token
   projected:
@@ -35,11 +42,13 @@
   readOnly: true
 {{- end }}
 
-{{- $secretName := printf "financial-services-outputs-%s" .Values.version -}}
-
-{{- range list "financial-advisor" "portfolio-analyst" "risk-assessment" "market-data" }}
-{{ $agent := . -}}
-{{ $sa := printf "%s-sa" $agent -}}
+{{/*
+Per-agent outputs Secret name. Each agent reads only its own Secret,
+which is populated by the agent-scoped Terraform CR in wave 0.
+*/}}
+{{- range $agent := .Values.agents }}
+{{- $outputsSecret := printf "%s-%s-outputs-%s" $.Values.projectName $agent.name $.Values.version -}}
+{{- $sa := printf "%s-sa" $agent.name -}}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -52,13 +61,13 @@ metadata:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ $agent }}
+  name: {{ $agent.name }}
   namespace: {{ $.Values.namespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   selector:
-    app: {{ $agent }}
+    app: {{ $agent.name }}
   ports:
     - name: http
       port: 8080
@@ -67,7 +76,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $agent }}
+  name: {{ $agent.name }}
   namespace: {{ $.Values.namespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "2"
@@ -75,58 +84,46 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ $agent }}
+      app: {{ $agent.name }}
   template:
     metadata:
       labels:
-        app: {{ $agent }}
+        app: {{ $agent.name }}
+        role: {{ $agent.role | quote }}
     spec:
       serviceAccountName: {{ $sa }}
       volumes:
         {{- include "fs.projectedToken" (dict "root" $) | nindent 8 }}
       containers:
         - name: agent
-          {{- if eq $agent "financial-advisor" }}
-          image: "{{ $.Values.images.registry }}/{{ $.Values.images.financialAdvisor.repository }}:{{ $.Values.images.financialAdvisor.tag }}"
-          {{- else if eq $agent "portfolio-analyst" }}
-          image: "{{ $.Values.images.registry }}/{{ $.Values.images.portfolioAnalyst.repository }}:{{ $.Values.images.portfolioAnalyst.tag }}"
-          {{- else if eq $agent "risk-assessment" }}
-          image: "{{ $.Values.images.registry }}/{{ $.Values.images.riskAssessment.repository }}:{{ $.Values.images.riskAssessment.tag }}"
-          {{- else if eq $agent "market-data" }}
-          image: "{{ $.Values.images.registry }}/{{ $.Values.images.marketData.repository }}:{{ $.Values.images.marketData.tag }}"
-          {{- end }}
+          image: "{{ $.Values.images.registry }}/{{ $agent.image.repository }}:{{ $agent.image.tag }}"
           imagePullPolicy: {{ $.Values.images.pullPolicy }}
           ports:
             - containerPort: 8080
           env:
             {{- include "fs.agentEnv" (dict "root" $) | nindent 12 }}
-            {{- if eq $agent "financial-advisor" }}
+            {{- if $agent.agentcore.memory }}
             - name: MEMORY_ID
               valueFrom:
                 secretKeyRef:
-                  name: {{ $secretName }}
+                  name: {{ $outputsSecret }}
                   key: memory_id
                   optional: true
-            {{- else if eq $agent "portfolio-analyst" }}
-            - name: CODE_INTERPRETER_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $secretName }}
-                  key: code_interpreter_id
-                  optional: true
-            {{- else if eq $agent "risk-assessment" }}
-            - name: CODE_INTERPRETER_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $secretName }}
-                  key: code_interpreter_id
-                  optional: true
-            {{- else if eq $agent "market-data" }}
+            {{- end }}
+            {{- if $agent.agentcore.browser }}
             - name: BROWSER_ID
               valueFrom:
                 secretKeyRef:
-                  name: {{ $secretName }}
+                  name: {{ $outputsSecret }}
                   key: browser_id
+                  optional: true
+            {{- end }}
+            {{- if $agent.agentcore.codeInterpreter }}
+            - name: CODE_INTERPRETER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $outputsSecret }}
+                  key: code_interpreter_id
                   optional: true
             {{- end }}
           volumeMounts:
