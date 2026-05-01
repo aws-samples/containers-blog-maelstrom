@@ -23,6 +23,14 @@ spec:
           value: {{ .Values.gitOpsRepo.branch | quote }}
         - name: terraform.path
           value: {{ printf "./%s/apps/financial-services/terraform/financial-services-components" .Values.basePath | quote }}
+        # Remote S3 backend for the Flux Terraform CR (see
+        # apps/financial-services/gitops/.../templates/terraform-resource.yaml).
+        # Empty -> Tofu Controller falls back to the Kubernetes Secret
+        # backend, which is flake-prone under runner Pod restarts.
+        - name: terraform.s3Backend.bucket
+          value: {{ .Values.terraform.s3Backend.bucket | quote }}
+        - name: terraform.s3Backend.lockTable
+          value: {{ .Values.terraform.s3Backend.lockTable | quote }}
         # EKS OIDC values for Agent Gateway jwtAuthentication. Empty strings
         # mean the gateway-policies template skips authn/authz rendering.
         - name: eks.oidcIssuer

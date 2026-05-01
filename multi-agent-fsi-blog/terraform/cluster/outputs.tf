@@ -47,3 +47,13 @@ output "tf_runner_role_name" {
   description = "IAM role name for the Tofu Controller runner pod"
   value       = aws_iam_role.tf_runner.name
 }
+
+output "tfstate_bucket" {
+  description = "S3 bucket backing in-cluster Terraform state"
+  value       = aws_s3_bucket.tfstate.id
+}
+
+output "tfstate_lock_table" {
+  description = "DynamoDB table backing in-cluster Terraform state locks"
+  value       = aws_dynamodb_table.tfstate_locks.id
+}

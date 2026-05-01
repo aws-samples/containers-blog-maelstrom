@@ -38,6 +38,20 @@ data "aws_eks_cluster_auth" "cluster" {
 }
 
 # ----------------------------------------------------------------------------
+# Read the cluster stack's state to pick up the tfstate S3 bucket name
+# (which has a random suffix for global uniqueness) and the lock table name.
+# Both are consumed by the financial-services Helm chart so the Flux Terraform
+# CR uses a real S3 backend instead of the default in-cluster Secret backend.
+# ----------------------------------------------------------------------------
+data "terraform_remote_state" "cluster" {
+  backend = "local"
+
+  config = {
+    path = "${path.module}/../cluster/terraform.tfstate"
+  }
+}
+
+# ----------------------------------------------------------------------------
 # EKS OIDC issuer + JWKS — used by Agent Gateway to validate ServiceAccount
 # tokens. The issuer URL is cluster-specific (set at creation time). The JWKS
 # is a public static document at <issuer>/keys. Both are captured at bootstrap
@@ -195,6 +209,19 @@ resource "kubectl_manifest" "root_app" {
               name        = "eks.jwksJson"
               value       = base64encode(trimspace(data.http.eks_jwks.response_body))
               forceString = true
+            },
+            # Remote S3 + DynamoDB backend for in-cluster Terraform state.
+            # The default Kubernetes Secret backend corrupts on mid-apply
+            # runner Pod restarts, which is the single biggest flake we
+            # hit. Reading the bucket name from the cluster stack's
+            # state avoids the random suffix problem.
+            {
+              name  = "terraform.s3Backend.bucket"
+              value = data.terraform_remote_state.cluster.outputs.tfstate_bucket
+            },
+            {
+              name  = "terraform.s3Backend.lockTable"
+              value = data.terraform_remote_state.cluster.outputs.tfstate_lock_table
             },
           ]
         }

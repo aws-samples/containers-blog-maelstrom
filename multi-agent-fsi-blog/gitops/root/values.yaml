@@ -22,3 +22,13 @@ namespaces:
 eks:
   oidcIssuer: ""
   jwksJson: ""
+
+# S3 backend for the in-cluster Flux Terraform CR. Bucket + DDB lock table
+# are created by terraform/cluster (tf_state_backend.tf) and their names
+# flow into this chart via terraform/bootstrap's helm.parameters. Empty
+# defaults mean the Tofu Controller falls back to the Kubernetes Secret
+# backend — fine for standalone testing, not recommended otherwise.
+terraform:
+  s3Backend:
+    bucket: ""
+    lockTable: ""

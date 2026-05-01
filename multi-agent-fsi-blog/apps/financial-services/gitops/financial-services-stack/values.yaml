@@ -67,14 +67,23 @@ litellm:
   apiKeyValue: sk-finops-demo-master
 
 # Git source for the Flux Terraform controller. The app-of-apps root app
-# overrides `terraform.git.url` and `terraform.git.branch` via helm parameters
-# at sync time so these defaults only matter for standalone deploys.
+# overrides `terraform.git.url`, `terraform.git.branch`, and the S3 backend
+# bucket/key/lockTable via helm parameters at sync time so these defaults
+# only matter for standalone deploys.
 terraform:
   git:
     url: https://github.com/aws-samples/containers-blog-maelstrom
     branch: multi-agent-fsi-blog
   path: ./multi-agent-fsi-blog/apps/financial-services/terraform/financial-services-components
   serviceAccountName: tf-runner
+  # Remote S3 backend. Empty `bucket` -> Tofu Controller falls back to the
+  # default Kubernetes Secret backend. We don't recommend that for anything
+  # beyond "run the demo once" because the in-cluster Secret backend stores
+  # state only on clean pod exit, which has bitten us repeatedly.
+  s3Backend:
+    bucket: ""     # populated by terraform/bootstrap from terraform/cluster outputs
+    key: financial-services-components.tfstate
+    lockTable: "" # populated by terraform/bootstrap from terraform/cluster outputs
 
 # EKS cluster identity used by the Gateway's jwtAuthentication policy.
 # Populated by the app-of-apps root chart (which in turn is fed by
