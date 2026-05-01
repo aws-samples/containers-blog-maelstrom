@@ -1,7 +1,7 @@
 variable "name" {
   description = "Name prefix for resources"
   type        = string
-  default     = "msk-eks-demo-v3"
+  default     = "msk-eks-demo"
 }
 
 variable "region" {
@@ -19,5 +19,5 @@ variable "az_count" {
 variable "msk_partition_count" {
   description = "Number of partitions for MSK topic"
   type        = number
-  default     = 100
+  default     = 50
 }

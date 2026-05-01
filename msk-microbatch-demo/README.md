@@ -40,9 +40,9 @@ Multiple factors add to scaling instability such as Kafka partition rebalancing 
 During scale events, Kafka redistributes partition assignments across pods. With default "eager" rebalancing, all consumers pause processing, which dramatically reduces processing throughput and risks breaching SLA. This architecture uses **cooperative rebalancing**, allowing most pods to continue processing while only affected pods pause briefly, reducing the impact on processing throughput during scaling.
 
 2. **Profile your application** to identify:
-   - Peak processing capacity per pod (~100 msg/s in this demo)
-   - Ramp-up time to reach peak capacity (~60 seconds in this demo)
-   - Time it takes for partition rebalance to complete and consumers to pick up processing speed again (~60 seconds in this demo)
+   - Peak processing capacity per pod
+   - Ramp-up time to reach peak capacity
+   - Time it takes for partition rebalance to complete and consumers to pick up processing speed again
 
 3. **Tune Keda timing settings**:
    Consider multiple configuration options for influencing scaling sensitivity:
@@ -198,11 +198,17 @@ This eliminates compute costs during idle periods while maintaining instant read
 
 ## Monitoring
 
+**Get Grafana credentials:**
+```bash
+kubectl get secret -n kube-system kube-prometheus-stack-grafana -o jsonpath='{.data.admin-user}' | base64 -d
+kubectl get secret -n kube-system kube-prometheus-stack-grafana -o jsonpath='{.data.admin-password}' | base64 -d
+```
+
 **Access Grafana dashboard:**
 ```bash
 kubectl port-forward -n kube-system svc/kube-prometheus-stack-grafana 3000:80
 ```
-Open http://localhost:3000 (default credentials: admin/prom-operator)
+Open http://localhost:3000 and log in with the credentials retrieved above.
 
 **Access provided dashboard:**
 Title: "MSK & KEDA Monitoring"

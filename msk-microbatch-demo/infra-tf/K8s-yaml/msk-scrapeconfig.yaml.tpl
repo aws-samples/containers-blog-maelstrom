@@ -19,4 +19,5 @@ spec:
 %{ for broker in brokers ~}
         - "${broker}:11002"
 %{ endfor ~}
-  scrapeInterval: 60s
+  # Keep 30s or higer to avoid MSK throttling of scrape requests
+  scrapeInterval: 30s

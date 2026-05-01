@@ -26,8 +26,8 @@ data:
       },
       "editable": true,
       "fiscalYearStartMonth": 0,
-      "graphTooltip": 2,
-      "id": 29,
+      "graphTooltip": 1,
+      "id": 30,
       "links": [],
       "panels": [
         {
@@ -95,7 +95,7 @@ data:
             "y": 0
           },
           "id": 8,
-          "interval": "10",
+          "interval": "$rate_interval",
           "options": {
             "legend": {
               "calcs": [],
@@ -116,9 +116,9 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "editorMode": "builder",
+              "editorMode": "code",
               "exemplar": false,
-              "expr": "sum(rate(kafka_server_BrokerTopicMetrics_Count{name=\"MessagesInPerSec\", topic=\"trade-tx\"}[$__rate_interval]))",
+              "expr": "sum(rate(kafka_server_BrokerTopicMetrics_Count{name=\"MessagesInPerSec\", topic=\"trade-tx\"}[60s]))",
               "instant": false,
               "interval": "",
               "legendFormat": "MessagesInPerSec",
@@ -198,7 +198,7 @@ data:
             "y": 0
           },
           "id": 1,
-          "interval": "10",
+          "interval": "$rate_interval",
           "options": {
             "legend": {
               "calcs": [],
@@ -221,7 +221,7 @@ data:
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "rate(kafka_messages_processed_total[$__rate_interval])",
+              "expr": "sum(rate(kafka_messages_processed_total[20s]))",
               "fullMetaSearch": false,
               "includeNullMetadata": true,
               "legendFormat": "{{pod}}",
@@ -230,7 +230,7 @@ data:
               "useBackend": false
             }
           ],
-          "title": "Consumer Processing Rate",
+          "title": "Consumer Processing Rate - Aggregated",
           "type": "timeseries"
         },
         {
@@ -297,8 +297,220 @@ data:
             "x": 0,
             "y": 8
           },
+          "id": 6,
+          "interval": "$rate_interval",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "kube_horizontalpodautoscaler_status_current_replicas{}",
+              "instant": false,
+              "interval": "",
+              "legendFormat": "Current",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "kube_horizontalpodautoscaler_status_desired_replicas{}",
+              "hide": false,
+              "instant": false,
+              "interval": "",
+              "legendFormat": "Desired",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Consumer Pod Count",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "default": true,
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 8
+          },
+          "id": 4,
+          "interval": "$rate_interval",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "count(kube_node_status_condition{condition=\"Ready\",status=\"true\"})",
+              "legendFormat": "Ready Nodes",
+              "refId": "A"
+            }
+          ],
+          "title": "Ready Nodes Count",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "default": true,
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "dashed"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 16
+          },
           "id": 9,
-          "interval": "10",
+          "interval": "$rate_interval",
           "options": {
             "legend": {
               "calcs": [],
@@ -322,7 +534,7 @@ data:
               "disableTextWrap": false,
               "editorMode": "builder",
               "exemplar": false,
-              "expr": "kube_horizontalpodautoscaler_status_target_metric",
+              "expr": "kube_horizontalpodautoscaler_status_target_metric{metric_name=\"s0-kafka-trade-tx\"}",
               "fullMetaSearch": false,
               "includeNullMetadata": true,
               "instant": false,
@@ -339,7 +551,7 @@ data:
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "kube_horizontalpodautoscaler_spec_target_metric",
+              "expr": "kube_horizontalpodautoscaler_spec_target_metric{metric_name=\"s0-kafka-trade-tx\"}",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -350,7 +562,127 @@ data:
               "useBackend": false
             }
           ],
-          "title": "HPA Offset Lag",
+          "title": "HPA Kafka Offset Lag - Per Pod",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "default": true,
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "dashed"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 16
+          },
+          "id": 12,
+          "interval": "$rate_interval",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "asc"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "disableTextWrap": false,
+              "editorMode": "builder",
+              "exemplar": false,
+              "expr": "kube_horizontalpodautoscaler_status_target_metric{metric_name=\"s1-prometheus\"}",
+              "fullMetaSearch": false,
+              "includeNullMetadata": true,
+              "instant": false,
+              "interval": "",
+              "legendFormat": "Current",
+              "range": true,
+              "refId": "A",
+              "useBackend": false
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "disableTextWrap": false,
+              "editorMode": "builder",
+              "expr": "kube_horizontalpodautoscaler_spec_target_metric{metric_name=\"s1-prometheus\"}",
+              "fullMetaSearch": false,
+              "hide": false,
+              "includeNullMetadata": true,
+              "instant": false,
+              "legendFormat": "Target",
+              "range": true,
+              "refId": "B",
+              "useBackend": false
+            }
+          ],
+          "title": "HPA Kafka Inbound Msg Sec - Per Pod",
           "type": "timeseries"
         },
         {
@@ -444,11 +776,11 @@ data:
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 12,
-            "y": 8
+            "x": 0,
+            "y": 24
           },
           "id": 5,
-          "interval": "10",
+          "interval": "$rate_interval",
           "options": {
             "legend": {
               "calcs": [],
@@ -520,119 +852,6 @@ data:
                   "mode": "none"
                 },
                 "thresholdsStyle": {
-                  "mode": "dashed"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 16
-          },
-          "id": 6,
-          "interval": "10",
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "hideZeros": false,
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "12.3.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-              },
-              "editorMode": "code",
-              "exemplar": false,
-              "expr": "kube_horizontalpodautoscaler_status_current_replicas{}",
-              "instant": false,
-              "interval": "",
-              "legendFormat": "Current",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-              },
-              "editorMode": "code",
-              "exemplar": false,
-              "expr": "kube_horizontalpodautoscaler_status_desired_replicas{}",
-              "hide": false,
-              "instant": false,
-              "interval": "",
-              "legendFormat": "Desired",
-              "range": true,
-              "refId": "B"
-            }
-          ],
-          "title": "Consumer Pod Count",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
                   "mode": "off"
                 }
               },
@@ -650,7 +869,7 @@ data:
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "mps"
             },
             "overrides": []
           },
@@ -658,9 +877,10 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 16
+            "y": 24
           },
-          "id": 4,
+          "id": 10,
+          "interval": "$rate_interval",
           "options": {
             "legend": {
               "calcs": [],
@@ -681,12 +901,18 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "count(kube_node_status_condition{condition=\"Ready\",status=\"true\"})",
-              "legendFormat": "Ready Nodes",
-              "refId": "A"
+              "disableTextWrap": false,
+              "editorMode": "builder",
+              "expr": "rate(kafka_messages_processed_total[20s])",
+              "fullMetaSearch": false,
+              "includeNullMetadata": true,
+              "legendFormat": "{{pod}}",
+              "range": true,
+              "refId": "A",
+              "useBackend": false
             }
           ],
-          "title": "Ready Nodes Count",
+          "title": "Consumer Processing Rate - Per Pod",
           "type": "timeseries"
         },
         {
@@ -751,10 +977,10 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 24
+            "y": 32
           },
           "id": 2,
-          "interval": "10",
+          "interval": "$rate_interval",
           "options": {
             "legend": {
               "calcs": [],
@@ -780,6 +1006,7 @@ data:
               "exemplar": false,
               "expr": "kafka_consumer_group_ConsumerLagMetrics_Value{topic=\"trade-tx\", name=\"SumOffsetLag\"}",
               "fullMetaSearch": false,
+              "hide": true,
               "includeNullMetadata": true,
               "instant": false,
               "interval": "",
@@ -794,8 +1021,8 @@ data:
                 "uid": "prometheus"
               },
               "disableTextWrap": false,
-              "editorMode": "code",
-              "expr": "keda_scaler_metrics_value",
+              "editorMode": "builder",
+              "expr": "keda_scaler_metrics_value{metric=\"s0-kafka-trade-tx\"}",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -806,11 +1033,113 @@ data:
               "useBackend": false
             }
           ],
-          "title": "Kafka Partition Offset Lag",
+          "title": "KEDA Scaler Kafka OffsetLag SUM",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "default": true,
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "dashed"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "msg/s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 32
+          },
+          "id": 11,
+          "interval": "$rate_interval",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "asc"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "disableTextWrap": false,
+              "editorMode": "builder",
+              "expr": "keda_scaler_metrics_value{metric=\"s1-prometheus\"}",
+              "fullMetaSearch": false,
+              "hide": false,
+              "includeNullMetadata": true,
+              "instant": false,
+              "legendFormat": "Inbound Msg Sec",
+              "range": true,
+              "refId": "B",
+              "useBackend": false
+            }
+          ],
+          "title": "KEDA Scaler Kafka Inbound Msg Sec SUM",
           "type": "timeseries"
         }
       ],
-      "refresh": "auto",
+      "refresh": "",
       "schemaVersion": 39,
       "tags": [
         "kafka",
@@ -818,16 +1147,61 @@ data:
         "msk"
       ],
       "templating": {
-        "list": []
+        "list": [
+          {
+            "auto": false,
+            "auto_count": 30,
+            "auto_min": "10s",
+            "current": {
+              "selected": false,
+              "text": "5s",
+              "value": "5s"
+            },
+            "hide": 0,
+            "name": "rate_interval",
+            "options": [
+              {
+                "selected": false,
+                "text": "1s",
+                "value": "1s"
+              },
+              {
+                "selected": true,
+                "text": "5s",
+                "value": "5s"
+              },
+              {
+                "selected": false,
+                "text": "10s",
+                "value": "10s"
+              },
+              {
+                "selected": false,
+                "text": "30s",
+                "value": "30s"
+              },
+              {
+                "selected": false,
+                "text": "1m",
+                "value": "1m"
+              }
+            ],
+            "query": "1s,5s,10s,30s,1m",
+            "queryValue": "",
+            "refresh": 2,
+            "skipUrlSync": false,
+            "type": "interval"
+          }
+        ]
       },
       "time": {
-        "from": "now-15m",
-        "to": "now"
+        "from": "2026-04-30T20:14:49.201Z",
+        "to": "2026-04-30T20:38:36.905Z"
       },
       "timepicker": {},
       "timezone": "browser",
-      "title": "MSK & KEDA Monitoring",
-      "uid": "4db1af09-5195-4d5d-87f1-b39e79150e4d",
-      "version": 1,
+      "title": "MSK & KEDA Monitoring UPDATED",
+      "uid": "4db1af09-5195-4d5d-87f1-b39e79150e4a",
+      "version": 2,
       "weekStart": ""
     }

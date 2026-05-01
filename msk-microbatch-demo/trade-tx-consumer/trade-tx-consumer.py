@@ -2,7 +2,7 @@
 
 import logging
 import sys
-import json
+import signal
 import time
 import os
 
@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 logger.info(f"Python version: {sys.version}")
 
-from confluent_kafka import Consumer, KafkaError, KafkaException
+from confluent_kafka import Consumer, KafkaError, KafkaException, TIMESTAMP_NOT_AVAILABLE
 from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
-from prometheus_client import Counter, Gauge, Histogram, start_http_server
+from prometheus_client import Counter, Histogram, start_http_server
 
 logger.info(f"confluent-kafka version: {__import__('confluent_kafka').__version__}")
 
@@ -33,7 +33,6 @@ MESSAGE_PROCESSING_TIME = float(os.environ.get('MESSAGE_PROCESSING_TIME', '0.000
 
 # Prometheus metrics
 messages_processed = Counter('kafka_messages_processed_total', 'Total messages processed', ['status'])
-messages_per_second = Gauge('kafka_messages_per_second', 'Current message processing rate')
 batch_processing_time = Histogram('kafka_batch_processing_seconds', 'Time to process a batch')
 message_age = Histogram('kafka_message_age_seconds', 'Time from message production to consumption')
 
@@ -44,6 +43,7 @@ def oauth_cb(oauth_config):
 
 class KafkaBatchProcessor:
     def __init__(self):
+        self.running = True
         self.bootstrap_servers = KAFKA_BOOTSTRAP_SERVERS
         self.topic = KAFKA_TOPIC
         self.group_id = CONSUMER_GROUP
@@ -63,7 +63,7 @@ class KafkaBatchProcessor:
             'security.protocol': 'SASL_SSL',
             'sasl.mechanism': 'OAUTHBEARER',
             'oauth_cb': oauth_cb,
-            'session.timeout.ms': 10000,  # Faster group coordination
+            'session.timeout.ms': 10000,  # Clean shutdown handles normal scale-down; this is for crash recovery
             'heartbeat.interval.ms': 1000,  # More frequent heartbeats
             'max.poll.interval.ms': 300000,
             'fetch.min.bytes': 1,  # Don't wait for large batches
@@ -75,26 +75,21 @@ class KafkaBatchProcessor:
         
         self.consumer = Consumer(conf)
         self.consumer.subscribe([self.topic])
-        
-        self.total_messages = 0
-        self.start_time = time.time()
 
     def process_batch(self, messages):
         try:
             with batch_processing_time.time():
-                logger.info(f"Processing batch of {len(messages)} messages")
+                logger.debug(f"Processing batch of {len(messages)} messages")
                 
                 for msg in messages:
-                    value = json.loads(msg.value().decode('utf-8'))
-                    
                     # Calculate message age
-                    if msg.timestamp()[1]:
-                        age = (time.time() * 1000 - msg.timestamp()[1]) / 1000
+                    ts_type, ts_value = msg.timestamp()
+                    if ts_type != TIMESTAMP_NOT_AVAILABLE:
+                        age = (time.time() * 1000 - ts_value) / 1000
                         message_age.observe(age)
                     
                     time.sleep(self.message_process_time)
                     messages_processed.labels(status='success').inc()
-                    self.total_messages += 1
                 
                 # Batch processing time
                 time.sleep(self.batch_process_time)
@@ -103,19 +98,12 @@ class KafkaBatchProcessor:
                 if messages:
                     try:
                         self.consumer.commit(asynchronous=False)
-                        # logger.info("Successfully committed offsets")
                     except KafkaException as e:
                         error_code = e.args[0].code()
                         if error_code in (KafkaError.ILLEGAL_GENERATION, KafkaError._ASSIGNMENT_LOST, KafkaError._NO_OFFSET):
                             logger.warning(f"Commit failed ({error_code}), messages will be reprocessed")
                         else:
                             raise
-                
-                # Update rate metric
-                elapsed = time.time() - self.start_time
-                if elapsed > 0:
-                    rate = self.total_messages / elapsed
-                    messages_per_second.set(rate)
                 
         except Exception as e:
             logger.error(f"Error processing batch: {e}")
@@ -130,8 +118,8 @@ class KafkaBatchProcessor:
         batch_start_time = time.time()
         
         try:
-            while True:
-                msg = self.consumer.poll(timeout=1.0)  # Longer poll timeout
+            while self.running:
+                msg = self.consumer.poll(timeout=self.batch_timeout)
                 
                 if msg is not None and not msg.error():
                     messages.append(msg)
@@ -147,11 +135,18 @@ class KafkaBatchProcessor:
                     batch_start_time = time.time()
                     
         except KeyboardInterrupt:
-            logger.info("Shutting down...")
+            logger.info("Shutting down via SIGINT...")
         finally:
+            logger.info("Closing consumer, sending LeaveGroup...")
             self.consumer.close()
+            logger.info("Consumer closed.")
+
+def handle_sigterm(sig, frame):
+    logger.info("Received SIGTERM, initiating graceful shutdown...")
+    processor.running = False
 
 if __name__ == "__main__":
     start_http_server(8000)
     processor = KafkaBatchProcessor()
+    signal.signal(signal.SIGTERM, handle_sigterm)
     processor.run()
