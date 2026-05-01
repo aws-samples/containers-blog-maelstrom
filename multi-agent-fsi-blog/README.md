@@ -133,6 +133,17 @@ GITOPS_REPO_URL=https://github.com/<your-fork>/containers-blog-maelstrom \
 ./scripts/bootstrap.sh
 ```
 
+### Measured wall-clock from a clean account
+
+| Phase | Time | What happens |
+|---|---|---|
+| `terraform apply` cluster stack | ~15 min | VPC + subnets + NAT + EKS Auto Mode control plane + IAM + S3/DDB |
+| `terraform apply` bootstrap stack | ~2 min | ArgoCD Helm release + platform-root Application + custom Tofu health check |
+| ArgoCD addon reconcile (waves -1 → 3) | ~6 min | CRDs, Flux, Tofu Controller, Agent Gateway, LiteLLM |
+| Tofu Controller provisions AgentCore | ~5 min | Memory + Browser + Code Interpreter + IAM + 5 Pod Identity associations |
+| Agent pods ready + first query | ~1 min | MCP server, 4 Strands agents, Gateway policies |
+| **Total cold start** | **~30 min** | fresh AWS account → working multi-agent platform |
+
 ---
 
 ## Sync waves — how ArgoCD times the rollout
@@ -171,7 +182,49 @@ Watch it happen:
 kubectl get application -n argocd -w
 ```
 
-Expected end state: every Application `Synced / Healthy`.
+Expected end state: every Application `Synced / Healthy` — **except `financial-services`**, which may sit on `OutOfSync / Degraded` indefinitely. Read the next section before you panic.
+
+### Tofu Controller state-lineage quirk (don't panic)
+
+The Flux Terraform CR in wave 0 drives a runner Pod that applies `apps/financial-services/terraform/financial-services-components/`. In practice the first apply **succeeds** (AgentCore Memory + Browser + Code Interpreter created, IAM role + 5 Pod Identity associations created, `financial-services-outputs-v1` Secret populated with all 5 keys), but tf-controller then races back with a second reconcile whose in-cluster tfstate Secret lags behind — Tofu refuses with `Saved plan does not match the given state` and the CR reports `Ready=False / TFExecApplyFailed`.
+
+**Diagnose quickly** — if all three are true, the platform is actually working:
+
+```bash
+kubectl get secret financial-services-outputs-v1 -n financial-services -o jsonpath='{.data}' | jq 'keys'
+# ["agent_role_arn","browser_id","code_interpreter_id","memory_id","namespace"]
+
+kubectl get pods -n financial-services
+# 6 pods Running (mcp × 2, 4 agents)
+
+kubectl get agentgatewaypolicy -A
+# 5 policies, all ATTACHED=True
+```
+
+If the Secret is present and agents are Running, skip the fallback. The `Ready=False` is cosmetic; the cluster serves traffic.
+
+**Fallback when Tofu genuinely never succeeds** (runner OOM-kills into corrupt state; Secret stays missing after ~10 min):
+
+```bash
+cd multi-agent-fsi-blog/apps/financial-services/terraform/financial-services-components
+terraform init
+terraform apply -auto-approve \
+  -var aws_region=us-west-2 \
+  -var project_name=financial-services \
+  -var eks_cluster_name=finops-agents \
+  -var namespace=financial-services \
+  -var network_mode=PUBLIC
+
+kubectl create secret generic financial-services-outputs-v1 \
+  -n financial-services \
+  --from-literal=memory_id=$(terraform output -raw memory_id) \
+  --from-literal=browser_id=$(terraform output -raw browser_id) \
+  --from-literal=code_interpreter_id=$(terraform output -raw code_interpreter_id) \
+  --from-literal=agent_role_arn=$(terraform output -raw agent_role_arn) \
+  --from-literal=namespace=financial-services
+```
+
+Documented honestly because Tofu Controller has a standing issue with Pod Identity + its runner image's embedded aws-sdk-go v1 (the S3 backend fix that would have made this deterministic fails with `NoCredentialProviders`). ACK's bedrockagentcorecontrol-controller only manages `AgentRuntime` today — not Memory/Browser/CodeInterpreter — so out-of-band Terraform is the reliable path for AgentCore until that gap closes.
 
 ---
 
