@@ -193,7 +193,7 @@ resource "kubectl_manifest" "root_app" {
             },
             {
               name        = "eks.jwksJson"
-              value       = data.http.eks_jwks.response_body
+              value       = base64encode(trimspace(data.http.eks_jwks.response_body))
               forceString = true
             },
           ]

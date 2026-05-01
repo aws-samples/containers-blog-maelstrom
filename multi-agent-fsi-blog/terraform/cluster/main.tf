@@ -4,11 +4,11 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.70"
+      version = "~> 6.43"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.30"
+      version = "~> 3.1"
     }
   }
 }
@@ -38,7 +38,7 @@ locals {
 # ----------------------------------------------------------------------------
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.13"
+  version = "~> 6.6"
 
   name = "${var.cluster_name}-vpc"
   cidr = var.vpc_cidr
@@ -71,13 +71,13 @@ module "vpc" {
 # ----------------------------------------------------------------------------
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.31"
+  version = "~> 21.19"
 
-  cluster_name    = var.cluster_name
-  cluster_version = var.cluster_version
+  name               = var.cluster_name
+  kubernetes_version = var.cluster_version
 
   # Auto Mode
-  cluster_compute_config = {
+  compute_config = {
     enabled    = true
     node_pools = ["system", "general-purpose"]
   }
@@ -86,7 +86,7 @@ module "eks" {
   subnet_ids               = module.vpc.private_subnets
   control_plane_subnet_ids = module.vpc.private_subnets
 
-  cluster_endpoint_public_access = true
+  endpoint_public_access = true
 
   # Give the Terraform caller cluster-admin so we can Helm-install ArgoCD
   # from the bootstrap stack.

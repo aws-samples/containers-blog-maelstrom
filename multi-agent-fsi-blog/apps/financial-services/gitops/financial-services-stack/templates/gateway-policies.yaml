@@ -38,7 +38,7 @@ spec:
           audiences:
             - {{ $audience | quote }}
           jwks:
-            inline: {{ .Values.eks.jwksJson | quote }}
+            inline: {{ .Values.eks.jwksJson | b64dec | quote }}
 
 ---
 # ----------------------------------------------------------------------------
