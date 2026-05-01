@@ -71,7 +71,7 @@ spec:
     - name: aws_region
       value: {{ $.Values.awsRegion }}
     - name: project_name
-      value: {{ printf "%s-%s" $.Values.projectName $agent.name }}
+      value: {{ printf "fs-%s" $agent.name }}
     - name: eks_cluster_name
       value: {{ $.Values.eksClusterName }}
     - name: namespace
