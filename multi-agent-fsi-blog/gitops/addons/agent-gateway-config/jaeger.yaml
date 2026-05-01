@@ -35,10 +35,7 @@ spec:
               containerPort: 16686
           resources:
             requests:
-              cpu: 200m
-              memory: 512Mi
-            limits:
-              cpu: "1"
+              cpu: 500m
               memory: 1Gi
 ---
 apiVersion: v1

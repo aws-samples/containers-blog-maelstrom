@@ -95,10 +95,7 @@ proxy_config:
 
 resources:
   requests:
-    cpu: 500m
-    memory: 1Gi
-  limits:
-    cpu: "2"
+    cpu: "1"
     memory: 3Gi
 
 replicaCount: 2
@@ -115,3 +112,8 @@ postgresql:
     registry: docker.io
     repository: bitnamilegacy/postgresql
     tag: 16.2.0-debian-12-r6
+  primary:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi

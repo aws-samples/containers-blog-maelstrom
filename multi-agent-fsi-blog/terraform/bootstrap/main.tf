@@ -113,11 +113,41 @@ resource "helm_release" "argocd" {
       global = {
         domain = var.argocd_domain
       }
+      # ArgoCD's default resources are `{}` (no requests/limits). On a
+      # busy cluster the application-controller spends most of its time
+      # on Lua health checks + Helm rendering — unbounded CPU under load
+      # caused Applications to stall mid-reconcile in earlier testing.
+      # Requests only, no limits — we want the controller to burst during
+      # reconcile storms without getting CPU-throttled.
+      controller = {
+        resources = {
+          requests = { cpu = "1", memory = "2Gi" }
+        }
+      }
       server = {
         service = {
           type = "ClusterIP"
         }
         extraArgs = ["--insecure"]
+        resources = {
+          requests = { cpu = "500m", memory = "1Gi" }
+        }
+      }
+      repoServer = {
+        resources = {
+          requests = { cpu = "1", memory = "2Gi" }
+        }
+      }
+      redis = {
+        resources = {
+          requests = { cpu = "500m", memory = "1Gi" }
+        }
+      }
+      applicationSet = {
+        enabled = true
+        resources = {
+          requests = { cpu = "500m", memory = "1Gi" }
+        }
       }
       configs = {
         params = {
@@ -159,9 +189,6 @@ resource "helm_release" "argocd" {
       }
       notifications = {
         enabled = false
-      }
-      applicationSet = {
-        enabled = true
       }
     }),
   ]

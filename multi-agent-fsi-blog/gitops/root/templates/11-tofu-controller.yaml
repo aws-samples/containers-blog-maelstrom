@@ -16,6 +16,12 @@ spec:
     helm:
       releaseName: tf-controller
       values: |
+        # tf-controller (the reconciler) does light work — watches CRs,
+        # spawns runner Pods. runner pods do the heavy lifting and their
+        # resources are set per-CR in the financial-services chart.
+        # Requests only, no limits.
+        resources:
+          requests: { cpu: 500m, memory: 1Gi }
         runner:
           serviceAccount:
             # Pod Identity associates this SA with an IAM role that can create

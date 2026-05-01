@@ -26,6 +26,15 @@ spec:
           create: false
         kustomizeController:
           create: false
+        # Explicit resource requests. Flux source-controller caches Git
+        # repositories in memory and does heavy YAML parsing. Requests
+        # only — no limits — so it can burst during reconcile storms.
+        sourceController:
+          resources:
+            requests: { cpu: "1", memory: 2Gi }
+        notificationController:
+          resources:
+            requests: { cpu: 500m, memory: 1Gi }
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.fluxSystem | quote }}
