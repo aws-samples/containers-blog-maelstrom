@@ -168,12 +168,31 @@ Wave │ Application          │ Why
 
 ```
 Wave │ Resource
-─────┼────────────────────────────────────────────────────────
+─────┼─────────────────────────────────────────────────────────────
  -1  │ tf-runner ServiceAccount + ClusterRoleBinding
-  0  │ Flux Terraform CR → provisions AgentCore
-      │   (blocks further waves until Ready=True)
-  1  │ financial-tools-mcp Deployment + Secrets
-  2  │ 4× agent Deployments, Gateway routes + backends, authz policies
+  0  │ Per-agent Flux Terraform CRs — one per agent that has any
+      │   agentcore.* toggle set in .Values.agents. Each CR
+      │   provisions only that agent's AgentCore resources, its
+      │   own IAM role, and exactly one Pod Identity association.
+      │   Each CR writes its outputs to a per-agent Secret.
+  1  │ financial-tools-mcp Deployment + litellm-api-key Secret
+  2  │ Per-agent SA + Service + Deployment, Gateway backends, routes,
+      │   and authz policies (authz derived from .Values.agents[].role
+      │   and .tools).
+```
+
+Per-agent CRs mean a Tofu flake on (say) `risk-assessment` no longer blocks `market-data` from rolling out — their Terraform CRs, runner Pods, tfstate Secrets, and outputs Secrets are all independent. Adding a new specialist is an entry in `.Values.agents`:
+
+```yaml
+agents:
+  - name: compliance-check
+    role: specialist
+    image: { repository: financial-services-agents, tag: compliance-v1 }
+    agentcore:
+      memory: false
+      browser: false
+      codeInterpreter: true
+    tools: []
 ```
 
 Watch it happen:
@@ -182,17 +201,22 @@ Watch it happen:
 kubectl get application -n argocd -w
 ```
 
-Expected end state: every Application `Synced / Healthy` — **except `financial-services`**, which may sit on `OutOfSync / Degraded` indefinitely. Read the next section before you panic.
+Expected end state: every Application `Synced / Healthy` — **except `financial-services`**, which may sit on `OutOfSync / Degraded` indefinitely while one of its per-agent Terraform CRs retries. Read the next section before you panic.
 
 ### Tofu Controller state-lineage quirk (don't panic)
 
-The Flux Terraform CR in wave 0 drives a runner Pod that applies `apps/financial-services/terraform/financial-services-components/`. In practice the first apply **succeeds** (AgentCore Memory + Browser + Code Interpreter created, IAM role + 5 Pod Identity associations created, `financial-services-outputs-v1` Secret populated with all 5 keys), but tf-controller then races back with a second reconcile whose in-cluster tfstate Secret lags behind — Tofu refuses with `Saved plan does not match the given state` and the CR reports `Ready=False / TFExecApplyFailed`.
+Each agent with an `agentcore.*` toggle gets its own Flux Terraform CR that applies `apps/financial-services/terraform/financial-services-components/` with per-agent `project_name`, `agent_sa`, and `enable_*` vars. In practice the first apply **succeeds** (the agent's AgentCore resources created, its IAM role and Pod Identity association created, its per-agent `financial-services-<agent>-outputs-v1` Secret populated). But tf-controller then races back with a second reconcile whose in-cluster tfstate Secret lags behind — Tofu refuses with `Saved plan does not match the given state` and the CR reports `Ready=False / TFExecApplyFailed`.
+
+Per-agent CRs mean this stays isolated: one agent's CR going Red doesn't stop the other three from reaching steady state.
 
 **Diagnose quickly** — if all three are true, the platform is actually working:
 
 ```bash
-kubectl get secret financial-services-outputs-v1 -n financial-services -o jsonpath='{.data}' | jq 'keys'
-# ["agent_role_arn","browser_id","code_interpreter_id","memory_id","namespace"]
+kubectl get secret -n financial-services | grep outputs
+# financial-services-financial-advisor-outputs-v1   Opaque   3
+# financial-services-portfolio-analyst-outputs-v1   Opaque   3
+# financial-services-risk-assessment-outputs-v1     Opaque   3
+# financial-services-market-data-outputs-v1         Opaque   3
 
 kubectl get pods -n financial-services
 # 6 pods Running (mcp × 2, 4 agents)
@@ -201,28 +225,33 @@ kubectl get agentgatewaypolicy -A
 # 5 policies, all ATTACHED=True
 ```
 
-If the Secret is present and agents are Running, skip the fallback. The `Ready=False` is cosmetic; the cluster serves traffic.
+If the per-agent outputs Secrets are present and agents are Running, skip the fallback. The `Ready=False` on a per-agent Terraform CR is cosmetic; that agent's Deployment has already been wired up.
 
-**Fallback when Tofu genuinely never succeeds** (runner OOM-kills into corrupt state; Secret stays missing after ~10 min):
+**Fallback when one agent's Tofu CR genuinely never succeeds** (runner OOM-kills into corrupt state; that agent's outputs Secret stays missing after ~10 min). Scope to one agent — the others keep running. Example for `portfolio-analyst`:
 
 ```bash
 cd multi-agent-fsi-blog/apps/financial-services/terraform/financial-services-components
 terraform init
 terraform apply -auto-approve \
   -var aws_region=us-west-2 \
-  -var project_name=financial-services \
+  -var project_name=financial-services-portfolio-analyst \
   -var eks_cluster_name=finops-agents \
   -var namespace=financial-services \
+  -var agent_sa=portfolio-analyst-sa \
+  -var enable_memory=false \
+  -var enable_browser=false \
+  -var enable_code_interpreter=true \
   -var network_mode=PUBLIC
 
-kubectl create secret generic financial-services-outputs-v1 \
+kubectl create secret generic financial-services-portfolio-analyst-outputs-v1 \
   -n financial-services \
-  --from-literal=memory_id=$(terraform output -raw memory_id) \
-  --from-literal=browser_id=$(terraform output -raw browser_id) \
   --from-literal=code_interpreter_id=$(terraform output -raw code_interpreter_id) \
-  --from-literal=agent_role_arn=$(terraform output -raw agent_role_arn) \
   --from-literal=namespace=financial-services
+
+kubectl rollout restart deploy/portfolio-analyst -n financial-services
 ```
+
+Repeat per-agent if multiple CRs fail — but in practice only one tends to get unlucky per bootstrap.
 
 Documented honestly because Tofu Controller has a standing issue with Pod Identity + its runner image's embedded aws-sdk-go v1 (the S3 backend fix that would have made this deterministic fails with `NoCredentialProviders`). ACK's bedrockagentcorecontrol-controller only manages `AgentRuntime` today — not Memory/Browser/CodeInterpreter — so out-of-band Terraform is the reliable path for AgentCore until that gap closes.
 
