@@ -12,7 +12,10 @@ spec:
   source:
     repoURL: https://flux-iac.github.io/tofu-controller
     chart: tf-controller
-    targetRevision: 0.16.2
+    # Only versions up to 0.16.0-rc.4 are published to the Helm index
+    # (https://flux-iac.github.io/tofu-controller/index.yaml); 0.16.x
+    # GitHub release tags are not chart releases. rc.4 is what exists.
+    targetRevision: 0.16.0-rc.4
     helm:
       releaseName: tf-controller
       values: |
