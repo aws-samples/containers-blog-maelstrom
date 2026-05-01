@@ -37,37 +37,21 @@ spec:
     kind: GitRepository
     name: financial-services-terraform-{{ .Values.version }}
 
-  # Remote S3 backend with DynamoDB locking. State survives the runner Pod
-  # lifecycle, which is the single biggest flake we kept hitting: the
-  # default Kubernetes backend ties state to a Secret that only gets
-  # written on clean pod exit.
-  # Remote S3 backend with DynamoDB locking. State survives the runner Pod
-  # lifecycle — the default Kubernetes Secret backend only writes state on
-  # clean pod exit and corrupts on SIGKILL.
-  #
-  # Tofu Controller wraps backendConfig.customConfiguration with its own
-  # `terraform { ... }` block when it writes backend_override.tf, so we
-  # supply ONLY the inner backend stanza (no outer terraform wrapper).
-  {{- if .Values.terraform.s3Backend.bucket }}
-  backendConfig:
-    customConfiguration: |-
-      backend "s3" {
-        bucket         = "{{ .Values.terraform.s3Backend.bucket }}"
-        key            = "{{ .Values.terraform.s3Backend.key }}"
-        region         = "{{ .Values.awsRegion }}"
-        dynamodb_table = "{{ .Values.terraform.s3Backend.lockTable }}"
-        encrypt        = true
-      }
-  {{- end }}
+  # Remote S3 backend tried and parked — the runner image's embedded
+  # Terraform binary ships aws-sdk-go v1 without Pod Identity support,
+  # so the S3 backend Init fails with NoCredentialProviders even with a
+  # valid Pod Identity association. Falling back to the default
+  # Kubernetes Secret backend with tunings below. Documented as a
+  # known limitation in the blog post; when this fails, fallback is to
+  # run `terraform apply` locally from terraform/financial-services-components
+  # and kubectl-create the outputs Secret by hand.
 
-  # Runner Pod template — the biggest source of flakiness was the runner
-  # getting SIGKILL'd mid-apply (OOMKilled at the default 1Gi, or evicted
-  # by Auto Mode node consolidation). These settings give it room + time.
+  # Runner Pod template — the default 1Gi is too small, and Auto Mode's
+  # node consolidation can evict long-running pods mid-apply.
   # Note: the Tofu Controller CRD restricts runnerPodTemplate.spec to a
   # small allowlist (affinity, env, image, resources, securityContext,
   # tolerations, volumes, etc.) — it does NOT expose
-  # terminationGracePeriodSeconds. For long applies the S3 backend is
-  # the real defense; controller restarts never lose state.
+  # terminationGracePeriodSeconds.
   runnerPodTemplate:
     metadata:
       annotations:
