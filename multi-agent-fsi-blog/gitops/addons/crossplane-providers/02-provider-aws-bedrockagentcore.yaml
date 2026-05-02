@@ -2,6 +2,13 @@ apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
   name: provider-aws-bedrockagentcore
+  annotations:
+    # Wave 1: runs after provider-family-aws (wave 0) is Healthy, so the
+    # ProviderConfig / ProviderConfigUsage CRDs exist before this
+    # provider's controller starts watching them. Without sequencing,
+    # the child pod crashes with "timed out waiting for cache to be
+    # synced for ProviderConfigUsage" until k8s backoff gets lucky.
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   package: xpkg.upbound.io/upbound/provider-aws-bedrockagentcore:v2.5.3
   packagePullPolicy: IfNotPresent

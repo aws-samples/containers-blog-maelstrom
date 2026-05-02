@@ -2,6 +2,11 @@ apiVersion: pkg.crossplane.io/v1beta1
 kind: DeploymentRuntimeConfig
 metadata:
   name: aws-provider-runtime
+  annotations:
+    # Runtime config must exist before any Provider that references it
+    # starts reconciling — the Provider controller resolves the
+    # runtimeConfigRef up front.
+    argocd.argoproj.io/sync-wave: "-1"
 spec:
   # Crossplane creates this ServiceAccount automatically. Match the name
   # to the EKS Pod Identity association created by terraform/cluster/

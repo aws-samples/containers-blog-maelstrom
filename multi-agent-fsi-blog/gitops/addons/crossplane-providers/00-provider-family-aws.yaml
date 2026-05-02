@@ -9,6 +9,14 @@ apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
   name: provider-family-aws
+  annotations:
+    # Wave 0: install the family provider first. Its package registers
+    # the shared CRDs (ProviderConfig, ProviderConfigUsage) that every
+    # child provider needs at controller startup. ArgoCD waits for this
+    # Provider to report Healthy=True — which only happens after the
+    # package revision is Active and the pod is Ready — before moving
+    # on to the child providers in wave 1.
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   package: xpkg.upbound.io/upbound/provider-family-aws:v2.5.3
   packagePullPolicy: IfNotPresent
