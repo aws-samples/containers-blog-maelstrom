@@ -125,6 +125,9 @@ resource "aws_iam_role_policy" "crossplane_provider" {
           "eks:ListPodIdentityAssociations",
           "eks:UpdatePodIdentityAssociation",
           "eks:DescribeCluster",
+          "eks:TagResource",
+          "eks:UntagResource",
+          "eks:ListTagsForResource",
         ]
         Resource = "*"
       },
