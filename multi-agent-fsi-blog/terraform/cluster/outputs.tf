@@ -38,22 +38,12 @@ output "kubeconfig_command" {
   value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
 }
 
-output "tf_runner_role_arn" {
-  description = "IAM role ARN bound to the flux-system/tf-runner ServiceAccount via Pod Identity"
-  value       = aws_iam_role.tf_runner.arn
+output "crossplane_provider_role_arn" {
+  description = "IAM role ARN bound to crossplane-system/crossplane-aws-provider-sa via Pod Identity. Used by every Upbound AWS provider (aws-bedrockagentcore, aws-iam, aws-eks) to authenticate to AWS."
+  value       = aws_iam_role.crossplane_provider.arn
 }
 
-output "tf_runner_role_name" {
-  description = "IAM role name for the Tofu Controller runner pod"
-  value       = aws_iam_role.tf_runner.name
-}
-
-output "tfstate_bucket" {
-  description = "S3 bucket backing in-cluster Terraform state"
-  value       = aws_s3_bucket.tfstate.id
-}
-
-output "tfstate_lock_table" {
-  description = "DynamoDB table backing in-cluster Terraform state locks"
-  value       = aws_dynamodb_table.tfstate_locks.id
+output "crossplane_provider_role_name" {
+  description = "Crossplane AWS provider IAM role name"
+  value       = aws_iam_role.crossplane_provider.name
 }

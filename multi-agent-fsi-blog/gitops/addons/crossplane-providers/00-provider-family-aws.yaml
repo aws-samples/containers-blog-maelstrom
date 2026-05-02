@@ -1,0 +1,20 @@
+# -----------------------------------------------------------------------------
+# Upbound family provider for AWS (base)
+#
+# v2 family providers split authentication + shared config (this package)
+# from per-service resource providers (aws-bedrockagentcore, aws-iam, aws-eks).
+# Every per-service provider depends on this one for ProviderConfig.
+# -----------------------------------------------------------------------------
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-family-aws
+spec:
+  package: xpkg.upbound.io/upbound/provider-family-aws:v2.5.3
+  packagePullPolicy: IfNotPresent
+  revisionActivationPolicy: Automatic
+  revisionHistoryLimit: 1
+  runtimeConfigRef:
+    apiVersion: pkg.crossplane.io/v1beta1
+    kind: DeploymentRuntimeConfig
+    name: aws-provider-runtime

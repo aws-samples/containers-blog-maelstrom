@@ -2,11 +2,17 @@
 #
 # End-to-end bootstrap for the blog walkthrough.
 #
-# 1. terraform apply cluster/        → EKS Auto Mode + Pod Identity + VPC
+# 1. terraform apply cluster/        → EKS Auto Mode + VPC + Pod Identity +
+#                                        IAM role for the Crossplane AWS
+#                                        providers (via Pod Identity on the
+#                                        crossplane-system/crossplane-aws-
+#                                        provider-sa ServiceAccount).
 # 2. update kubeconfig
-# 3. terraform apply bootstrap/      → ArgoCD + app-of-apps root Application
-# 4. wait for ArgoCD to reconcile all addons
-# 5. print credentials + next-step commands
+# 3. terraform apply bootstrap/      → ArgoCD + app-of-apps root Application.
+# 4. wait for ArgoCD to reconcile all addons:
+#    Crossplane core, Upbound AWS providers (bedrockagentcore, iam, eks),
+#    Agent Gateway, agent-gateway-config, LiteLLM, financial-services.
+# 5. print credentials + next-step commands.
 #
 # Set AWS_REGION, CLUSTER_NAME, and GITOPS_REPO_URL env vars to override
 # defaults from terraform/*/variables.tf.
@@ -52,8 +58,8 @@ APPS=(
   agentgateway-crds
   gateway-api-crds
   auto-mode-defaults
-  flux
-  tofu-controller
+  crossplane-core
+  crossplane-providers
   agent-gateway
   agent-gateway-config
   litellm
@@ -67,37 +73,43 @@ for app in "${APPS[@]}"; do
 done
 ok "Platform addons synced"
 
-step "Waiting for Tofu Controller to provision AgentCore (~3-5 minutes)"
-# The financial-services chart's wave 0 creates a Flux Terraform CR that
-# provisions Bedrock AgentCore Memory/Browser/CodeInterpreter + IAM + Pod
-# Identity associations. The argocd-cm custom health check gates sync-wave
-# progression on this CR reaching Ready=True, so once financial-services
-# reports Synced+Healthy, AgentCore is live and the outputs Secret exists.
+step "Waiting for Upbound AWS providers to become Healthy"
+# The three Providers pull their packages from xpkg.upbound.io and install
+# their CRDs dynamically. The financial-services chart depends on those
+# CRDs (Memory / Browser / CodeInterpreter / Role / RolePolicy /
+# PodIdentityAssociation), so we can't move on until they're up.
+for provider in provider-family-aws provider-aws-bedrockagentcore provider-aws-iam provider-aws-eks; do
+  echo "  - waiting on Provider/${provider}"
+  kubectl wait provider.pkg.crossplane.io/${provider} \
+    --for=condition=Healthy --timeout=10m || true
+done
+ok "Crossplane providers Healthy"
+
+step "Waiting for financial-services + per-agent Crossplane MRs"
+# Every agent with an agentcore.* toggle gets a Crossplane Memory / Browser /
+# CodeInterpreter managed resource. Agents wait on the per-resource
+# connection Secret Crossplane publishes (<agent>-<kind>-outputs) so pods
+# don't come up with empty env.
 kubectl -n argocd wait application/financial-services \
   --for=jsonpath='{.status.sync.status}'=Synced --timeout=15m || true
-kubectl -n argocd wait application/financial-services \
-  --for=jsonpath='{.status.health.status}'=Healthy --timeout=15m || true
-ok "financial-services Synced + Healthy"
-
-step "Ensuring agent pods picked up AgentCore env from outputs Secret"
-# Safety net: even though the custom health check now waits for the
-# Terraform CR to be Ready before downstream waves run, bouncing the
-# Deployments is cheap and guarantees pods don't hold stale/empty env.
-if kubectl -n financial-services get secret financial-services-outputs-v1 >/dev/null 2>&1; then
-  kubectl -n financial-services rollout restart \
-    deploy/financial-advisor \
-    deploy/portfolio-analyst \
-    deploy/risk-assessment \
-    deploy/market-data \
-    2>/dev/null || true
-  for d in financial-advisor portfolio-analyst risk-assessment market-data; do
-    kubectl -n financial-services rollout status deploy/$d --timeout=5m || true
+# Managed resources don't have a "Healthy" health.status the way Deployments
+# do — the ArgoCD Application's Health reflects only the aggregate. Wait on
+# individual MR Ready conditions instead.
+for kind in memories browsers codeinterpreters roles rolepolicies podidentityassociations; do
+  for mr in $(kubectl -n financial-services get ${kind}.aws.upbound.io -o name 2>/dev/null); do
+    echo "  - waiting on ${mr}"
+    kubectl -n financial-services wait ${mr} \
+      --for=condition=Ready --timeout=10m || true
   done
-  ok "Agents running with live AgentCore IDs"
-else
-  echo "  ! financial-services-outputs-v1 Secret missing. Inspect with:"
-  echo "      kubectl describe terraform financial-services-components-v1 -n financial-services"
-fi
+done
+ok "financial-services AgentCore provisioned"
+
+step "Restarting agent Deployments so they pick up live AgentCore IDs"
+for d in financial-advisor portfolio-analyst risk-assessment market-data; do
+  kubectl -n financial-services rollout restart deploy/${d} 2>/dev/null || true
+  kubectl -n financial-services rollout status deploy/${d} --timeout=5m || true
+done
+ok "Agents running"
 
 step "Bootstrap complete"
 cat <<EOF
@@ -120,7 +132,8 @@ cat <<EOF
 
  Next steps:
    • Verify addons     : kubectl get application -n argocd
-   • Financial demo    : kubectl -n argocd get application financial-services
+   • AgentCore MRs     : kubectl get memories,browsers,codeinterpreters -n financial-services
+   • Agent IAM + PIA   : kubectl get roles,rolepolicies,podidentityassociations -n financial-services
    • Jaeger UI         : kubectl port-forward -n agentgateway-system svc/jaeger 16686:16686
    • LiteLLM admin     : kubectl port-forward -n litellm svc/litellm 4000:4000
 

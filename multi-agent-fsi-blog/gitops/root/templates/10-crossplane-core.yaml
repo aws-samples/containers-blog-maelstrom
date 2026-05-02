@@ -1,0 +1,47 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: crossplane-core
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://charts.crossplane.io/stable
+    chart: crossplane
+    targetRevision: 1.18.0
+    helm:
+      releaseName: crossplane
+      values: |
+        # Crossplane core controller + RBAC + CRDs.
+        # Providers are installed as Provider CRs in the next ArgoCD Application.
+        resourcesCrossplane:
+          requests:
+            cpu: "1"
+            memory: 2Gi
+        resourcesRBACManager:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+        args:
+          - --enable-usages
+          - --enable-realtime-compositions
+        # Let Crossplane manage ServiceAccount creation; Pod Identity target
+        # applied in the crossplane-providers Application via DeploymentRuntimeConfig.
+        serviceAccount:
+          create: true
+        metrics:
+          enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.crossplane | quote }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

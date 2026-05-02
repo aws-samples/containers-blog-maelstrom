@@ -22,11 +22,12 @@ bedrockModelId: us.anthropic.claude-sonnet-4-6
 #   role               orchestrator | specialist — drives gateway authz
 #   image.tag          unique per agent (repo is shared)
 #   agentcore.*        per-agent AgentCore capability toggles. Setting any of
-#                      these to true spawns a dedicated Flux Terraform CR that
-#                      provisions an AgentCore resource for *this* agent only
-#                      (no cross-agent sharing). Setting all to false skips
-#                      the Terraform CR entirely — the agent still gets
-#                      Bedrock model access via the base agent-iam CR.
+#                      these to true spawns a dedicated Crossplane Memory /
+#                      Browser / CodeInterpreter managed resource — each
+#                      provisioned independently by the Upbound
+#                      provider-aws-bedrockagentcore controller. Agents with
+#                      every toggle off still get an IAM role + Pod Identity
+#                      association so they can invoke Bedrock models.
 #   tools              List of MCP tool names this agent is allowed to call
 #                      through /mcp. Used by the Gateway MCP authz policy.
 # ---------------------------------------------------------------------------
@@ -110,17 +111,6 @@ litellm:
   # externally (ExternalSecrets, SealedSecrets, etc.) for production.
   createApiKeySecret: true
   apiKeyValue: sk-finops-demo-master
-
-# Git source for the Flux Terraform controller. The app-of-apps root app
-# overrides `terraform.git.url`, `terraform.git.branch`, and the S3 backend
-# bucket/key/lockTable via helm parameters at sync time so these defaults
-# only matter for standalone deploys.
-terraform:
-  git:
-    url: https://github.com/aws-samples/containers-blog-maelstrom
-    branch: multi-agent-fsi-blog
-  path: ./multi-agent-fsi-blog/apps/financial-services/terraform/financial-services-components
-  serviceAccountName: tf-runner
 
 # EKS cluster identity used by the Gateway's jwtAuthentication policy.
 # Populated by the app-of-apps root chart (which in turn is fed by

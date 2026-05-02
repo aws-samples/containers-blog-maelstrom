@@ -1,0 +1,10 @@
+apiVersion: aws.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  # Use the IRSA/Pod Identity credentials injected by the
+  # crossplane-aws-provider-sa ServiceAccount. Every managed resource
+  # that doesn't set providerConfigRef falls back to this default.
+  credentials:
+    source: IRSA

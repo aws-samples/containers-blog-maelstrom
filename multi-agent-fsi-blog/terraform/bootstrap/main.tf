@@ -38,20 +38,6 @@ data "aws_eks_cluster_auth" "cluster" {
 }
 
 # ----------------------------------------------------------------------------
-# Read the cluster stack's state to pick up the tfstate S3 bucket name
-# (which has a random suffix for global uniqueness) and the lock table name.
-# Both are consumed by the financial-services Helm chart so the Flux Terraform
-# CR uses a real S3 backend instead of the default in-cluster Secret backend.
-# ----------------------------------------------------------------------------
-data "terraform_remote_state" "cluster" {
-  backend = "local"
-
-  config = {
-    path = "${path.module}/../cluster/terraform.tfstate"
-  }
-}
-
-# ----------------------------------------------------------------------------
 # EKS OIDC issuer + JWKS — used by Agent Gateway to validate ServiceAccount
 # tokens. The issuer URL is cluster-specific (set at creation time). The JWKS
 # is a public static document at <issuer>/keys. Both are captured at bootstrap
@@ -153,36 +139,6 @@ resource "helm_release" "argocd" {
         params = {
           "server.insecure" = true
         }
-        # Custom health check for Flux Terraform CR. Without this ArgoCD
-        # marks the Terraform resource Healthy the instant the manifest is
-        # accepted by the API server, so sync-wave 0 "completes" before
-        # Tofu Controller has actually run `terraform apply`. Downstream
-        # waves (MCP server, agents) then pull the outputs Secret that
-        # doesn't exist yet and pods start with empty env vars.
-        # Gate on the Ready condition instead.
-        cm = {
-          "resource.customizations.health.infra.contrib.fluxcd.io_Terraform" = <<-EOT
-            hs = {}
-            if obj.status ~= nil and obj.status.conditions ~= nil then
-              for i, c in ipairs(obj.status.conditions) do
-                if c.type == "Ready" then
-                  if c.status == "True" then
-                    hs.status = "Healthy"
-                    hs.message = c.message
-                    return hs
-                  elseif c.status == "False" then
-                    hs.status = "Degraded"
-                    hs.message = c.message
-                    return hs
-                  end
-                end
-              end
-            end
-            hs.status = "Progressing"
-            hs.message = "Waiting for Terraform Ready condition"
-            return hs
-          EOT
-        }
       }
       dex = {
         enabled = false
@@ -236,19 +192,6 @@ resource "kubectl_manifest" "root_app" {
               name        = "eks.jwksJson"
               value       = base64encode(trimspace(data.http.eks_jwks.response_body))
               forceString = true
-            },
-            # Remote S3 + DynamoDB backend for in-cluster Terraform state.
-            # The default Kubernetes Secret backend corrupts on mid-apply
-            # runner Pod restarts, which is the single biggest flake we
-            # hit. Reading the bucket name from the cluster stack's
-            # state avoids the random suffix problem.
-            {
-              name  = "terraform.s3Backend.bucket"
-              value = data.terraform_remote_state.cluster.outputs.tfstate_bucket
-            },
-            {
-              name  = "terraform.s3Backend.lockTable"
-              value = data.terraform_remote_state.cluster.outputs.tfstate_lock_table
             },
           ]
         }

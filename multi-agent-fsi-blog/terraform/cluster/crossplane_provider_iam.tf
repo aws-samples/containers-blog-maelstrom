@@ -1,25 +1,31 @@
 # ----------------------------------------------------------------------------
-# IAM role + Pod Identity association for the Tofu Controller runner pod.
+# IAM role + Pod Identity association for the Crossplane AWS providers.
 #
-# The Tofu Controller runs Terraform inside the cluster (via `tf-runner` SA in
-# the flux-system namespace) to provision AgentCore Memory/Browser/Code
-# Interpreter, IAM roles for agent pods, and Pod Identity associations for
-# each agent SA. This role is what those in-cluster Terraform plans execute
-# under.
+# Each Upbound Provider (aws-bedrockagentcore, aws-iam, aws-eks) runs its
+# own controller Deployment in crossplane-system. They all share one
+# ServiceAccount (crossplane-aws-provider-sa) via the DeploymentRuntimeConfig
+# in gitops/addons/crossplane-providers/01-deployment-runtime-config.yaml.
+# Pod Identity binds that SA to the IAM role below.
 #
-# The SA itself is created by the tf-controller Helm chart when ArgoCD syncs
-# `gitops/root/11-tofu-controller.yaml`. Pod Identity binds by namespace + SA
-# name, so the association is safe to create before the SA exists.
+# Scope: every AWS API call Crossplane makes on our behalf runs under this
+# role. That covers:
+#   - AgentCore Memory/Browser/Code Interpreter lifecycle
+#   - IAM Role + RolePolicy lifecycle (for per-agent execution roles)
+#   - EKS PodIdentityAssociation lifecycle (binding agent SAs to those roles)
+#   - Bedrock model invocation (reused by LiteLLM — see the litellm PIA below)
+#
+# Pod Identity binds by namespace + SA name, so the association is safe to
+# create before Crossplane and its providers roll out.
 # ----------------------------------------------------------------------------
 
 locals {
-  tf_runner_namespace = "flux-system"
-  tf_runner_sa        = "tf-runner"
-  tf_runner_role_name = "${var.cluster_name}-tf-runner"
+  crossplane_namespace     = "crossplane-system"
+  crossplane_provider_sa   = "crossplane-aws-provider-sa"
+  crossplane_provider_role = "${var.cluster_name}-crossplane-aws-provider"
 }
 
-resource "aws_iam_role" "tf_runner" {
-  name = local.tf_runner_role_name
+resource "aws_iam_role" "crossplane_provider" {
+  name = local.crossplane_provider_role
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -38,20 +44,23 @@ resource "aws_iam_role" "tf_runner" {
   tags = local.tags
 }
 
-resource "aws_iam_role_policy" "tf_runner" {
-  name = "${local.tf_runner_role_name}-policy"
-  role = aws_iam_role.tf_runner.id
+resource "aws_iam_role_policy" "crossplane_provider" {
+  name = "${local.crossplane_provider_role}-policy"
+  role = aws_iam_role.crossplane_provider.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # AgentCore resource lifecycle + Bedrock read-only lookups.
+      # AgentCore resource lifecycle — Crossplane's
+      # provider-aws-bedrockagentcore calls these for every Memory /
+      # Browser / CodeInterpreter MR in the financial-services chart.
       {
         Sid      = "AgentCoreFullControl"
         Effect   = "Allow"
         Action   = ["bedrock-agentcore:*"]
         Resource = "*"
       },
+      # Bedrock metadata the AgentCore provider needs at plan time.
       {
         Sid    = "BedrockMetadata"
         Effect = "Allow"
@@ -63,9 +72,9 @@ resource "aws_iam_role_policy" "tf_runner" {
         ]
         Resource = "*"
       },
-      # LiteLLM reuses this role (via Pod Identity in the litellm ns) to
-      # actually call Bedrock models. Without Invoke* it can auth but every
-      # completion returns 500 "not authorized to perform: bedrock:
+      # LiteLLM reuses this role via its own Pod Identity association
+      # (below) to actually call Bedrock models. Without Invoke* every
+      # completion 500s with "not authorized to perform: bedrock:
       # InvokeModelWithResponseStream".
       {
         Sid    = "BedrockInvoke"
@@ -81,7 +90,8 @@ resource "aws_iam_role_policy" "tf_runner" {
           "arn:aws:bedrock:*:*:inference-profile/*",
         ]
       },
-      # IAM for creating the agent execution role + attaching inline policies.
+      # IAM — Crossplane's provider-aws-iam creates/deletes per-agent
+      # execution roles and attaches inline policies.
       {
         Sid    = "IamForAgentRole"
         Effect = "Allow"
@@ -103,7 +113,8 @@ resource "aws_iam_role_policy" "tf_runner" {
         ]
         Resource = "*"
       },
-      # Pod Identity associations for each agent + MCP server SA.
+      # Pod Identity — Crossplane's provider-aws-eks creates/deletes
+      # PodIdentityAssociation MRs binding each agent SA to its role.
       {
         Sid    = "EksPodIdentity"
         Effect = "Allow"
@@ -117,18 +128,7 @@ resource "aws_iam_role_policy" "tf_runner" {
         ]
         Resource = "*"
       },
-      # VPC lookups used by Terraform data sources.
-      {
-        Sid    = "VpcLookups"
-        Effect = "Allow"
-        Action = [
-          "ec2:DescribeVpcs",
-          "ec2:DescribeSubnets",
-          "ec2:DescribeSecurityGroups",
-        ]
-        Resource = "*"
-      },
-      # STS identity lookups (aws_caller_identity).
+      # STS identity lookups.
       {
         Sid      = "StsIdentity"
         Effect   = "Allow"
@@ -139,24 +139,11 @@ resource "aws_iam_role_policy" "tf_runner" {
   })
 }
 
-resource "aws_eks_pod_identity_association" "tf_runner" {
+resource "aws_eks_pod_identity_association" "crossplane_provider" {
   cluster_name    = module.eks.cluster_name
-  namespace       = local.tf_runner_namespace
-  service_account = local.tf_runner_sa
-  role_arn        = aws_iam_role.tf_runner.arn
-
-  tags = local.tags
-}
-
-# The tf-controller executes `terraform apply` inside a Pod that lives in the
-# same namespace as the Terraform CR it's reconciling — not in flux-system.
-# Every namespace hosting a Terraform CR therefore needs its own tf-runner
-# ServiceAccount, and each needs a Pod Identity binding to the same IAM role.
-resource "aws_eks_pod_identity_association" "tf_runner_financial_services" {
-  cluster_name    = module.eks.cluster_name
-  namespace       = "financial-services"
-  service_account = local.tf_runner_sa
-  role_arn        = aws_iam_role.tf_runner.arn
+  namespace       = local.crossplane_namespace
+  service_account = local.crossplane_provider_sa
+  role_arn        = aws_iam_role.crossplane_provider.arn
 
   tags = local.tags
 }
@@ -169,7 +156,7 @@ resource "aws_eks_pod_identity_association" "litellm" {
   cluster_name    = module.eks.cluster_name
   namespace       = "litellm"
   service_account = "litellm"
-  role_arn        = aws_iam_role.tf_runner.arn
+  role_arn        = aws_iam_role.crossplane_provider.arn
 
   tags = local.tags
 }
