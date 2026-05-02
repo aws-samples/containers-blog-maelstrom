@@ -142,8 +142,8 @@ cat <<EOF
 
  Next steps:
    • Verify addons     : kubectl get application -n argocd
-   • AgentCore MRs     : kubectl get memories,browsers,codeinterpreters -n financial-services
-   • Agent IAM + PIA   : kubectl get roles,rolepolicies,podidentityassociations -n financial-services
+   • AgentCore MRs     : kubectl get agentcorememories,agentcorebrowsers,agentcorecodeinterpreters -n financial-services
+   • Agent IAM + PIA   : kubectl get roles.iam.aws.upbound.io,rolepolicies.iam.aws.upbound.io,podidentityassociations.eks.aws.upbound.io
    • Jaeger UI         : kubectl port-forward -n agentgateway-system svc/jaeger 16686:16686
    • LiteLLM admin     : kubectl port-forward -n litellm svc/litellm 4000:4000
 
