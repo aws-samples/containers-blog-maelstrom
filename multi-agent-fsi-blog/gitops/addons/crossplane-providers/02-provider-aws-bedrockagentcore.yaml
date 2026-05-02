@@ -7,6 +7,12 @@ spec:
   packagePullPolicy: IfNotPresent
   revisionActivationPolicy: Automatic
   revisionHistoryLimit: 1
+  # We install provider-family-aws explicitly in 00-provider-family-aws.yaml.
+  # Letting Crossplane auto-install it as a transitive dependency races with
+  # our explicit Provider and creates a duplicate (upbound-provider-family-aws),
+  # which fails with "node ... already exists" in the dependency graph and
+  # leaves the family provider in CrashLoopBackOff.
+  skipDependencyResolution: true
   runtimeConfigRef:
     apiVersion: pkg.crossplane.io/v1beta1
     kind: DeploymentRuntimeConfig
