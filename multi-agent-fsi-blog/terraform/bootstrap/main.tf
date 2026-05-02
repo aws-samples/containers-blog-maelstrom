@@ -139,6 +139,16 @@ resource "helm_release" "argocd" {
         params = {
           "server.insecure" = true
         }
+        # Crossplane copies labels from Claims onto composed Composite
+        # Resources (XRs). With ArgoCD's default tracking method of
+        # "label", the inherited argocd.argoproj.io/instance label makes
+        # ArgoCD believe the XR is part of the parent app — and because
+        # the XR isn't in the chart source, ArgoCD flags it for prune.
+        # Use annotation-based tracking so ownership rides on an
+        # annotation Crossplane does NOT propagate.
+        cm = {
+          "application.resourceTrackingMethod" = "annotation"
+        }
       }
       dex = {
         enabled = false
