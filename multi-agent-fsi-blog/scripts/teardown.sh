@@ -1,17 +1,27 @@
 #!/usr/bin/env bash
 #
-# Ordered teardown for the blog walkthrough. Reverses bootstrap.sh:
+# Ordered teardown for the blog walkthrough.
 #
-# 1. Pause ArgoCD auto-sync on financial-services so selfHeal can't
-#    recreate what we delete.
-# 2. Delete the Crossplane Claims + direct MRs in financial-services.
-#    Claims cascade to XRs -> MRs -> real AWS AgentCore / IAM / Pod
-#    Identity resources. deletionPolicy: Delete is set on every MR.
-# 3. Delete the per-addon ArgoCD Applications in dependency order so
-#    Crossplane is still up while earlier apps clean themselves out.
-# 4. terraform destroy bootstrap/  -> ArgoCD + platform-root
-# 5. terraform destroy cluster/    -> EKS Auto Mode + VPC + IAM + PIAs
-#    for crossplane-aws-provider-sa and litellm
+# Strategy: let ArgoCD do the work. Each Application has
+# resources-finalizer.argocd.argoproj.io — deleting the Application
+# triggers cascade-prune of every resource it rendered, in reverse
+# sync-wave order within the app. We do the same across apps: delete
+# financial-services first, wait for ArgoCD to prune its agents +
+# AgentCoreMemory/Browser/CodeInterpreter claims + IAM/PIA MRs (which
+# cascade to real AWS cleanup via deletionPolicy: Delete), then move to
+# the next Application in reverse root sync-wave order.
+#
+# Per-app timeout with a finalizer-strip fallback — if cascade-prune
+# stalls on one Application we strip its finalizer and continue, so a
+# single stuck App doesn't hang the whole teardown. Stripped Apps log a
+# warning; the AWS spot-check block at the end surfaces any orphans.
+#
+# Phases:
+#   1. Pause ArgoCD auto-sync so selfHeal can't recreate resources mid-prune.
+#   2. Delete every child Application in reverse sync-wave order, then
+#      platform-root.
+#   3. terraform destroy bootstrap/  -> ArgoCD + platform-root Application.
+#   4. terraform destroy cluster/    -> EKS Auto Mode + VPC + IAM + PIAs.
 #
 # Set AWS_REGION and CLUSTER_NAME env vars to override defaults.
 set -uo pipefail
@@ -30,101 +40,71 @@ cluster_reachable() {
   kubectl get ns argocd >/dev/null 2>&1
 }
 
-wait_gone() {
-  # wait_gone <kind> <namespace-or-empty> <timeout-seconds>
-  local kind="$1" ns="$2" timeout="$3" elapsed=0
-  local ns_flag=""
-  [[ -n "$ns" ]] && ns_flag="-n $ns"
-  while true; do
-    local count
-    count=$(kubectl $ns_flag get "$kind" --no-headers 2>/dev/null | wc -l | tr -d ' ')
-    if [[ "$count" == "0" ]]; then
-      return 0
-    fi
+# delete_app <name> <timeout-seconds>
+#
+# Trigger cascade-prune by deleting the Application, then poll until the
+# Application object is gone. If the timeout elapses we strip the
+# finalizer and force the deletion through — this leaves any still-
+# pending child MRs orphaned, which the AWS spot-check surfaces.
+delete_app() {
+  local app="$1" timeout="$2" elapsed=0
+  kubectl -n argocd get application/"$app" >/dev/null 2>&1 || { ok "$app not present"; return 0; }
+
+  kubectl -n argocd delete application/"$app" --ignore-not-found=true --wait=false >/dev/null 2>&1 || true
+
+  while kubectl -n argocd get application/"$app" >/dev/null 2>&1; do
     if (( elapsed >= timeout )); then
-      warn "timeout waiting for $kind to be deleted ($count remaining)"
-      kubectl $ns_flag get "$kind" 2>/dev/null || true
-      return 1
+      warn "cascade-prune on $app didn't finish in ${timeout}s — stripping finalizer"
+      kubectl -n argocd patch application/"$app" --type=merge \
+        -p '{"metadata":{"finalizers":null}}' >/dev/null 2>&1 || true
+      # Brief settle so the apiserver processes the patch before we
+      # check again; if the object is still there, force a second delete.
+      sleep 5
+      kubectl -n argocd delete application/"$app" --ignore-not-found=true >/dev/null 2>&1 || true
+      return 0
     fi
     sleep 10
     elapsed=$((elapsed + 10))
   done
+  ok "$app drained"
 }
 
 # ---------------------------------------------------------------------------
-# Phase 1: in-cluster cleanup — only runs if the cluster is still reachable.
+# Phase 1: in-cluster cleanup via ArgoCD cascade — only if reachable.
 # ---------------------------------------------------------------------------
 if cluster_reachable; then
-  step "Pausing ArgoCD auto-sync on financial-services + crossplane-compositions"
-  # Without this, selfHeal re-creates the claims we're about to delete.
-  for app in financial-services crossplane-compositions crossplane-provider-config; do
-    kubectl -n argocd patch application/"${app}" --type=merge \
-      -p '{"spec":{"syncPolicy":{"automated":null}}}' 2>/dev/null || true
+  step "Pausing ArgoCD auto-sync on every Application"
+  # Without this, selfHeal re-creates resources faster than we can prune.
+  for app in $(kubectl -n argocd get application -o name 2>/dev/null); do
+    kubectl -n argocd patch "$app" --type=merge \
+      -p '{"spec":{"syncPolicy":{"automated":null}}}' >/dev/null 2>&1 || true
   done
   ok "auto-sync paused"
 
-  step "Deleting Crossplane Claims in financial-services (cascades to AgentCore AWS resources)"
-  # Claims -> XRs -> Memory/Browser/CodeInterpreter MRs -> real AWS.
-  # Allow up to 10 minutes per kind for the AgentCore APIs to respond.
-  kubectl -n financial-services delete agentcorememory,agentcorebrowser,agentcorecodeinterpreter --all --ignore-not-found=true --wait=false
-  wait_gone agentcorememory.fsi.aws.example.com      financial-services 600 || true
-  wait_gone agentcorebrowser.fsi.aws.example.com     financial-services 600 || true
-  wait_gone agentcorecodeinterpreter.fsi.aws.example.com financial-services 600 || true
-  # XRs should be gone with their Claims, but make sure.
-  kubectl delete xagentcorememory.fsi.aws.example.com,xagentcorebrowser.fsi.aws.example.com,xagentcorecodeinterpreter.fsi.aws.example.com --all --ignore-not-found=true --wait=false 2>/dev/null || true
-  ok "AgentCore claims deleted"
-
-  step "Deleting per-agent IAM + Pod Identity MRs"
-  # These are direct Upbound MRs (not wrapped in Compositions). Order
-  # matters a little — PIA before Role so the Role isn't gone before
-  # AWS updates the association.
-  kubectl delete podidentityassociation.eks.aws.upbound.io --all --ignore-not-found=true --wait=false 2>/dev/null || true
-  wait_gone podidentityassociation.eks.aws.upbound.io "" 300 || true
-  kubectl delete rolepolicy.iam.aws.upbound.io --all --ignore-not-found=true --wait=false 2>/dev/null || true
-  wait_gone rolepolicy.iam.aws.upbound.io "" 300 || true
-  kubectl delete role.iam.aws.upbound.io --all --ignore-not-found=true --wait=false 2>/dev/null || true
-  wait_gone role.iam.aws.upbound.io "" 300 || true
-  ok "IAM + Pod Identity MRs deleted"
-
-  step "Deleting addon ArgoCD Applications"
-  # Delete in reverse dependency order. financial-services first (already
-  # drained above), then compositions/providers, then core.
-  #
-  # Strip the resources-finalizer.argocd.argoproj.io BEFORE the delete.
-  # That finalizer tells the ArgoCD controller to prune the Application's
-  # rendered manifests first — but we've already cleaned up the things
-  # that matter (AgentCore / IAM / Pod Identity via Crossplane above),
-  # and the cluster terraform will wipe the rest. If we leave the
-  # finalizer in place, the Apps can sit in Terminating forever after
-  # terraform destroys the ArgoCD helm release on the next step — the
-  # controller that processes the finalizer is gone, and the argocd
-  # namespace won't terminate until every Application does.
-  for app in \
-    financial-services \
-    crossplane-compositions \
-    crossplane-provider-config \
-    crossplane-providers \
-    crossplane-core \
-    agent-gateway-config \
-    agent-gateway \
-    litellm \
-    auto-mode-defaults \
-    agentgateway-crds \
-    gateway-api-crds \
-  ; do
-    kubectl -n argocd patch application/"${app}" --type=merge \
-      -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
-    kubectl -n argocd delete application/"${app}" --ignore-not-found=true --wait=false 2>/dev/null || true
-  done
-  wait_gone application.argoproj.io argocd 120 || true
-  ok "ArgoCD applications deleted"
+  step "Deleting Applications in reverse sync-wave order"
+  # Order: wave 5 -> 3 -> 2 -> 1 -> 0 -> -1, then platform-root.
+  # Timeouts account for AgentCore async deletes, IAM eventual consistency,
+  # and agent pod termination grace periods.
+  delete_app financial-services          600   # agents + Claims -> XRs -> MRs -> AWS
+  delete_app crossplane-compositions     180   # XRDs + Compositions (no external state)
+  delete_app litellm                     180   # Deployment + Postgres PVC
+  delete_app crossplane-provider-config  180   # ProviderConfig (just a CR)
+  delete_app agent-gateway-config        120   # Gateway + JWT/RBAC policies
+  delete_app agent-gateway               180   # Gateway controller + service
+  delete_app crossplane-providers        300   # Upbound Provider packages (need to finalize)
+  delete_app crossplane-core             300   # Crossplane controller + core CRDs
+  delete_app auto-mode-defaults          120   # StorageClass + IngressClass
+  delete_app agentgateway-crds           120
+  delete_app gateway-api-crds            120
+  delete_app platform-root               60    # root app-of-apps
+  ok "all Applications deleted"
 else
   warn "cluster not reachable — skipping in-cluster cleanup"
   warn "any orphaned AgentCore / IAM / PodIdentityAssociation resources in AWS will need manual cleanup"
 fi
 
 # ---------------------------------------------------------------------------
-# Phase 2: terraform destroy bootstrap (ArgoCD + platform-root).
+# Phase 2: terraform destroy bootstrap (ArgoCD helm release + platform-root).
 # ---------------------------------------------------------------------------
 step "terraform destroy — bootstrap/"
 cd "${ROOT_DIR}/terraform/bootstrap"
@@ -151,8 +131,9 @@ cat <<EOF
 
  Cluster ${CLUSTER} in ${REGION} is gone.
 
- Worth spot-checking in AWS (these are resources Crossplane created
- that could orphan if the in-cluster cleanup didn't complete):
+ Spot-check AWS for orphan resources. If the teardown hit any
+ 'cascade-prune ... didn't finish' warnings above, expect entries here
+ and clean them up by hand.
 
    aws bedrock-agentcore-control list-memories         --region ${REGION}
    aws bedrock-agentcore-control list-browsers         --region ${REGION}
