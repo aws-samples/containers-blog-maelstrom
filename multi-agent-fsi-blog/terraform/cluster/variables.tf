@@ -13,7 +13,7 @@ variable "cluster_name" {
 variable "cluster_version" {
   description = "EKS control-plane version"
   type        = string
-  default     = "1.31"
+  default     = "1.35"
 }
 
 variable "vpc_cidr" {
