@@ -110,9 +110,8 @@ spec:
     clusterName: {{ $.Values.eksClusterName }}
     namespace: {{ $ns }}
     serviceAccount: {{ printf "%s-sa" $agent.name }}
-    roleArnSelector:
-      matchLabels:
-        crossplane.io/claim-name: {{ $role }}
+    roleArnRef:
+      name: {{ $role }}
     tags:
       Agent: {{ $agent.name }}
   providerConfigRef:
