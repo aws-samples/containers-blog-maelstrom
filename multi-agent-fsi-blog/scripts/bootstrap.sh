@@ -61,6 +61,7 @@ APPS=(
   crossplane-core
   crossplane-providers
   crossplane-provider-config
+  crossplane-compositions
   agent-gateway
   agent-gateway-config
   litellm
@@ -86,20 +87,28 @@ for provider in provider-family-aws provider-aws-bedrockagentcore provider-aws-i
 done
 ok "Crossplane providers Healthy"
 
-step "Waiting for financial-services + per-agent Crossplane MRs"
-# Every agent with an agentcore.* toggle gets a Crossplane Memory / Browser /
-# CodeInterpreter managed resource. Agents wait on the per-resource
-# connection Secret Crossplane publishes (<agent>-<kind>-outputs) so pods
-# don't come up with empty env.
+step "Waiting for financial-services + per-agent Crossplane resources"
+# Every agent with an agentcore.* toggle gets an AgentCoreMemory /
+# AgentCoreBrowser / AgentCoreCodeInterpreter Claim. The Composition
+# provisions the underlying Upbound MR and publishes id/arn/name into
+# the <agent>-<kind>-outputs connection Secret that agent pods read.
 kubectl -n argocd wait application/financial-services \
   --for=jsonpath='{.status.sync.status}'=Synced --timeout=15m || true
-# Managed resources don't have a "Healthy" health.status the way Deployments
-# do — the ArgoCD Application's Health reflects only the aggregate. Wait on
-# individual MR Ready conditions instead.
-for kind in memories browsers codeinterpreters roles rolepolicies podidentityassociations; do
-  for mr in $(kubectl -n financial-services get ${kind}.aws.upbound.io -o name 2>/dev/null); do
+# Wait on the Claim Ready conditions. Ready on a Claim flips True once
+# the underlying MR is Ready AND connection details have been published.
+for kind in agentcorememories agentcorebrowsers agentcorecodeinterpreters; do
+  for claim in $(kubectl -n financial-services get ${kind}.fsi.aws.example.com -o name 2>/dev/null); do
+    echo "  - waiting on ${claim}"
+    kubectl -n financial-services wait ${claim} \
+      --for=condition=Ready --timeout=10m || true
+  done
+done
+# IAM + Pod Identity resources are still raw MRs (cluster-scoped kinds
+# Upbound provides), wait on those too.
+for kind in roles rolepolicies podidentityassociations; do
+  for mr in $(kubectl get ${kind}.aws.upbound.io -o name 2>/dev/null); do
     echo "  - waiting on ${mr}"
-    kubectl -n financial-services wait ${mr} \
+    kubectl wait ${mr} \
       --for=condition=Ready --timeout=10m || true
   done
 done

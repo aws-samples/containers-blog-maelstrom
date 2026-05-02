@@ -1,22 +1,20 @@
 {{- /*
 Per-agent AgentCore + IAM provisioning via Crossplane.
 
-Replaces the old Flux Terraform CR. For each agent:
+For each agent:
 
-  Always rendered:
+  Always rendered (raw Upbound MRs — no secret output needed):
     - Role                       (IAM role, pods.eks.amazonaws.com trust)
     - RolePolicy                 (inline policy: bedrock:InvokeModel*,
                                    bedrock-agentcore:*)
     - PodIdentityAssociation     (binds <agent>-sa to the Role)
 
-  Rendered per agentcore.* toggle (each writes its own connection Secret):
-    - Memory                     (when agentcore.memory = true)
-    - Browser                    (when agentcore.browser = true)
-    - CodeInterpreter            (when agentcore.codeInterpreter = true)
-
-Connection Secrets use resource-specific names so Crossplane doesn't clash
-on key names across MR types. agents-deployment.yaml wires the right
-Secret into each env var based on the same toggles.
+  Rendered per agentcore.* toggle via Crossplane Claims that wrap the
+  AgentCore MRs. The Composition publishes id/arn/name into the
+  connection Secret, which agents-deployment.yaml wires into env:
+    - AgentCoreMemory            (when agentcore.memory = true)
+    - AgentCoreBrowser           (when agentcore.browser = true)
+    - AgentCoreCodeInterpreter   (when agentcore.codeInterpreter = true)
 */ -}}
 apiVersion: v1
 kind: Namespace
@@ -120,79 +118,76 @@ spec:
 
 {{- if $agent.agentcore.memory }}
 ---
-# ---- Memory for {{ $agent.name }} ----
-apiVersion: bedrockagentcore.aws.upbound.io/v1beta1
-kind: Memory
+# ---- Memory claim for {{ $agent.name }} ----
+# Composition publishes status.atProvider.id / arn / name into the
+# connection secret below. Agents consume MEMORY_ID from that secret.
+apiVersion: fsi.aws.example.com/v1alpha1
+kind: AgentCoreMemory
 metadata:
   name: {{ printf "fs-%s-memory" $agent.name }}
+  namespace: {{ $ns }}
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
-  forProvider:
+  parameters:
     region: {{ $.Values.awsRegion }}
     name: {{ printf "fs_%s_memory" (replace "-" "_" $agent.name) | quote }}
     description: {{ printf "Memory for fs-%s" $agent.name | quote }}
     eventExpiryDuration: 30
     tags:
       Agent: {{ $agent.name }}
-  providerConfigRef:
-    name: default
+  compositionRef:
+    name: agentcore-memory.fsi.aws.example.com
   writeConnectionSecretToRef:
     name: {{ printf "fs-%s-memory-outputs" $agent.name }}
-    namespace: {{ $ns }}
-  deletionPolicy: Delete
 {{- end }}
 
 {{- if $agent.agentcore.browser }}
 ---
-# ---- Browser for {{ $agent.name }} ----
-apiVersion: bedrockagentcore.aws.upbound.io/v1beta1
-kind: Browser
+# ---- Browser claim for {{ $agent.name }} ----
+apiVersion: fsi.aws.example.com/v1alpha1
+kind: AgentCoreBrowser
 metadata:
   name: {{ printf "fs-%s-browser" $agent.name }}
+  namespace: {{ $ns }}
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
-  forProvider:
+  parameters:
     region: {{ $.Values.awsRegion }}
     name: {{ printf "fs_%s_browser" (replace "-" "_" $agent.name) | quote }}
     description: {{ printf "Browser for fs-%s" $agent.name | quote }}
-    networkConfiguration:
-      networkMode: {{ $.Values.networkMode }}
+    networkMode: {{ $.Values.networkMode }}
     tags:
       Agent: {{ $agent.name }}
-  providerConfigRef:
-    name: default
+  compositionRef:
+    name: agentcore-browser.fsi.aws.example.com
   writeConnectionSecretToRef:
     name: {{ printf "fs-%s-browser-outputs" $agent.name }}
-    namespace: {{ $ns }}
-  deletionPolicy: Delete
 {{- end }}
 
 {{- if $agent.agentcore.codeInterpreter }}
 ---
-# ---- Code Interpreter for {{ $agent.name }} ----
-apiVersion: bedrockagentcore.aws.upbound.io/v1beta1
-kind: CodeInterpreter
+# ---- Code Interpreter claim for {{ $agent.name }} ----
+apiVersion: fsi.aws.example.com/v1alpha1
+kind: AgentCoreCodeInterpreter
 metadata:
   name: {{ printf "fs-%s-code-interpreter" $agent.name }}
+  namespace: {{ $ns }}
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
-  forProvider:
+  parameters:
     region: {{ $.Values.awsRegion }}
     name: {{ printf "fs_%s_code_interpreter" (replace "-" "_" $agent.name) | quote }}
     description: {{ printf "Code Interpreter for fs-%s" $agent.name | quote }}
-    networkConfiguration:
-      networkMode: {{ $.Values.networkMode }}
+    networkMode: {{ $.Values.networkMode }}
     tags:
       Agent: {{ $agent.name }}
-  providerConfigRef:
-    name: default
+  compositionRef:
+    name: agentcore-code-interpreter.fsi.aws.example.com
   writeConnectionSecretToRef:
     name: {{ printf "fs-%s-code-interpreter-outputs" $agent.name }}
-    namespace: {{ $ns }}
-  deletionPolicy: Delete
 {{- end }}
 
 {{- end }}

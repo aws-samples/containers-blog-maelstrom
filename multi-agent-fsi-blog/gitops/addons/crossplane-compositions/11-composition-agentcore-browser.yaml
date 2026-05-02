@@ -1,0 +1,53 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: agentcore-browser.fsi.aws.example.com
+  labels:
+    provider: aws
+    kind: agentcore-browser
+spec:
+  compositeTypeRef:
+    apiVersion: fsi.aws.example.com/v1alpha1
+    kind: XAgentCoreBrowser
+  writeConnectionSecretsToNamespace: crossplane-system
+  resources:
+    - name: browser
+      base:
+        apiVersion: bedrockagentcore.aws.upbound.io/v1beta1
+        kind: Browser
+        spec:
+          forProvider:
+            networkConfiguration:
+              networkMode: PUBLIC
+          providerConfigRef:
+            name: default
+          deletionPolicy: Delete
+      patches:
+        - fromFieldPath: spec.parameters.region
+          toFieldPath: spec.forProvider.region
+        - fromFieldPath: spec.parameters.name
+          toFieldPath: spec.forProvider.name
+        - fromFieldPath: spec.parameters.description
+          toFieldPath: spec.forProvider.description
+        - fromFieldPath: spec.parameters.networkMode
+          toFieldPath: spec.forProvider.networkConfiguration.networkMode
+        - fromFieldPath: spec.parameters.tags
+          toFieldPath: spec.forProvider.tags
+        - fromFieldPath: metadata.labels
+          toFieldPath: metadata.labels
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.id
+          toFieldPath: status.id
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.arn
+          toFieldPath: status.arn
+      connectionDetails:
+        - name: id
+          type: FromFieldPath
+          fromFieldPath: status.atProvider.id
+        - name: arn
+          type: FromFieldPath
+          fromFieldPath: status.atProvider.arn
+        - name: name
+          type: FromFieldPath
+          fromFieldPath: status.atProvider.name
