@@ -34,18 +34,18 @@ spec:
         - fromFieldPath: spec.parameters.tags
           toFieldPath: spec.forProvider.tags
         - type: ToCompositeFieldPath
-          fromFieldPath: status.atProvider.id
+          fromFieldPath: status.atProvider.codeInterpreterId
           toFieldPath: status.id
         - type: ToCompositeFieldPath
-          fromFieldPath: status.atProvider.arn
+          fromFieldPath: status.atProvider.codeInterpreterArn
           toFieldPath: status.arn
       connectionDetails:
         - name: id
           type: FromFieldPath
-          fromFieldPath: status.atProvider.id
+          fromFieldPath: status.atProvider.codeInterpreterId
         - name: arn
           type: FromFieldPath
-          fromFieldPath: status.atProvider.arn
+          fromFieldPath: status.atProvider.codeInterpreterArn
         - name: name
           type: FromFieldPath
           fromFieldPath: status.atProvider.name
