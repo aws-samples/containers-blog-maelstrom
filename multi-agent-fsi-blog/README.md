@@ -67,7 +67,8 @@ For the blog, that means the cluster Terraform is ~100 lines and every platform 
 multi-agent-fsi-blog/
 ├── scripts/bootstrap.sh        # one-command end-to-end bring-up
 ├── terraform/
-│   ├── cluster/                # EKS Auto Mode + VPC + tf-runner IAM
+│   ├── cluster/                # EKS Auto Mode + VPC + IAM role for the
+│   │                             Crossplane AWS providers
 │   └── bootstrap/              # ArgoCD install + platform-root Application
 │                                 (reads cluster OIDC issuer + JWKS,
 │                                  plumbs into ArgoCD helm parameters)
@@ -77,17 +78,26 @@ multi-agent-fsi-blog/
 │   └── addons/
 │       ├── agent-gateway-config/   Gateway, Jaeger, tracing policy, RBAC
 │       ├── auto-mode-defaults/     default StorageClass + IngressClass
+│       ├── crossplane-providers/   Upbound AWS provider manifests +
+│       │                           DeploymentRuntimeConfig + ProviderConfig
 │       └── litellm/                values.yaml for the BerriAI Helm chart
 └── apps/
     └── financial-services/
         ├── agents/             # 4 Strands agents (+_shared clients)
         ├── mcp-server/         # FastAPI JSON-RPC tools server
-        ├── terraform/          # AgentCore Memory/Browser/CodeInterpreter
-        ├── gitops/             # Helm chart (synced by platform-root)
+        ├── gitops/             # Helm chart (synced by platform-root).
+        │                         templates/agentcore-resources.yaml
+        │                         renders per-agent Crossplane MRs.
         └── deploy.sh           # finch build+push 5 images to Docker Hub
 ```
 
 Everything under `multi-agent-fsi-blog/` is self-contained — no dependencies on other folders in this repo.
+
+> The `apps/financial-services/terraform/` directory is still present on disk
+> as a break-glass fallback: if a reader ever needs to hand-provision
+> AgentCore for a single agent instead of letting Crossplane do it, they
+> can `terraform apply` that root module directly. The chart does not
+> reference it anymore.
 
 ---
 
@@ -384,9 +394,12 @@ Full reversal, in the exact reverse order of creation so nothing references a re
 ```bash
 cd multi-agent-fsi-blog
 
-# 1. Delete the ArgoCD app-of-apps. Tofu Controller sees the Terraform CR
-#    being deleted and runs `terraform destroy` inside the cluster, which
-#    removes AgentCore Memory/Browser/CodeInterpreter and the IAM role.
+# 1. Delete the ArgoCD app-of-apps. ArgoCD cascades the delete to every
+#    child Application, including financial-services. As Crossplane
+#    managed resources (Memory, Browser, CodeInterpreter, Role,
+#    RolePolicy, PodIdentityAssociation) get deleted, their controllers
+#    call the matching AWS delete APIs — same behaviour as
+#    `terraform destroy` used to give us, just driven by K8s finalizers.
 kubectl delete application platform-root -n argocd
 # Wait for children to fully drain (~2 min):
 kubectl get application -n argocd -w

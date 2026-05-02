@@ -5,17 +5,19 @@ A reimplementation of the [`financial-services`](../financial-services/) KAgent 
 - **Strands SDK** — each of the four agents runs as its own Python pod behind a small FastAPI A2A wrapper.
 - **Amazon Bedrock AgentCore** — Memory (advisor client profile), Code Interpreter (dynamic portfolio/risk math), Browser (live stock quotes).
 - **[agentgateway.dev](https://agentgateway.dev/docs/kubernetes/latest/)** — single data plane for every Agent→Agent and Agent→MCP call, with JWT (ServiceAccount) authentication, per-SA MCP/A2A authorization, and Jaeger tracing.
+- **Crossplane (Upbound AWS family providers)** — per-agent AgentCore resources + IAM role + Pod Identity association are declared as Kubernetes CRs and reconciled directly against the AWS API. No Flux, no Terraform-in-cluster.
 
 ## Architecture
 
 ```
                         caller (kubectl / UI)
                                  │ POST /agents/financial-advisor
+                                 │ Authorization: Bearer <K8s SA JWT>
                                  ▼
 ┌────────────────────────────────────────────────────────────────────┐
 │  Agent Gateway (agentgateway-system)                               │
-│   • JWT authn (Kubernetes TokenReview)                             │
-│   • MCP authz + A2A authz                                          │
+│   • JWT authn (EKS OIDC via jwtAuthentication policy)              │
+│   • MCP authz + A2A authz (CEL on jwt.sub)                         │
 │   • OTLP → Jaeger                                                  │
 └──┬─────────────────────────────────────────────────────────────────┘
    │ /agents/<name>                        /mcp
@@ -37,66 +39,80 @@ A reimplementation of the [`financial-services`](../financial-services/) KAgent 
 ## Folder layout
 
 ```
-financial-services-strands/
+financial-services/
 ├── agents/
-│   ├── _shared/{a2a_client.py, mcp_client.py}   # gateway-aware HTTP clients
-│   ├── financial-advisor/                        # Memory + 3 delegate tools
-│   ├── portfolio-analyst/                        # Code Interpreter + MCP
-│   ├── risk-assessment/                          # Code Interpreter
-│   └── market-data/                              # Browser + MCP fallback
-├── mcp-server/                                   # FastMCP-style financial tools
-├── terraform/
-│   ├── modules/{memory,browser,code-interpreter}/  # Bedrock AgentCore TF modules
-│   └── financial-services-components/              # root module, IAM + pod-identity
-├── gitops/financial-services-stack/             # Helm chart
+│   ├── _shared/{a2a_client.py, mcp_client.py, model.py}  # gateway-aware clients
+│   ├── financial-advisor/                # Memory + 3 delegate tools
+│   ├── portfolio-analyst/                # Code Interpreter + MCP
+│   ├── risk-assessment/                  # Code Interpreter
+│   └── market-data/                      # Browser + MCP fallback
+├── mcp-server/                           # FastMCP-style financial tools
+├── gitops/financial-services-stack/      # Helm chart (synced by platform-root)
 │   └── templates/
-│       ├── terraform-resource.yaml  (wave 0)
-│       ├── financial-tools-mcp.yaml (wave 1)
-│       ├── agents-deployment.yaml   (wave 2)
-│       ├── gateway-routes.yaml      (wave 2)
-│       └── gateway-policies.yaml    (wave 2)
-├── argocd/financial-services-application.yaml
-└── deploy.sh                                     # builds + pushes 5 images
+│       ├── agentcore-resources.yaml      # Per-agent Crossplane MRs:
+│       │                                   Memory / Browser / CodeInterpreter
+│       │                                   + Role + RolePolicy + PodIdentityAssociation
+│       ├── financial-tools-mcp.yaml      # Single MCP server Deployment + Service
+│       ├── litellm-api-key.yaml          # Secret bridging to the LiteLLM proxy
+│       ├── agents-deployment.yaml        # 4× agent SA + Service + Deployment
+│       ├── gateway-routes.yaml           # AgentgatewayBackend + HTTPRoute per agent
+│       └── gateway-policies.yaml         # JWT authn + per-route A2A/MCP authz
+├── terraform/                            # Break-glass only — the chart
+│   │                                       does NOT reference this anymore.
+│   ├── modules/{memory,browser,code-interpreter}/
+│   └── financial-services-components/    # Single-agent local `terraform apply`
+│                                           path, documented as the MR fallback
+│                                           in the top-level README.
+└── deploy.sh                             # finch build + push of 5 images
 ```
 
 ## Prerequisites
 
-The following must already be present in the cluster (provisioned by the blog walkthrough's `platform-root` app-of-apps):
+The following must already be present in the cluster (provisioned by the blog walkthrough's `platform-root` app-of-apps in `../../gitops/root/`):
 
-1. **EKS cluster** with Pod Identity addon.
-2. **ArgoCD** + **Flux** + **Terraform controller** (`tf-runner` ServiceAccount).
-3. **Agent Gateway + Gateway API CRDs** installed in `agentgateway-system` with the `agent-gateway-proxy` Gateway listening on port 8080.
-4. **AWS Bedrock access** for Claude 3.5/3.7 Sonnet + AgentCore Memory/Browser/CodeInterpreter in the chosen region (default `us-west-2`).
-5. **ECR repositories** for the 5 images (the deploy script creates them if missing).
+1. **EKS cluster** with Auto Mode + Pod Identity.
+2. **ArgoCD**.
+3. **Crossplane** + the three Upbound providers `provider-aws-bedrockagentcore`, `provider-aws-iam`, `provider-aws-eks` (installed via `gitops/root/templates/11-crossplane-providers.yaml`), plus a `ProviderConfig` bound to `crossplane-system/crossplane-aws-provider-sa` (Pod Identity → the `finops-agents-crossplane-aws-provider` IAM role from `terraform/cluster/crossplane_provider_iam.tf`).
+4. **Agent Gateway + Gateway API CRDs** installed in `agentgateway-system` with the `agent-gateway-proxy` Gateway listening on port 8080.
+5. **AWS Bedrock model access** for Claude Sonnet 4.6 + Claude Haiku 4.5 in the chosen region (default `us-west-2`).
+6. **Docker Hub prebuilt images** under `sriram430/financial-services-agents` (or rebuild with `./deploy.sh` and override `images.registry` in `values.yaml`).
 
 ## Deploy
 
-1. Edit `gitops/financial-services-stack/values.yaml`:
-   - Set `eksClusterName`, `awsRegion`, `images.registry`, and the `terraform.git` URL + branch to match your fork.
-2. Build + push images:
-   ```bash
-   ./deploy.sh
-   ```
-3. Apply the ArgoCD Application:
-   ```bash
-   kubectl apply -f argocd/financial-services-application.yaml
-   ```
+Normally you don't deploy this chart directly — `platform-root` syncs it as wave 4. To iterate on just the financial-services chart:
 
-Sync waves:
+1. Push your edits to the branch `gitops_repo_url`/`gitops_repo_branch` point at.
+2. `kubectl -n argocd annotate application financial-services argocd.argoproj.io/refresh=hard --overwrite`
+3. Watch it reconcile: `kubectl get application financial-services -n argocd -w`
+
+To rebuild an agent image:
+
+```bash
+./deploy.sh   # builds + pushes all 5 images to docker.io/sriram430/financial-services-agents
+# Bump the corresponding tag in gitops/financial-services-stack/values.yaml
+# and let ArgoCD sync.
+```
+
+Sync order (inside this chart):
 
 | Wave | Resources |
 |------|-----------|
-| 0 | Flux `Terraform` CR → provisions Memory/Browser/CodeInterpreter + IAM + 5 Pod Identity associations + writes `financial-services-outputs-<version>` Secret |
-| 1 | `financial-tools-mcp` Service + Deployment + SA |
-| 2 | 4 × agent (SA + Service + Deployment with projected SA token) + Gateway backends, routes, and authz policies |
+| 0 | Namespace + per-agent Crossplane MRs (Memory / Browser / CodeInterpreter / Role / RolePolicy / PodIdentityAssociation). Each MR publishes its connection Secret (`fs-<agent>-<kind>-outputs`) as soon as the AWS API call succeeds. |
+| 1 | `financial-tools-mcp` Service + Deployment + SA, `litellm-api-key` Secret. |
+| 2 | 4× agent (SA + Service + Deployment with projected SA token), gateway backends + routes, authz policies. |
 
 ## Verify
 
 ```bash
-kubectl get terraform -n financial-services
+# Crossplane side
+kubectl get memories,browsers,codeinterpreters -n financial-services
+kubectl get roles.iam.aws.upbound.io,rolepolicies.iam.aws.upbound.io,podidentityassociations.eks.aws.upbound.io -n financial-services
+kubectl get secret -n financial-services | grep -E 'fs-.*-(memory|browser|code-interpreter)-outputs'
+
+# K8s workloads
 kubectl get pods -n financial-services
 kubectl get httproute -n financial-services
-kubectl get agentgatewaypolicy -n financial-services
+kubectl get agentgatewaypolicy -A
 ```
 
 Smoke test through the gateway:
@@ -147,35 +163,29 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST \
 
 ## Cleanup
 
+Normally you delete `platform-root` from ArgoCD and everything cascades. If you only want to tear down financial-services:
+
 ```bash
-kubectl delete application financial-services-stack -n argocd
+kubectl delete application financial-services -n argocd
+# Wait for Crossplane MRs to finish AWS-side deletes (~2 min).
+kubectl get memories,browsers,codeinterpreters -n financial-services -w
 ```
 
-The Flux Terraform controller destroys all AWS resources on delete (`destroyResourcesOnDeletion: true`).
+If an MR gets stuck in `Deleting` because the AWS resource is already gone, clear the finalizer:
+
+```bash
+kubectl patch <mr>/<name> -n financial-services \
+  -p '{"metadata":{"finalizers":null}}' --type=merge
+```
 
 ## Differences vs the original KAgent version
 
-| Concern | KAgent (`../financial-services`) | Strands (this folder) |
+| Concern | KAgent (`../financial-services`) | Strands + Crossplane (this folder) |
 |---|---|---|
 | Orchestration | KAgent `Agent` CRDs | Strands `Agent` in Python pods |
 | A2A | In-process inside KAgent | HTTP via Agent Gateway `/agents/<name>` |
 | MCP | `RemoteMCPServer` CRD | HTTP via Agent Gateway `/mcp` |
 | Tool data | All simulated | Browser for live quotes, Code Interpreter for math |
-| Auth | None | Projected SA JWT (audience `agent-gateway`) validated via TokenReview |
-| Deploy | bash `deploy.sh` | GitOps (ArgoCD + Flux Terraform) |
-
-
-
-#####
-- EKS Auto Mode
-- ArgoCD Capability
-- FluxCD
-- Tofu Controller
-- LiteLLM
-- AgentGateway
-- Langfuse (just mention)
-
-Terraform IaC
-Install the addons in wave 0 in ArgoCD
-Agents in wave 1 in ArgoCD
-
+| Auth | None | Projected SA JWT (audience `agent-gateway`) validated via EKS OIDC |
+| AgentCore provisioning | n/a | Crossplane MRs per agent, reconciled by Upbound providers |
+| Deploy | bash `deploy.sh` | GitOps (ArgoCD) |
