@@ -60,6 +60,7 @@ APPS=(
   auto-mode-defaults
   crossplane-core
   crossplane-providers
+  crossplane-provider-config
   agent-gateway
   agent-gateway-config
   litellm
