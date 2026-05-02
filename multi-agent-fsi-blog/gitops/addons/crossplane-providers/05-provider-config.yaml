@@ -2,9 +2,15 @@ apiVersion: aws.upbound.io/v1beta1
 kind: ProviderConfig
 metadata:
   name: default
+  annotations:
+    # ProviderConfig CRD is installed dynamically by provider-family-aws.
+    # Apply after the Providers have reconciled so the schema exists.
+    argocd.argoproj.io/sync-wave: "1"
 spec:
-  # Use the IRSA/Pod Identity credentials injected by the
-  # crossplane-aws-provider-sa ServiceAccount. Every managed resource
-  # that doesn't set providerConfigRef falls back to this default.
+  # EKS Pod Identity: the provider pod's ServiceAccount
+  # (crossplane-aws-provider-sa) is bound via PodIdentityAssociation in
+  # terraform/cluster/crossplane_provider_iam.tf. source: PodIdentity tells
+  # the Upbound AWS provider to read credentials from the Pod Identity
+  # agent (AWS_CONTAINER_CREDENTIALS_FULL_URI + token file).
   credentials:
-    source: IRSA
+    source: PodIdentity
