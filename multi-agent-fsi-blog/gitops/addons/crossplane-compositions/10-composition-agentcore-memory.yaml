@@ -32,8 +32,6 @@ spec:
           toFieldPath: spec.forProvider.eventExpiryDuration
         - fromFieldPath: spec.parameters.tags
           toFieldPath: spec.forProvider.tags
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
         # Publish AgentCore IDs to the XR status so they land in the
         # connection secret (connectionDetails below).
         - type: ToCompositeFieldPath

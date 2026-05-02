@@ -33,8 +33,6 @@ spec:
           toFieldPath: spec.forProvider.networkConfiguration.networkMode
         - fromFieldPath: spec.parameters.tags
           toFieldPath: spec.forProvider.tags
-        - fromFieldPath: metadata.labels
-          toFieldPath: metadata.labels
         - type: ToCompositeFieldPath
           fromFieldPath: status.atProvider.id
           toFieldPath: status.id
