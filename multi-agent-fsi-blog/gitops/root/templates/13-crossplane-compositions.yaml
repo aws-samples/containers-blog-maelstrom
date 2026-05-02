@@ -34,3 +34,17 @@ spec:
         duration: 15s
         factor: 2
         maxDuration: 3m
+  # Crossplane's Composition admission webhook injects defaults
+  # (spec.mode, publishConnectionDetailsWithStoreConfigRef,
+  # readinessChecks, explicit patch type) after apply. Those show up as
+  # OutOfSync drift against the stored manifest. Ignore the sub-fields
+  # the server owns so only real changes trigger a sync.
+  ignoreDifferences:
+    - group: apiextensions.crossplane.io
+      kind: Composition
+      jsonPointers:
+        - /spec/mode
+        - /spec/publishConnectionDetailsWithStoreConfigRef
+      jqPathExpressions:
+        - .spec.resources[].readinessChecks
+        - .spec.resources[].patches[].type
