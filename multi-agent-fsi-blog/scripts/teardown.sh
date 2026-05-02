@@ -89,6 +89,16 @@ if cluster_reachable; then
   step "Deleting addon ArgoCD Applications"
   # Delete in reverse dependency order. financial-services first (already
   # drained above), then compositions/providers, then core.
+  #
+  # Strip the resources-finalizer.argocd.argoproj.io BEFORE the delete.
+  # That finalizer tells the ArgoCD controller to prune the Application's
+  # rendered manifests first — but we've already cleaned up the things
+  # that matter (AgentCore / IAM / Pod Identity via Crossplane above),
+  # and the cluster terraform will wipe the rest. If we leave the
+  # finalizer in place, the Apps can sit in Terminating forever after
+  # terraform destroys the ArgoCD helm release on the next step — the
+  # controller that processes the finalizer is gone, and the argocd
+  # namespace won't terminate until every Application does.
   for app in \
     financial-services \
     crossplane-compositions \
@@ -102,9 +112,11 @@ if cluster_reachable; then
     agentgateway-crds \
     gateway-api-crds \
   ; do
+    kubectl -n argocd patch application/"${app}" --type=merge \
+      -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
     kubectl -n argocd delete application/"${app}" --ignore-not-found=true --wait=false 2>/dev/null || true
   done
-  wait_gone application.argoproj.io argocd 300 || true
+  wait_gone application.argoproj.io argocd 120 || true
   ok "ArgoCD applications deleted"
 else
   warn "cluster not reachable — skipping in-cluster cleanup"
