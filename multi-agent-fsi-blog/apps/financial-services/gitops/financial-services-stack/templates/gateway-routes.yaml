@@ -1,0 +1,85 @@
+{{- $gw := .Values.agentGateway -}}
+{{- $ns := .Values.namespace -}}
+
+# -------- Financial-tools MCP backend + route --------
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: financial-tools-mcp-backend
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  static:
+    host: financial-tools-mcp.{{ $ns }}.svc.cluster.local
+    port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: financial-tools-mcp-route
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ $gw.gatewayName }}
+      namespace: {{ $gw.gatewayNamespace }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /mcp
+      backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: financial-tools-mcp-backend
+          weight: 1
+
+{{- range $agent := .Values.agents }}
+---
+# -------- {{ $agent.name }} A2A backend + route --------
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: {{ $agent.name }}-backend
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  static:
+    host: {{ $agent.name }}.{{ $ns }}.svc.cluster.local
+    port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $agent.name }}-a2a-route
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ $gw.gatewayName }}
+      namespace: {{ $gw.gatewayNamespace }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /agents/{{ $agent.name }}
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: {{ $agent.name }}-backend
+          weight: 1
+{{- end }}

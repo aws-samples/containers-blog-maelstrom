@@ -1,0 +1,26 @@
+# Extra wiring the Agent Gateway needs: Gateway resource, JWT TokenReview RBAC,
+# tracing backend, and policy scope. Manifests live alongside this root chart.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agent-gateway-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.gitOpsRepo.url | quote }}
+    targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
+    path: {{ printf "%s/gitops/addons/agent-gateway-config" .Values.basePath | quote }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.agentGateway | quote }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

@@ -1,0 +1,125 @@
+{{- if and .Values.eks.oidcIssuer .Values.eks.jwksJson -}}
+{{- $ns := .Values.namespace -}}
+{{- $audience := .Values.agentGateway.audience -}}
+{{- $gwName := .Values.agentGateway.gatewayName -}}
+{{- $gwNs := .Values.agentGateway.gatewayNamespace -}}
+
+{{- /* Build SA lists grouped by role, derived from .Values.agents. */ -}}
+{{- $orchestratorSubs := list -}}
+{{- $mcpCallerSubs := list -}}
+{{- range $a := .Values.agents -}}
+  {{- $sub := printf "system:serviceaccount:%s:%s-sa" $ns $a.name -}}
+  {{- if eq $a.role "orchestrator" -}}
+    {{- $orchestratorSubs = append $orchestratorSubs $sub -}}
+  {{- end -}}
+  {{- /* Any agent that declared MCP tools is an MCP caller. */ -}}
+  {{- if $a.tools -}}
+    {{- if gt (len $a.tools) 0 -}}
+      {{- $mcpCallerSubs = append $mcpCallerSubs $sub -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+# ----------------------------------------------------------------------------
+# 1. Gateway-level JWT authentication
+#
+# Every request traversing agent-gateway-proxy must carry a valid EKS
+# ServiceAccount token with audience "agent-gateway". The JWKS was fetched
+# by terraform/bootstrap from the EKS OIDC issuer and plumbed here via
+# helm.parameters on the root ArgoCD Application — no manual values edit.
+#
+# mode: Strict rejects requests missing or failing token validation with 401.
+# ----------------------------------------------------------------------------
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: financial-services-jwt-authn
+  namespace: {{ $gwNs }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ $gwName }}
+  traffic:
+    jwtAuthentication:
+      mode: Strict
+      providers:
+        - issuer: {{ .Values.eks.oidcIssuer | quote }}
+          audiences:
+            - {{ $audience | quote }}
+          jwks:
+            inline: {{ .Values.eks.jwksJson | b64dec | quote }}
+
+# ----------------------------------------------------------------------------
+# 2. A2A authorization — only orchestrators may call specialists
+#
+# One AgentgatewayPolicy per specialist HTTPRoute. CEL matchExpressions are
+# OR-combined, so listing every orchestrator SA allows any of them. Rules
+# are deny-by-default once Allow is attached, so unknown principals get 403.
+# Orchestrators have no policy attached to their own /agents/<name> route —
+# they are the public entry points.
+# ----------------------------------------------------------------------------
+{{- range $a := .Values.agents }}
+{{- if eq $a.role "specialist" }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: {{ $a.name }}-a2a-authz
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ $a.name }}-a2a-route
+  traffic:
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          {{- range $sub := $orchestratorSubs }}
+          - 'jwt.sub == "{{ $sub }}"'
+          {{- end }}
+{{- end }}
+{{- end }}
+
+---
+# ----------------------------------------------------------------------------
+# 3. MCP authorization — only agents that declared `tools` may call /mcp
+#
+# Derived from .Values.agents[].tools. Any agent with a non-empty tools list
+# is an allowed MCP caller. This is specialist-level granularity — per-tool
+# allow-lists would require HTTPRoute-per-tool surgery which isn't worth it
+# for the blog's scale. Fine-grained tool scoping is a production follow-up.
+# ----------------------------------------------------------------------------
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: financial-tools-mcp-authz
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: financial-tools-mcp-route
+  traffic:
+    authorization:
+      action: Allow
+      policy:
+        matchExpressions:
+          {{- range $sub := $mcpCallerSubs }}
+          - 'jwt.sub == "{{ $sub }}"'
+          {{- end }}
+
+# Orchestrator HTTPRoutes (e.g. /agents/financial-advisor) intentionally have
+# no authorization policy — they are the public entry points for external
+# callers. The Gateway-level jwtAuthentication still requires a valid SA
+# token with audience=agent-gateway, so unauthenticated traffic is blocked
+# at the edge.
+{{- end }}

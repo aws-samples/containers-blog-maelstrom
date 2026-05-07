@@ -1,0 +1,193 @@
+{{- /*
+Per-agent AgentCore + IAM provisioning via Crossplane.
+
+For each agent:
+
+  Always rendered (raw Upbound MRs — no secret output needed):
+    - Role                       (IAM role, pods.eks.amazonaws.com trust)
+    - RolePolicy                 (inline policy: bedrock:InvokeModel*,
+                                   bedrock-agentcore:*)
+    - PodIdentityAssociation     (binds <agent>-sa to the Role)
+
+  Rendered per agentcore.* toggle via Crossplane Claims that wrap the
+  AgentCore MRs. The Composition publishes id/arn/name into the
+  connection Secret, which agents-deployment.yaml wires into env:
+    - AgentCoreMemory            (when agentcore.memory = true)
+    - AgentCoreBrowser           (when agentcore.browser = true)
+    - AgentCoreCodeInterpreter   (when agentcore.codeInterpreter = true)
+*/ -}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace }}
+{{ range $agent := .Values.agents }}
+{{- $ns := $.Values.namespace }}
+{{- $role := printf "fs-%s-agent-role" $agent.name }}
+---
+# IAM Role for {{ $agent.name }} (Pod Identity target)
+apiVersion: iam.aws.upbound.io/v1beta1
+kind: Role
+metadata:
+  name: {{ $role }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    crossplane.io/external-name: {{ $role }}
+spec:
+  forProvider:
+    assumeRolePolicy: |-
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": { "Service": "pods.eks.amazonaws.com" },
+            "Action": [ "sts:AssumeRole", "sts:TagSession" ]
+          }
+        ]
+      }
+    tags:
+      Agent: {{ $agent.name }}
+      Project: financial-services
+  providerConfigRef:
+    name: default
+  deletionPolicy: Delete
+---
+apiVersion: iam.aws.upbound.io/v1beta1
+kind: RolePolicy
+metadata:
+  name: {{ $role }}-inline
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  forProvider:
+    roleRef:
+      name: {{ $role }}
+    policy: |-
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "AgentCoreTool",
+            "Effect": "Allow",
+            "Action": [
+              "bedrock:InvokeAgentCoreTool",
+              "bedrock-agentcore:*"
+            ],
+            "Resource": "*"
+          },
+          {
+            "Sid": "BedrockInvoke",
+            "Effect": "Allow",
+            "Action": [
+              "bedrock:InvokeModel",
+              "bedrock:InvokeModelWithResponseStream",
+              "bedrock:Converse",
+              "bedrock:ConverseStream"
+            ],
+            "Resource": [
+              "arn:aws:bedrock:*::foundation-model/*",
+              "arn:aws:bedrock:*:*:inference-profile/*"
+            ]
+          }
+        ]
+      }
+  providerConfigRef:
+    name: default
+  deletionPolicy: Delete
+---
+# ---- Pod Identity Association: {{ $agent.name }}-sa → {{ $role }} ----
+apiVersion: eks.aws.upbound.io/v1beta1
+kind: PodIdentityAssociation
+metadata:
+  name: {{ printf "fs-%s-pi" $agent.name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  forProvider:
+    region: {{ $.Values.awsRegion }}
+    clusterName: {{ $.Values.eksClusterName }}
+    namespace: {{ $ns }}
+    serviceAccount: {{ printf "%s-sa" $agent.name }}
+    roleArnRef:
+      name: {{ $role }}
+    tags:
+      Agent: {{ $agent.name }}
+  providerConfigRef:
+    name: default
+  deletionPolicy: Delete
+
+{{- if $agent.agentcore.memory }}
+---
+# ---- Memory claim for {{ $agent.name }} ----
+# Composition publishes status.atProvider.id / arn / name into the
+# connection secret below. Agents consume MEMORY_ID from that secret.
+apiVersion: fsi.aws.example.com/v1alpha1
+kind: AgentCoreMemory
+metadata:
+  name: {{ printf "fs-%s-memory" $agent.name }}
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  parameters:
+    region: {{ $.Values.awsRegion }}
+    name: {{ printf "fs_%s_memory" (replace "-" "_" $agent.name) | quote }}
+    description: {{ printf "Memory for fs-%s" $agent.name | quote }}
+    eventExpiryDuration: 30
+    tags:
+      Agent: {{ $agent.name }}
+  compositionRef:
+    name: agentcore-memory.fsi.aws.example.com
+  writeConnectionSecretToRef:
+    name: {{ printf "fs-%s-memory-outputs" $agent.name }}
+{{- end }}
+
+{{- if $agent.agentcore.browser }}
+---
+# ---- Browser claim for {{ $agent.name }} ----
+apiVersion: fsi.aws.example.com/v1alpha1
+kind: AgentCoreBrowser
+metadata:
+  name: {{ printf "fs-%s-browser" $agent.name }}
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  parameters:
+    region: {{ $.Values.awsRegion }}
+    name: {{ printf "fs_%s_browser" (replace "-" "_" $agent.name) | quote }}
+    description: {{ printf "Browser for fs-%s" $agent.name | quote }}
+    networkMode: {{ $.Values.networkMode }}
+    tags:
+      Agent: {{ $agent.name }}
+  compositionRef:
+    name: agentcore-browser.fsi.aws.example.com
+  writeConnectionSecretToRef:
+    name: {{ printf "fs-%s-browser-outputs" $agent.name }}
+{{- end }}
+
+{{- if $agent.agentcore.codeInterpreter }}
+---
+# ---- Code Interpreter claim for {{ $agent.name }} ----
+apiVersion: fsi.aws.example.com/v1alpha1
+kind: AgentCoreCodeInterpreter
+metadata:
+  name: {{ printf "fs-%s-code-interpreter" $agent.name }}
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  parameters:
+    region: {{ $.Values.awsRegion }}
+    name: {{ printf "fs_%s_code_interpreter" (replace "-" "_" $agent.name) | quote }}
+    description: {{ printf "Code Interpreter for fs-%s" $agent.name | quote }}
+    networkMode: {{ $.Values.networkMode }}
+    tags:
+      Agent: {{ $agent.name }}
+  compositionRef:
+    name: agentcore-code-interpreter.fsi.aws.example.com
+  writeConnectionSecretToRef:
+    name: {{ printf "fs-%s-code-interpreter-outputs" $agent.name }}
+{{- end }}
+
+{{- end }}

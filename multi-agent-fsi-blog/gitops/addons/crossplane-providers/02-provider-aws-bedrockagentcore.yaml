@@ -1,0 +1,26 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-bedrockagentcore
+  annotations:
+    # Wave 1: runs after provider-family-aws (wave 0) is Healthy, so the
+    # ProviderConfig / ProviderConfigUsage CRDs exist before this
+    # provider's controller starts watching them. Without sequencing,
+    # the child pod crashes with "timed out waiting for cache to be
+    # synced for ProviderConfigUsage" until k8s backoff gets lucky.
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-bedrockagentcore:v2.5.3
+  packagePullPolicy: IfNotPresent
+  revisionActivationPolicy: Automatic
+  revisionHistoryLimit: 1
+  # We install provider-family-aws explicitly in 00-provider-family-aws.yaml.
+  # Letting Crossplane auto-install it as a transitive dependency races with
+  # our explicit Provider and creates a duplicate (upbound-provider-family-aws),
+  # which fails with "node ... already exists" in the dependency graph and
+  # leaves the family provider in CrashLoopBackOff.
+  skipDependencyResolution: true
+  runtimeConfigRef:
+    apiVersion: pkg.crossplane.io/v1beta1
+    kind: DeploymentRuntimeConfig
+    name: aws-provider-runtime

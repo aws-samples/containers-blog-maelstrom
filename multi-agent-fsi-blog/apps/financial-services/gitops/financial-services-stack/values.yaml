@@ -1,0 +1,122 @@
+# Financial Services (Strands) Stack Configuration
+projectName: financial-services
+version: v1
+
+# AWS / EKS
+awsRegion: us-west-2
+eksClusterName: finops-agents
+networkMode: PUBLIC
+
+# Kubernetes
+namespace: financial-services
+
+# Bedrock model used by direct Bedrock calls (agent Browser tasks, code-gen
+# inner Agent). LiteLLM handles most traffic; this is the fallback path.
+bedrockModelId: us.anthropic.claude-sonnet-4-6
+
+# ---------------------------------------------------------------------------
+# Agent definitions
+# ---------------------------------------------------------------------------
+# One list entry per agent. Each entry owns:
+#   name               Pod/Service/SA/Route name
+#   role               orchestrator | specialist — drives gateway authz
+#   image.tag          unique per agent (repo is shared)
+#   agentcore.*        per-agent AgentCore capability toggles. Setting any of
+#                      these to true spawns a dedicated Crossplane Memory /
+#                      Browser / CodeInterpreter managed resource — each
+#                      provisioned independently by the Upbound
+#                      provider-aws-bedrockagentcore controller. Agents with
+#                      every toggle off still get an IAM role + Pod Identity
+#                      association so they can invoke Bedrock models.
+#   tools              List of MCP tool names this agent is allowed to call
+#                      through /mcp. Used by the Gateway MCP authz policy.
+# ---------------------------------------------------------------------------
+agents:
+  - name: financial-advisor
+    role: orchestrator
+    image:
+      repository: financial-services-agents
+      tag: financial-advisor-v3
+    agentcore:
+      memory: true
+      browser: false
+      codeInterpreter: false
+    tools: []
+
+  - name: portfolio-analyst
+    role: specialist
+    image:
+      repository: financial-services-agents
+      tag: portfolio-analyst-v3
+    agentcore:
+      memory: false
+      browser: false
+      codeInterpreter: true
+    tools:
+      - get_stock_price
+      - calculate_portfolio_value
+
+  - name: risk-assessment
+    role: specialist
+    image:
+      repository: financial-services-agents
+      tag: risk-assessment-v3
+    agentcore:
+      memory: false
+      browser: false
+      codeInterpreter: true
+    tools: []
+
+  - name: market-data
+    role: specialist
+    image:
+      repository: financial-services-agents
+      tag: market-data-v3
+    agentcore:
+      memory: false
+      browser: true
+      codeInterpreter: false
+    tools:
+      - get_stock_price
+      - get_market_trends
+
+# Shared image config — the registry and MCP server image.
+images:
+  pullPolicy: Always
+  registry: docker.io/sriram430
+  mcpServer:
+    repository: financial-services-agents
+    tag: financial-tools-mcp-v3
+
+# Agent Gateway (already installed in the cluster)
+agentGateway:
+  url: http://agent-gateway-proxy.agentgateway-system.svc.cluster.local:8080
+  gatewayName: agent-gateway-proxy
+  gatewayNamespace: agentgateway-system
+  audience: agent-gateway
+  # JWT projected token expiry in seconds
+  tokenExpirationSeconds: 3600
+
+# LiteLLM proxy (already installed in the cluster). All LLM calls from Strands
+# agents route through this for cost tracking + fallback routing.
+litellm:
+  url: http://litellm.litellm.svc.cluster.local:4000
+  model: finops-primary
+  apiKeySecret:
+    name: litellm-api-key
+    key: api-key
+  # When true, the chart creates the Secret named above containing
+  # apiKeyValue. Must match LiteLLM's masterkey in
+  # gitops/addons/litellm/values.yaml. Set to false and provision the Secret
+  # externally (ExternalSecrets, SealedSecrets, etc.) for production.
+  createApiKeySecret: true
+  apiKeyValue: sk-finops-demo-master
+
+# EKS cluster identity used by the Gateway's jwtAuthentication policy.
+# Populated by the app-of-apps root chart (which in turn is fed by
+# terraform/bootstrap reading the live cluster's OIDC issuer and JWKS).
+# When both values are empty the gateway-policies template skips rendering
+# authn + authz — useful for standalone testing without the Terraform flow.
+eks:
+  oidcIssuer: ""
+  jwksJson: ""

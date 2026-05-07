@@ -1,0 +1,9 @@
+strands-agents
+strands-agents-tools
+boto3
+bedrock-agentcore
+fastapi
+uvicorn
+httpx
+rich
+litellm

@@ -1,0 +1,119 @@
+# LiteLLM proxy configuration.
+# Routes Claude/Bedrock traffic and provides cost tracking + fallback routing
+# to the Strands agents. The financial-services agents talk to LiteLLM via its
+# OpenAI-compatible endpoint at http://litellm.litellm.svc.cluster.local:4000.
+
+# Persistence: LiteLLM tracks spend per request in a Postgres DB. For the demo
+# we use the in-chart Postgres subchart (small, ephemeral). In production swap
+# for RDS via DATABASE_URL.
+db:
+  deployStandalone: true
+  useExisting: false
+
+# Chart appVersion (v1.80.12) resolves to an image tag that doesn't exist
+# on ghcr. Pin to a tag that actually exists and matches the chart revision.
+image:
+  repository: ghcr.io/berriai/litellm-database
+  tag: main-v1.83.10-stable
+
+# Make the schema-migration Job a regular resource instead of an ArgoCD
+# PreSync hook. The PreSync flow was getting stuck on "waiting for hook"
+# after forced re-syncs because the hook phase bookkeeping never cleared.
+# As a regular Job, ArgoCD prunes+recreates it on every sync and the
+# Deployment's own DB-ready probe handles ordering.
+migrationJob:
+  hooks:
+    argocd:
+      enabled: false
+    helm:
+      enabled: false
+
+# Master API key used by clients. Override via secret in production.
+masterkey: sk-finops-demo-master
+
+# OpenAI-compatible port.
+service:
+  type: ClusterIP
+  port: 4000
+
+# AWS credentials come from Pod Identity (role attached to the litellm SA).
+# LiteLLM reads AWS region from env; IAM permissions come from the pod role.
+serviceAccount:
+  create: true
+  name: litellm
+
+env:
+  - name: AWS_REGION
+    value: us-west-2
+  - name: LITELLM_MODE
+    value: PRODUCTION
+  - name: LITELLM_LOG
+    value: INFO
+  - name: STORE_MODEL_IN_DB
+    value: "True"
+
+# Cost tracking persists per-model token spend to the DB. Exposed at /spend.
+# Prometheus metrics at /metrics are scraped for FinOps dashboards.
+proxy_config:
+  model_list:
+    # ---- Primary: Bedrock Claude Sonnet 4.6 (active) ----
+    - model_name: claude-sonnet
+      litellm_params:
+        model: bedrock/us.anthropic.claude-sonnet-4-6
+        aws_region_name: us-west-2
+
+    # ---- Fallback: smaller, cheaper Haiku 4.5 ----
+    - model_name: claude-haiku
+      litellm_params:
+        model: bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0
+        aws_region_name: us-west-2
+
+    # ---- Alias used by Strands agents (financial-*) ----
+    - model_name: finops-primary
+      litellm_params:
+        model: bedrock/us.anthropic.claude-sonnet-4-6
+        aws_region_name: us-west-2
+
+  router_settings:
+    routing_strategy: simple-shuffle
+    fallbacks:
+      - finops-primary: [claude-sonnet, claude-haiku]
+    num_retries: 2
+    timeout: 120
+
+  litellm_settings:
+    drop_params: true
+    set_verbose: false
+    # Prometheus callbacks require a LiteLLM Enterprise license — leaving
+    # them out so the open-source proxy starts cleanly. Spend is still
+    # persisted to Postgres and exposed on the /spend endpoint.
+    telemetry: false
+
+  general_settings:
+    master_key: os.environ/LITELLM_MASTER_KEY
+    database_url: os.environ/DATABASE_URL
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 3Gi
+
+replicaCount: 2
+
+serviceMonitor:
+  enabled: false
+
+# --- Postgres subchart override ---
+# Bitnami moved their free container images to docker.io/bitnamilegacy/* in
+# mid-2025. The subchart default (docker.io/bitnami/postgresql) now 401s.
+# Pin the legacy registry so `helm install` works without a Bitnami license.
+postgresql:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+    tag: 16.2.0-debian-12-r6
+  primary:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi

@@ -1,0 +1,24 @@
+# Where this repo is hosted. Addon Applications inherit these values so a
+# single override at bootstrap time (terraform/bootstrap) propagates.
+gitOpsRepo:
+  url: https://github.com/aws-samples/containers-blog-maelstrom
+  branch: multi-agent-fsi-blog
+
+# Root path under the repo that holds the multi-agent-fsi-blog tree.
+basePath: multi-agent-fsi-blog
+
+# ArgoCD destination namespaces per addon.
+namespaces:
+  agentGateway: agentgateway-system
+  crossplane: crossplane-system
+  litellm: litellm
+  financialServices: financial-services
+
+# EKS cluster identity used by Agent Gateway to validate ServiceAccount tokens.
+# These are populated at bootstrap time by terraform/bootstrap (helm.parameters
+# on the platform-root ArgoCD Application). Empty defaults mean downstream
+# templates skip JWT authn rendering gracefully if the chart is installed
+# without going through the bootstrap Terraform.
+eks:
+  oidcIssuer: ""
+  jwksJson: ""

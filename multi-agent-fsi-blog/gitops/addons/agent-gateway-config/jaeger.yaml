@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jaeger
+  namespace: agentgateway-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: agentgateway-system
+  labels:
+    app: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      serviceAccountName: jaeger
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:1.62.0
+          env:
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+          ports:
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: ui
+              containerPort: 16686
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: agentgateway-system
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: ui
+      port: 16686
+      targetPort: 16686

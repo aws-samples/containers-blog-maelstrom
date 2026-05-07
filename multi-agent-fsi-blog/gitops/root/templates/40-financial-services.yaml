@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: financial-services
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.gitOpsRepo.url | quote }}
+    targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
+    path: {{ printf "%s/apps/financial-services/gitops/financial-services-stack" .Values.basePath | quote }}
+    helm:
+      valueFiles:
+        - values.yaml
+      parameters:
+        # EKS OIDC values for Agent Gateway jwtAuthentication. Empty strings
+        # mean the gateway-policies template skips authn/authz rendering.
+        - name: eks.oidcIssuer
+          value: {{ .Values.eks.oidcIssuer | quote }}
+        - name: eks.jwksJson
+          value: {{ .Values.eks.jwksJson | quote }}
+          forceString: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.financialServices | quote }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true

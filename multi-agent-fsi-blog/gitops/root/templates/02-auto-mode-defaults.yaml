@@ -1,0 +1,31 @@
+# EKS Auto Mode default StorageClass + IngressClass.
+# Auto Mode provides the managed controllers (EBS CSI, ALB controller) but
+# not the resources that point workloads at them. These two manifests make
+# `PVC without storageClassName` and `Ingress without ingressClassName` work
+# out of the box, which several addons (LiteLLM Postgres, downstream demos)
+# rely on.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: auto-mode-defaults
+  namespace: argocd
+  annotations:
+    # Wave 0 — before any addon with a PVC (LiteLLM=3) or Ingress.
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.gitOpsRepo.url | quote }}
+    targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
+    path: {{ printf "%s/gitops/addons/auto-mode-defaults" .Values.basePath | quote }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

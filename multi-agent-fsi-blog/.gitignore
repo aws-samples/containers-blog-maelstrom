@@ -1,0 +1,7 @@
+# Terraform state — never commit. State may contain secrets (certs, passwords).
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/*.tfplan
+**/crash.log

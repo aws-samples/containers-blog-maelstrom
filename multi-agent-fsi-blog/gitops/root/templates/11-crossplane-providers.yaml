@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: crossplane-providers
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.gitOpsRepo.url | quote }}
+    targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
+    path: {{ printf "%s/gitops/addons/crossplane-providers" .Values.basePath | quote }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.crossplane | quote }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      # Provider CRDs install dynamically after the Provider package
+      # resolves. First sync will report missing schemas for ProviderConfig
+      # kinds; ArgoCD retries pick them up once the family provider lands.
+      - SkipDryRunOnMissingResource=true

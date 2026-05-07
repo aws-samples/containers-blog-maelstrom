@@ -1,0 +1,149 @@
+{{/*
+Common env vars every agent gets.
+*/}}
+{{- define "fs.agentEnv" -}}
+- name: AWS_REGION
+  value: {{ .root.Values.awsRegion | quote }}
+- name: BEDROCK_MODEL_ID
+  value: {{ .root.Values.bedrockModelId | quote }}
+- name: MCP_GATEWAY_URL
+  value: {{ .root.Values.agentGateway.url | quote }}
+- name: A2A_GATEWAY_URL
+  value: {{ .root.Values.agentGateway.url | quote }}
+- name: LITELLM_URL
+  value: {{ .root.Values.litellm.url | quote }}
+- name: LITELLM_MODEL
+  value: {{ .root.Values.litellm.model | quote }}
+- name: LITELLM_API_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ .root.Values.litellm.apiKeySecret.name | quote }}
+      key: {{ .root.Values.litellm.apiKeySecret.key | quote }}
+      optional: true
+{{- end }}
+
+{{/*
+Projected SA token (audience: agent-gateway) consumed by the agent's
+_shared/a2a_client.py + mcp_client.py.
+*/}}
+{{- define "fs.projectedToken" -}}
+- name: agent-gateway-token
+  projected:
+    sources:
+      - serviceAccountToken:
+          path: token
+          audience: {{ .root.Values.agentGateway.audience | quote }}
+          expirationSeconds: {{ .root.Values.agentGateway.tokenExpirationSeconds }}
+{{- end }}
+
+{{- define "fs.tokenMount" -}}
+- name: agent-gateway-token
+  mountPath: /var/run/secrets/agent-gateway
+  readOnly: true
+{{- end }}
+
+{{/*
+Per-agent outputs come from Crossplane connection Secrets, one per
+AgentCore resource the agent opted into. Each Crossplane MR publishes
+its attributes (including the `id`) via writeConnectionSecretToRef —
+we fan them into the agent's env below. Keys follow the Terraform
+aws provider attribute names; `id` is the primary key for each MR.
+*/}}
+{{- range $agent := .Values.agents }}
+{{- $sa := printf "%s-sa" $agent.name }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $sa }}
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $agent.name }}
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  selector:
+    app: {{ $agent.name }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $agent.name }}
+  namespace: {{ $.Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $agent.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $agent.name }}
+        role: {{ $agent.role | quote }}
+    spec:
+      serviceAccountName: {{ $sa }}
+      volumes:
+        {{- include "fs.projectedToken" (dict "root" $) | nindent 8 }}
+      containers:
+        - name: agent
+          image: "{{ $.Values.images.registry }}/{{ $agent.image.repository }}:{{ $agent.image.tag }}"
+          imagePullPolicy: {{ $.Values.images.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            {{- include "fs.agentEnv" (dict "root" $) | nindent 12 }}
+            {{- if $agent.agentcore.memory }}
+            - name: MEMORY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "fs-%s-memory-outputs" $agent.name | quote }}
+                  key: id
+                  optional: true
+            {{- end }}
+            {{- if $agent.agentcore.browser }}
+            - name: BROWSER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "fs-%s-browser-outputs" $agent.name | quote }}
+                  key: id
+                  optional: true
+            {{- end }}
+            {{- if $agent.agentcore.codeInterpreter }}
+            - name: CODE_INTERPRETER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "fs-%s-code-interpreter-outputs" $agent.name | quote }}
+                  key: id
+                  optional: true
+            {{- end }}
+          volumeMounts:
+            {{- include "fs.tokenMount" (dict "root" $) | nindent 12 }}
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+{{- end }}

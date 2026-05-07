@@ -1,0 +1,31 @@
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: aws-provider-runtime
+  annotations:
+    # Runtime config must exist before any Provider that references it
+    # starts reconciling — the Provider controller resolves the
+    # runtimeConfigRef up front.
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  # Crossplane creates this ServiceAccount automatically. Match the name
+  # to the EKS Pod Identity association created by terraform/cluster/
+  # crossplane_provider_iam.tf — the association binds
+  # crossplane-system/crossplane-aws-provider-sa to the IAM role that has
+  # bedrockagentcore:*, iam:* (create/update/delete/pass role), and
+  # eks:*PodIdentityAssociation* permissions.
+  serviceAccountTemplate:
+    metadata:
+      name: crossplane-aws-provider-sa
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          serviceAccountName: crossplane-aws-provider-sa
+          containers:
+            - name: package-runtime
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
