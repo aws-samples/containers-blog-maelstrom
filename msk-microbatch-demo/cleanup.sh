@@ -11,6 +11,19 @@ echo ""
 # Load environment variables
 export $(grep -v '^#' .env | xargs)
 
+# Delete Kubernetes deployments (ignore errors if already deleted)
+echo ""
+echo "Deleting Kubernetes resources..."
+echo ""
+
+kubectl delete -f trade-tx-producer/trade-tx-producer.yaml --ignore-not-found 2>/dev/null && \
+  echo "✓ Deleted producer resources" || \
+  echo "✗ Producer resources not found or cluster unreachable"
+
+kubectl delete -f trade-tx-consumer/trade-tx-consumer.yaml --ignore-not-found 2>/dev/null && \
+  echo "✓ Deleted consumer resources" || \
+  echo "✗ Consumer resources not found or cluster unreachable"
+
 # Delete ECR repositories
 echo ""
 echo "Deleting ECR repositories..."

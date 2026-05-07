@@ -162,6 +162,11 @@ resource "aws_iam_policy" "keda_msk_policy" {
         Effect   = "Allow"
         Action   = "kafka-cluster:*"
         Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "cloudwatch:GetMetricData"
+        Resource = "*"
       }
     ]
   })

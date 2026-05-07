@@ -18,9 +18,9 @@ The solution combines **AWS MSK** (managed Kafka) for durable message streaming 
 
 ![Architecture Diagram](images/Architecture.png)
 
-- **AWS MSK**: Managed Kafka cluster with IAM authentication and 24 partitions for parallelization
+- **AWS MSK**: Managed Kafka cluster with IAM authentication and 50 partitions for parallelization
 - **Amazon EKS**: Kubernetes cluster with automatic compute management
-- **KEDA**: Event-driven autoscaler monitoring Kafka consumer lag (scales 0-20 replicas)
+- **KEDA**: Event-driven autoscaler monitoring Kafka consumer lag and inbound message rate (scales 0-50 replicas)
 - **Consumer Application**: Microbatch processor with cooperative rebalancing for zero-downtime scaling
 - **Producer Simulator**: Generates transaction loads to demonstrate elasticity
 - **Prometheus + Grafana**: Observability stack for metrics and dashboards
@@ -40,15 +40,20 @@ Multiple factors add to scaling instability such as Kafka partition rebalancing 
 During scale events, Kafka redistributes partition assignments across pods. With default "eager" rebalancing, all consumers pause processing, which dramatically reduces processing throughput and risks breaching SLA. This architecture uses **cooperative rebalancing**, allowing most pods to continue processing while only affected pods pause briefly, reducing the impact on processing throughput during scaling.
 
 2. **Profile your application** to identify:
-   - Peak processing capacity per pod (~100 msg/s in this demo)
-   - Ramp-up time to reach peak capacity (~60 seconds in this demo)
-   - Time it takes for partition rebalance to complete and consumers to pick up processing speed again (~60 seconds in this demo)
+   - Peak processing capacity per pod
+   - Ramp-up time to reach peak capacity
+   - Time it takes for partition rebalance to complete and consumers to pick up processing speed again
 
 3. **Tune Keda timing settings**:
    Consider multiple configuration options for influencing scaling sensitivity:
    - **Pod initialReadinessDelay**: Allow time for new pods to ramp up before HPA considers them ready
    - **StabilizationWindowSeconds**: Consider metric values using a rolling window to smooth out fluctuations
    - **Scaling policy periodSeconds**: Define an upper budget for scaling and wait for a period of time to scale again after the budget is consumed
+
+4. **Add a second scaling metric: Inbound Message Rate**:
+   Lag-based scaling alone can cause flapping during scale-down. When a burst is processed and lag drops, KEDA scales pods down aggressively — but if messages are still arriving at a steady rate, the reduced capacity can't keep up, lag spikes again, and pods scale back up. This oscillation repeats.
+
+   Adding the broker-side inbound message rate (via Prometheus) as a second KEDA trigger establishes a floor: the system won't scale below the number of pods needed to handle the current arrival rate, regardless of lag. Pods are only removed when both lag *and* inbound rate have dropped. This smooths out scale-down behavior and prevents premature capacity reduction while messages are still flowing.
 
 ## Deployment Steps
 
@@ -71,7 +76,7 @@ chmod +x deploy-infra.sh
 
 This creates:
 - **VPC** with public/private subnets across 2 AZs
-- **MSK cluster** with 2 brokers, 24 partitions, IAM authentication
+- **MSK cluster** with 2 brokers, 50 partitions, IAM authentication
 - **EKS cluster** with Auto Mode for managed compute
 - **IAM roles and policies** for Pod Identity (producer, consumer, KEDA)
 - **Prometheus + Grafana** for observability (in cluster kube-prometheus-stack)
@@ -91,7 +96,7 @@ chmod +x deploy-consumer.sh
 
 This deploys:
 - **Consumer Deployment**: Kubernetes deployment running the transaction processor
-  - Registers as consumer group `trade-tx-consumer` with MSK
+  - Registers as consumer group `tx-trade-workers` with MSK
   - Polls messages from topic `trade-tx`
   - Uses **microbatching** to aggregate records before processing (configurable `BATCH_SIZE`)
   - Simulates batch DB writes by waiting `BATCH_PROCESSING_TIME` for each batch
@@ -99,9 +104,10 @@ This deploys:
 
 - **KEDA ScaledObject**: Configures autoscaling behavior
   - Monitors `OffsetLag` metric (pending messages per partition)
-  - Scales from **0 to 100 replicas** based on lag threshold (configurable `LAG_THRESHOLD = 10000`)
-  - When lag > 10000: KEDA scales up pods to meet demand
-  - When lag < 10000: KEDA scales down to reduce costs
+  - Monitors **inbound message rate** via Prometheus to maintain baseline processing capacity
+  - Scales from **0 to 50 replicas** based on lag threshold (configurable `LAG_THRESHOLD = 5000`)
+  - When lag > 5000: KEDA scales up pods to meet demand
+  - When lag < 5000 and inbound rate drops: KEDA scales down to reduce costs
   - When lag = 0: KEDA scales to zero after cooldown period
 
 **Microbatching benefits**: Aggregating multiple records into a single DB operation significantly reduces write latency—the typical bottleneck in transaction processing.
@@ -142,10 +148,10 @@ kubectl logs -l app=trade-tx-consumer
 Expected output:
 ```
 pod/trade-tx-consumer-bdb4ff757-gh2bd condition met
-[2025-12-30 16:12:21] INFO: Batch size: 100, Batch timeout: 0.1s
+[2025-12-30 16:12:21] INFO: Batch size: 20, Batch timeout: 0.1s
 [2025-12-30 16:12:21] INFO: Metrics available at :8000/metrics
 [2025-12-30 16:12:25] INFO: Processing batch of 1 messages
-[2025-12-30 16:12:26] INFO: Processing batch of 100 messages
+[2025-12-30 16:12:26] INFO: Processing batch of 20 messages
 ```
 
 **Monitor HPA autoscaling:**
@@ -153,10 +159,10 @@ pod/trade-tx-consumer-bdb4ff757-gh2bd condition met
 kubectl get hpa
 ```
 
-At 10 msg/s, lag stays below the 1000-message threshold, so only **1 replica** runs:
+At 10 msg/s, lag stays below the 5000-message threshold, so only **1 replica** runs:
 ```
 NAME                                REFERENCE                      TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
-keda-hpa-trade-tx-consumer-scaler   Deployment/trade-tx-consumer   14/10k (avg)   1         100       1          32m
+keda-hpa-trade-tx-consumer-scaler   Deployment/trade-tx-consumer   14/5k (avg)    1         50        1          32m
 ```
 
 ### Step 4: Simulate Demand Spike
@@ -198,11 +204,17 @@ This eliminates compute costs during idle periods while maintaining instant read
 
 ## Monitoring
 
+**Get Grafana credentials:**
+```bash
+kubectl get secret -n kube-system kube-prometheus-stack-grafana -o jsonpath='{.data.admin-user}' | base64 -d
+kubectl get secret -n kube-system kube-prometheus-stack-grafana -o jsonpath='{.data.admin-password}' | base64 -d
+```
+
 **Access Grafana dashboard:**
 ```bash
 kubectl port-forward -n kube-system svc/kube-prometheus-stack-grafana 3000:80
 ```
-Open http://localhost:3000 (default credentials: admin/prom-operator)
+Open http://localhost:3000 and log in with the credentials retrieved above.
 
 **Access provided dashboard:**
 Title: "MSK & KEDA Monitoring"

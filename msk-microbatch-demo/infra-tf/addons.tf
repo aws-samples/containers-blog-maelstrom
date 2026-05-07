@@ -28,6 +28,7 @@ resource "helm_release" "keda" {
           additionalLabels = {
             release = "kube-prometheus-stack"
           }
+          interval = "5s"
         }
       }
       metricServer = {
@@ -37,6 +38,7 @@ resource "helm_release" "keda" {
           additionalLabels = {
             release = "kube-prometheus-stack"
           }
+          interval = "5s"
         }
       }
     }
@@ -139,6 +141,11 @@ resource "helm_release" "kube_prometheus_stack" {
       }]
       nodeSelector = {
         "karpenter.sh/nodepool" = "system"
+      }
+      prometheus = {
+        monitor = {
+          interval = "5s"
+        }
       }
     }
     "prometheus-node-exporter" = {
