@@ -110,7 +110,7 @@ spec:
 # ---- Memory claim for {{ $agent.name }} ----
 # The RGD emits the ACK Memory + a FieldExport that publishes status.id into
 # the writeConnectionSecretName Secret. Agents consume MEMORY_ID from it.
-apiVersion: fsi.aws.example.com/v1alpha1
+apiVersion: kro.run/v1alpha1
 kind: AgentCoreMemory
 metadata:
   name: {{ printf "fs-%s-memory" $agent.name }}
@@ -130,7 +130,7 @@ spec:
 {{- if $agent.agentcore.browser }}
 ---
 # ---- Browser claim for {{ $agent.name }} ----
-apiVersion: fsi.aws.example.com/v1alpha1
+apiVersion: kro.run/v1alpha1
 kind: AgentCoreBrowser
 metadata:
   name: {{ printf "fs-%s-browser" $agent.name }}
@@ -150,7 +150,7 @@ spec:
 {{- if $agent.agentcore.codeInterpreter }}
 ---
 # ---- Code Interpreter claim for {{ $agent.name }} ----
-apiVersion: fsi.aws.example.com/v1alpha1
+apiVersion: kro.run/v1alpha1
 kind: AgentCoreCodeInterpreter
 metadata:
   name: {{ printf "fs-%s-code-interpreter" $agent.name }}
