@@ -97,7 +97,7 @@ Sync order (inside this chart):
 
 | Wave | Resources |
 |------|-----------|
-| 0 | Namespace + per-agent ACK resources + kro claims (Memory / Browser / CodeInterpreter / Role / PodIdentityAssociation). Each AgentCore claim's RGD runs a FieldExport that publishes the Secret (`fs-<agent>-<kind>-outputs`) as soon as the ACK resource's `status.id` is set. |
+| 0 | Namespace + per-agent ACK resources + kro claims (Memory / Browser / CodeInterpreter / Role / PodIdentityAssociation). Each AgentCore claim's RGD writes the Secret (`fs-<agent>-<kind>-outputs`) from the ACK resource's `status.id` as soon as it is set. |
 | 1 | `financial-tools-mcp` Service + Deployment + SA, `litellm-api-key` Secret. |
 | 2 | 4× agent (SA + Service + Deployment with projected SA token), gateway backends + routes, authz policies. |
 

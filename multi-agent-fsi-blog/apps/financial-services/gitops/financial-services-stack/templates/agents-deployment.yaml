@@ -44,9 +44,9 @@ _shared/a2a_client.py + mcp_client.py.
 
 {{/*
 Per-agent outputs come from connection Secrets, one per AgentCore resource the
-agent opted into. Each kro composite claim's RGD runs an ACK FieldExport that
-writes the underlying ACK resource's status.id into the Secret under key `id` —
-we fan them into the agent's env below. `id` is the AgentCore resource ID.
+agent opted into. Each kro composite claim's RGD writes the underlying ACK
+resource's status.id into the Secret under key `id` — we fan them into the
+agent's env below. `id` is the AgentCore resource ID.
 */}}
 {{- range $agent := .Values.agents }}
 {{- $sa := printf "%s-sa" $agent.name }}

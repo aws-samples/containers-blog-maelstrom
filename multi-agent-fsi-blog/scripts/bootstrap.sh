@@ -98,14 +98,13 @@ ok "ACK + kro Capabilities and RGDs ready"
 step "Waiting for financial-services + per-agent ACK resources"
 # Every agent with an agentcore.* toggle gets an AgentCoreMemory /
 # AgentCoreBrowser / AgentCoreCodeInterpreter composite claim. Its kro RGD
-# emits the underlying ACK Memory/Browser/CodeInterpreter and a FieldExport
-# that publishes status.id into the <agent>-<kind>-outputs Secret agent pods
-# read.
+# emits the underlying ACK Memory/Browser/CodeInterpreter and a Secret that
+# carries status.id into the <agent>-<kind>-outputs Secret agent pods read.
 kubectl -n argocd wait application/financial-services \
   --for=jsonpath='{.status.sync.status}'=Synced --timeout=15m || true
 # Wait on the ACK AgentCore resources reaching ACK.ResourceSynced=True — that
 # flips once the AWS resource exists and status.id is populated (which in turn
-# lets the FieldExport write the Secret).
+# lets the RGD write the Secret).
 for kind in memories browsers codeinterpreters; do
   for r in $(kubectl -n financial-services get ${kind}.bedrockagentcorecontrol.services.k8s.aws -o name 2>/dev/null); do
     echo "  - waiting on ${r}"
@@ -121,7 +120,7 @@ for kind in roles.iam.services.k8s.aws podidentityassociations.eks.services.k8s.
       --for=condition=ACK.ResourceSynced --timeout=10m || true
   done
 done
-# Confirm the FieldExport Secrets carry a non-empty id before the restart.
+# Confirm the RGD-emitted Secrets carry a non-empty id before the restart.
 for kind in memory browser code-interpreter; do
   for sec in $(kubectl -n financial-services get secret -o name 2>/dev/null | grep -- "-${kind}-outputs"); do
     echo "  - checking ${sec} has id"

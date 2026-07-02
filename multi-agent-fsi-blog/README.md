@@ -133,7 +133,7 @@ That kicks off five phases (about 20 minutes end-to-end, most of it EKS cluster 
 2. `aws eks update-kubeconfig` — so you can talk to the cluster.
 3. `terraform apply` on `terraform/bootstrap/` — installs ArgoCD via Helm, reads the cluster's OIDC issuer + JWKS, and plumbs both into the `platform-root` ArgoCD Application via `helm.parameters` (see [Identity wiring](#identity-wiring-the-interesting-part) below).
 4. Waits for the ACK + kro Capabilities to be `ACTIVE`, then for every addon Application to reach `Synced / Healthy` — Gateway API + agentgateway CRDs, Auto Mode defaults, the AgentCore RGDs, Agent Gateway + config, LiteLLM, and the financial-services chart.
-5. Waits on each ACK resource (`Memory`, `Browser`, `CodeInterpreter`, `Role`, `PodIdentityAssociation`) to reach `ACK.ResourceSynced=True` and on the FieldExport Secrets to be populated, then rolls the agent Deployments so they pick up the newly-published IDs.
+5. Waits on each ACK resource (`Memory`, `Browser`, `CodeInterpreter`, `Role`, `PodIdentityAssociation`) to reach `ACK.ResourceSynced=True` and on the kro-emitted Secrets to be populated, then rolls the agent Deployments so they pick up the newly-published IDs.
 
 Environment overrides (optional):
 
@@ -186,12 +186,13 @@ Every agent gets:
   PodIdentityAssociation.eks.services.k8s.aws   (binds <agent>-sa to the role)
 
 Plus per agentcore.* toggle, a kro composite claim whose RGD emits an ACK
-resource + a FieldExport:
+resource + a Secret:
   AgentCoreMemory           → Memory.bedrockagentcorecontrol.services.k8s.aws
   AgentCoreBrowser          → Browser.bedrockagentcorecontrol.services.k8s.aws
   AgentCoreCodeInterpreter  → CodeInterpreter.bedrockagentcorecontrol.services.k8s.aws
 
-Each FieldExport publishes the ACK resource's status.id to a Secret:
+The RGD graph writes the ACK resource's status.id into a Secret (kro orders
+it after the resource, so it only lands once the id resolves):
   fs-<agent>-memory-outputs             ← consumed as MEMORY_ID
   fs-<agent>-browser-outputs            ← consumed as BROWSER_ID
   fs-<agent>-code-interpreter-outputs   ← consumed as CODE_INTERPRETER_ID
@@ -236,7 +237,7 @@ ACK resources have conventional K8s failure modes — `kubectl describe <kind> <
 - **Capability not ACTIVE yet.** `aws eks list-capabilities --cluster-name <cluster>` — if the ACK Capability isn't `ACTIVE`, its controllers aren't running and the resource sits unreconciled. The kro RGDs likewise need the kro Capability `ACTIVE` (`kubectl get resourcegraphdefinitions` should show all three `Active`).
 - **Capability role missing a permission.** If the ACK controller gets a 403, check the inline policy on the `<cluster>-ack-capability` IAM role from `terraform/cluster/ack_capability_iam.tf`.
 
-**Blast radius is per-resource.** An unhealthy `Memory` for `financial-advisor` doesn't affect `portfolio-analyst`'s `CodeInterpreter` — each ACK resource reconciles independently, its FieldExport writes its own Secret, and it feeds exactly one agent.
+**Blast radius is per-resource.** An unhealthy `Memory` for `financial-advisor` doesn't affect `portfolio-analyst`'s `CodeInterpreter` — each ACK resource reconciles independently, its RGD writes its own Secret, and it feeds exactly one agent.
 
 ---
 

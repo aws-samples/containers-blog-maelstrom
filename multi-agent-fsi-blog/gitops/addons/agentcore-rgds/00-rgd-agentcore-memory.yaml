@@ -6,9 +6,14 @@
 # financial-services chart already sends. The graph emits:
 #   1. an ACK Memory (bedrockagentcorecontrol.services.k8s.aws) reconciled by
 #      the AgentCore controller the ACK Capability installs, and
-#   2. an ACK FieldExport that writes the created memory's status.id into the
-#      writeConnectionSecretName Secret under key `id` — the exact contract the
-#      agent Deployment reads as MEMORY_ID.
+#   2. a Secret named writeConnectionSecretName carrying the created memory's
+#      status.id under key `id` — the exact contract the agent Deployment reads
+#      as MEMORY_ID. kro's DAG only creates the Secret once status.id resolves.
+#
+# Note: we emit the Secret from kro directly rather than via an ACK
+# FieldExport. The AWS-managed ACK EKS Capability installs the service
+# controllers but not the shared FieldExport CRD, so a FieldExport-based bridge
+# is not available in this environment.
 apiVersion: kro.run/v1alpha1
 kind: ResourceGraphDefinition
 metadata:
@@ -49,20 +54,13 @@ spec:
           description: ${schema.spec.description}
           eventExpiryDuration: ${schema.spec.eventExpiryDuration}
           tags: ${schema.spec.tags}
-    - id: idExport
+    - id: idSecret
       template:
-        apiVersion: services.k8s.aws/v1alpha1
-        kind: FieldExport
+        apiVersion: v1
+        kind: Secret
         metadata:
           name: ${schema.spec.writeConnectionSecretName}
-        spec:
-          from:
-            path: .status.id
-            resource:
-              group: bedrockagentcorecontrol.services.k8s.aws
-              kind: Memory
-              name: ${memory.metadata.name}
-          to:
-            name: ${schema.spec.writeConnectionSecretName}
-            kind: secret
-            key: id
+        stringData:
+          # Resolves only after the ACK Memory reports status.id, so kro
+          # orders this Secret after the memory resource in the graph.
+          id: ${memory.status.id}
