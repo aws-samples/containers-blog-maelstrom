@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agentcore-rgds
+  namespace: argocd
+  annotations:
+    # Wave 1: the ACK + kro controllers are installed by AWS-managed EKS
+    # Capabilities (terraform/cluster/ack_capability_iam.tf), so by the time
+    # ArgoCD reconciles addons the kro.run + services.k8s.aws CRDs already
+    # exist. This Application applies the three AgentCore
+    # ResourceGraphDefinitions; kro then serves the composite
+    # AgentCoreMemory/Browser/CodeInterpreter kinds the financial-services
+    # chart (wave 4) instantiates.
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.gitOpsRepo.url | quote }}
+    targetRevision: {{ .Values.gitOpsRepo.branch | quote }}
+    path: {{ printf "%s/gitops/addons/agentcore-rgds" .Values.basePath | quote }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.agentcoreRgds | quote }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      # The kro.run ResourceGraphDefinition CRD is installed by the kro EKS
+      # Capability out-of-band. If ArgoCD's first reconcile races ahead of the
+      # Capability reaching ACTIVE, skip the dry-run until the CRD lands.
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

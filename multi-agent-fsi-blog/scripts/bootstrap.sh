@@ -2,16 +2,15 @@
 #
 # End-to-end bootstrap for the blog walkthrough.
 #
-# 1. terraform apply cluster/        → EKS Auto Mode + VPC + Pod Identity +
-#                                        IAM role for the Crossplane AWS
-#                                        providers (via Pod Identity on the
-#                                        crossplane-system/crossplane-aws-
-#                                        provider-sa ServiceAccount).
+# 1. terraform apply cluster/        → EKS Auto Mode + VPC + the ACK and kro
+#                                        EKS Capabilities (AWS-managed
+#                                        controllers) + their IAM roles + a
+#                                        LiteLLM Bedrock Pod Identity role.
 # 2. update kubeconfig
 # 3. terraform apply bootstrap/      → ArgoCD + app-of-apps root Application.
-# 4. wait for ArgoCD to reconcile all addons:
-#    Crossplane core, Upbound AWS providers (bedrockagentcore, iam, eks),
-#    Agent Gateway, agent-gateway-config, LiteLLM, financial-services.
+# 4. wait for the ACK + kro Capabilities to be ACTIVE, then for ArgoCD to
+#    reconcile all addons: agentcore-rgds (kro RGDs), Agent Gateway,
+#    agent-gateway-config, LiteLLM, financial-services.
 # 5. print credentials + next-step commands.
 #
 # Set AWS_REGION, CLUSTER_NAME, and GITOPS_REPO_URL env vars to override
@@ -58,10 +57,7 @@ APPS=(
   agentgateway-crds
   gateway-api-crds
   auto-mode-defaults
-  crossplane-core
-  crossplane-providers
-  crossplane-provider-config
-  crossplane-compositions
+  agentcore-rgds
   agent-gateway
   agent-gateway-config
   litellm
@@ -75,41 +71,64 @@ for app in "${APPS[@]}"; do
 done
 ok "Platform addons synced"
 
-step "Waiting for Upbound AWS providers to become Healthy"
-# The three Providers pull their packages from xpkg.upbound.io and install
-# their CRDs dynamically. The financial-services chart depends on those
-# CRDs (Memory / Browser / CodeInterpreter / Role / RolePolicy /
-# PodIdentityAssociation), so we can't move on until they're up.
-for provider in provider-family-aws provider-aws-bedrockagentcore provider-aws-iam provider-aws-eks; do
-  echo "  - waiting on Provider/${provider}"
-  kubectl wait provider.pkg.crossplane.io/${provider} \
-    --for=condition=Healthy --timeout=10m || true
+step "Waiting for the ACK + kro EKS Capabilities to be ACTIVE"
+# Both Capabilities are created by terraform/cluster (step 1), so they are
+# normally ACTIVE by now. The ACK Capability installs the service controllers
+# + their CRDs (bedrockagentcorecontrol / iam / eks); kro installs the
+# ResourceGraphDefinition CRD. The financial-services chart depends on both, so
+# confirm before moving on.
+for cap in ack kro; do
+  echo "  - waiting on capability/${cap}"
+  for _ in $(seq 1 60); do
+    state="$(aws eks describe-capability --cluster-name "${CLUSTER}" --region "${REGION}" \
+      --capability-name "${cap}" --query 'capability.status' --output text 2>/dev/null || echo '')"
+    [ "${state}" = "ACTIVE" ] && break
+    sleep 10
+  done
+  echo "    ${cap}: ${state:-unknown}"
 done
-ok "Crossplane providers Healthy"
+# The RGDs are served by kro once they reconcile. Wait for all three Active.
+for rgd in agentcorememory.fsi.aws.example.com agentcorebrowser.fsi.aws.example.com agentcorecodeinterpreter.fsi.aws.example.com; do
+  echo "  - waiting on resourcegraphdefinition/${rgd}"
+  kubectl wait resourcegraphdefinition/${rgd} \
+    --for=jsonpath='{.status.state}'=Active --timeout=5m || true
+done
+ok "ACK + kro Capabilities and RGDs ready"
 
-step "Waiting for financial-services + per-agent Crossplane resources"
+step "Waiting for financial-services + per-agent ACK resources"
 # Every agent with an agentcore.* toggle gets an AgentCoreMemory /
-# AgentCoreBrowser / AgentCoreCodeInterpreter Claim. The Composition
-# provisions the underlying Upbound MR and publishes id/arn/name into
-# the <agent>-<kind>-outputs connection Secret that agent pods read.
+# AgentCoreBrowser / AgentCoreCodeInterpreter composite claim. Its kro RGD
+# emits the underlying ACK Memory/Browser/CodeInterpreter and a FieldExport
+# that publishes status.id into the <agent>-<kind>-outputs Secret agent pods
+# read.
 kubectl -n argocd wait application/financial-services \
   --for=jsonpath='{.status.sync.status}'=Synced --timeout=15m || true
-# Wait on the Claim Ready conditions. Ready on a Claim flips True once
-# the underlying MR is Ready AND connection details have been published.
-for kind in agentcorememories agentcorebrowsers agentcorecodeinterpreters; do
-  for claim in $(kubectl -n financial-services get ${kind}.fsi.aws.example.com -o name 2>/dev/null); do
-    echo "  - waiting on ${claim}"
-    kubectl -n financial-services wait ${claim} \
-      --for=condition=Ready --timeout=10m || true
+# Wait on the ACK AgentCore resources reaching ACK.ResourceSynced=True — that
+# flips once the AWS resource exists and status.id is populated (which in turn
+# lets the FieldExport write the Secret).
+for kind in memories browsers codeinterpreters; do
+  for r in $(kubectl -n financial-services get ${kind}.bedrockagentcorecontrol.services.k8s.aws -o name 2>/dev/null); do
+    echo "  - waiting on ${r}"
+    kubectl -n financial-services wait ${r} \
+      --for=condition=ACK.ResourceSynced --timeout=10m || true
   done
 done
-# IAM + Pod Identity resources are still raw MRs (cluster-scoped kinds
-# Upbound provides), wait on those too.
-for kind in roles rolepolicies podidentityassociations; do
-  for mr in $(kubectl get ${kind}.aws.upbound.io -o name 2>/dev/null); do
-    echo "  - waiting on ${mr}"
-    kubectl wait ${mr} \
-      --for=condition=Ready --timeout=10m || true
+# Per-agent IAM Role + Pod Identity association (ACK, namespaced).
+for kind in roles.iam.services.k8s.aws podidentityassociations.eks.services.k8s.aws; do
+  for r in $(kubectl -n financial-services get ${kind} -o name 2>/dev/null); do
+    echo "  - waiting on ${r}"
+    kubectl -n financial-services wait ${r} \
+      --for=condition=ACK.ResourceSynced --timeout=10m || true
+  done
+done
+# Confirm the FieldExport Secrets carry a non-empty id before the restart.
+for kind in memory browser code-interpreter; do
+  for sec in $(kubectl -n financial-services get secret -o name 2>/dev/null | grep -- "-${kind}-outputs"); do
+    echo "  - checking ${sec} has id"
+    for _ in $(seq 1 30); do
+      kubectl -n financial-services get "${sec}" -o jsonpath='{.data.id}' 2>/dev/null | grep -q . && break
+      sleep 10
+    done
   done
 done
 ok "financial-services AgentCore provisioned"
@@ -142,8 +161,11 @@ cat <<EOF
 
  Next steps:
    • Verify addons     : kubectl get application -n argocd
-   • AgentCore MRs     : kubectl get agentcorememories,agentcorebrowsers,agentcorecodeinterpreters -n financial-services
-   • Agent IAM + PIA   : kubectl get roles.iam.aws.upbound.io,rolepolicies.iam.aws.upbound.io,podidentityassociations.eks.aws.upbound.io
+   • Capabilities      : aws eks list-capabilities --cluster-name ${CLUSTER} --region ${REGION}
+   • RGDs              : kubectl get resourcegraphdefinitions
+   • AgentCore claims  : kubectl get agentcorememories,agentcorebrowsers,agentcorecodeinterpreters -n financial-services
+   • ACK AgentCore     : kubectl get memories,browsers,codeinterpreters.bedrockagentcorecontrol.services.k8s.aws -n financial-services
+   • Agent IAM + PIA   : kubectl get roles.iam.services.k8s.aws,podidentityassociations.eks.services.k8s.aws -n financial-services
    • Jaeger UI         : kubectl port-forward -n agentgateway-system svc/jaeger 16686:16686
    • LiteLLM admin     : kubectl port-forward -n litellm svc/litellm 4000:4000
 

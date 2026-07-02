@@ -1,0 +1,68 @@
+# kro ResourceGraphDefinition — AgentCoreMemory
+#
+# Replaces the Crossplane XRD + Composition pair for AgentCore Memory. Exposes
+# the same namespaced composite kind (AgentCoreMemory, group
+# fsi.aws.example.com/v1alpha1) with the same spec.parameters the
+# financial-services chart already sends. The graph emits:
+#   1. an ACK Memory (bedrockagentcorecontrol.services.k8s.aws) reconciled by
+#      the AgentCore controller the ACK Capability installs, and
+#   2. an ACK FieldExport that writes the created memory's status.id into the
+#      writeConnectionSecretName Secret under key `id` — the exact contract the
+#      agent Deployment reads as MEMORY_ID.
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: agentcorememory.fsi.aws.example.com
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: AgentCoreMemory
+    scope: Namespaced
+    spec:
+      # Mirrors the Crossplane XRD parameters block.
+      region: string | required=true
+      name: string | required=true
+      description: string | default=""
+      eventExpiryDuration: integer | default=30
+      tags: "map[string]string"
+      # Name of the Secret the FieldExport publishes id into. Set by the
+      # financial-services chart (was writeConnectionSecretToRef.name).
+      writeConnectionSecretName: string | required=true
+    status:
+      # Surface the AgentCore id/arn on the composite, mirroring the XRD status.
+      id: ${memory.status.id}
+      arn: ${memory.status.ackResourceMetadata.arn}
+  resources:
+    - id: memory
+      readyWhen:
+        - ${memory.status.conditions.exists(c, c.type == "ACK.ResourceSynced" && c.status == "True")}
+      template:
+        apiVersion: bedrockagentcorecontrol.services.k8s.aws/v1alpha1
+        kind: Memory
+        metadata:
+          name: ${schema.spec.name}
+          # ACK reads the target region from this annotation.
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          name: ${schema.spec.name}
+          description: ${schema.spec.description}
+          eventExpiryDuration: ${schema.spec.eventExpiryDuration}
+          tags: ${schema.spec.tags}
+    - id: idExport
+      template:
+        apiVersion: services.k8s.aws/v1alpha1
+        kind: FieldExport
+        metadata:
+          name: ${schema.spec.writeConnectionSecretName}
+        spec:
+          from:
+            path: .status.id
+            resource:
+              group: bedrockagentcorecontrol.services.k8s.aws
+              kind: Memory
+              name: ${memory.metadata.name}
+          to:
+            name: ${schema.spec.writeConnectionSecretName}
+            kind: secret
+            key: id

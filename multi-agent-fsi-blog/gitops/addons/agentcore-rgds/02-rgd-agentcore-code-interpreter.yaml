@@ -1,0 +1,60 @@
+# kro ResourceGraphDefinition — AgentCoreCodeInterpreter
+#
+# Replaces the Crossplane XRD + Composition pair for AgentCore Code Interpreter.
+# Same namespaced composite kind + parameters as before; emits an ACK
+# CodeInterpreter plus a FieldExport publishing status.id into the
+# writeConnectionSecretName Secret (consumed by the agent Deployment as
+# CODE_INTERPRETER_ID).
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: agentcorecodeinterpreter.fsi.aws.example.com
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: AgentCoreCodeInterpreter
+    scope: Namespaced
+    spec:
+      region: string | required=true
+      name: string | required=true
+      description: string | default=""
+      networkMode: string | default="PUBLIC"
+      tags: "map[string]string"
+      writeConnectionSecretName: string | required=true
+    status:
+      id: ${codeInterpreter.status.id}
+      arn: ${codeInterpreter.status.ackResourceMetadata.arn}
+  resources:
+    - id: codeInterpreter
+      readyWhen:
+        - ${codeInterpreter.status.conditions.exists(c, c.type == "ACK.ResourceSynced" && c.status == "True")}
+      template:
+        apiVersion: bedrockagentcorecontrol.services.k8s.aws/v1alpha1
+        kind: CodeInterpreter
+        metadata:
+          name: ${schema.spec.name}
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          name: ${schema.spec.name}
+          description: ${schema.spec.description}
+          networkConfiguration:
+            networkMode: ${schema.spec.networkMode}
+          tags: ${schema.spec.tags}
+    - id: idExport
+      template:
+        apiVersion: services.k8s.aws/v1alpha1
+        kind: FieldExport
+        metadata:
+          name: ${schema.spec.writeConnectionSecretName}
+        spec:
+          from:
+            path: .status.id
+            resource:
+              group: bedrockagentcorecontrol.services.k8s.aws
+              kind: CodeInterpreter
+              name: ${codeInterpreter.metadata.name}
+          to:
+            name: ${schema.spec.writeConnectionSecretName}
+            kind: secret
+            key: id

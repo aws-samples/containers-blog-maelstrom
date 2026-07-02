@@ -10,7 +10,9 @@ basePath: multi-agent-fsi-blog
 # ArgoCD destination namespaces per addon.
 namespaces:
   agentGateway: agentgateway-system
-  crossplane: crossplane-system
+  # The AgentCore ResourceGraphDefinitions are cluster-scoped kro objects; the
+  # Application still needs a destination namespace for ArgoCD bookkeeping.
+  agentcoreRgds: kro-system
   litellm: litellm
   financialServices: financial-services
 

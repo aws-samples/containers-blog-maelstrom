@@ -22,12 +22,13 @@ bedrockModelId: us.anthropic.claude-sonnet-4-6
 #   role               orchestrator | specialist — drives gateway authz
 #   image.tag          unique per agent (repo is shared)
 #   agentcore.*        per-agent AgentCore capability toggles. Setting any of
-#                      these to true spawns a dedicated Crossplane Memory /
-#                      Browser / CodeInterpreter managed resource — each
-#                      provisioned independently by the Upbound
-#                      provider-aws-bedrockagentcore controller. Agents with
-#                      every toggle off still get an IAM role + Pod Identity
-#                      association so they can invoke Bedrock models.
+#                      these to true spawns a dedicated kro composite claim
+#                      (AgentCoreMemory / AgentCoreBrowser /
+#                      AgentCoreCodeInterpreter). Its RGD emits an ACK Memory /
+#                      Browser / CodeInterpreter — each reconciled independently
+#                      by the ACK bedrockagentcorecontrol controller. Agents
+#                      with every toggle off still get an IAM role + Pod
+#                      Identity association so they can invoke Bedrock models.
 #   tools              List of MCP tool names this agent is allowed to call
 #                      through /mcp. Used by the Gateway MCP authz policy.
 # ---------------------------------------------------------------------------
