@@ -14,6 +14,9 @@ metadata:
   name: agentcorecodeinterpreter.fsi.aws.example.com
 spec:
   schema:
+    # group defaults to kro.run if unset; pin it so the served composite kind
+    # is AgentCoreCodeInterpreter.fsi.aws.example.com — the API the chart declares.
+    group: fsi.aws.example.com
     apiVersion: v1alpha1
     kind: AgentCoreCodeInterpreter
     scope: Namespaced
