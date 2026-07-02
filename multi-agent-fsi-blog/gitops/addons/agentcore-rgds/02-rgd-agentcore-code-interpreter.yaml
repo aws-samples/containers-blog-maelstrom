@@ -35,7 +35,9 @@ spec:
         apiVersion: bedrockagentcorecontrol.services.k8s.aws/v1alpha1
         kind: CodeInterpreter
         metadata:
-          name: ${schema.spec.name}
+          # k8s object name must be RFC 1123 (hyphens); reuse the claim's name.
+          # spec.name below carries the AWS resource name (underscores allowed).
+          name: ${schema.metadata.name}
           annotations:
             services.k8s.aws/region: ${schema.spec.region}
         spec:
