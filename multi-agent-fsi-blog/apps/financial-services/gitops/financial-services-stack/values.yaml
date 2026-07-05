@@ -75,13 +75,7 @@ agents:
       tag: market-data-v3
     agentcore:
       memory: false
-      # AgentCore Browser is not yet included in the AWS-managed ACK EKS
-      # Capability (no Browser controller/CRD), so this toggle is off. The
-      # market-data agent falls back to the MCP get_stock_price tool for
-      # quotes. Flip back to true once the Capability ships the Browser
-      # controller (or install the bedrockagentcorecontrol Browser controller
-      # via a self-managed ACK Helm release).
-      browser: false
+      browser: true
       codeInterpreter: false
     tools:
       - get_stock_price

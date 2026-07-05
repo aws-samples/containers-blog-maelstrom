@@ -2,14 +2,15 @@
 #
 # End-to-end bootstrap for the blog walkthrough.
 #
-# 1. terraform apply cluster/        → EKS Auto Mode + VPC + the ACK and kro
-#                                        EKS Capabilities (AWS-managed
-#                                        controllers) + their IAM roles + a
-#                                        LiteLLM Bedrock Pod Identity role.
+# 1. terraform apply cluster/        → EKS Auto Mode + VPC + the kro EKS
+#                                        Capability + IAM roles (ACK controller
+#                                        role + Pod Identity, kro capability
+#                                        role, LiteLLM Bedrock role).
 # 2. update kubeconfig
 # 3. terraform apply bootstrap/      → ArgoCD + app-of-apps root Application.
-# 4. wait for the ACK + kro Capabilities to be ACTIVE, then for ArgoCD to
-#    reconcile all addons: agentcore-rgds (kro RGDs), Agent Gateway,
+# 4. wait for the kro Capability to be ACTIVE and the self-managed ACK
+#    controllers to roll out, then for ArgoCD to reconcile all addons:
+#    ack-controllers, agentcore-rgds (kro RGDs), Agent Gateway,
 #    agent-gateway-config, LiteLLM, financial-services.
 # 5. print credentials + next-step commands.
 #
@@ -57,6 +58,9 @@ APPS=(
   agentgateway-crds
   gateway-api-crds
   auto-mode-defaults
+  ack-bedrockagentcorecontrol
+  ack-iam
+  ack-eks
   agentcore-rgds
   agent-gateway
   agent-gateway-config
@@ -71,29 +75,33 @@ for app in "${APPS[@]}"; do
 done
 ok "Platform addons synced"
 
-step "Waiting for the ACK + kro EKS Capabilities to be ACTIVE"
-# Both Capabilities are created by terraform/cluster (step 1), so they are
-# normally ACTIVE by now. The ACK Capability installs the service controllers
-# + their CRDs (bedrockagentcorecontrol / iam / eks); kro installs the
-# ResourceGraphDefinition CRD. The financial-services chart depends on both, so
-# confirm before moving on.
-for cap in ack kro; do
-  echo "  - waiting on capability/${cap}"
-  for _ in $(seq 1 60); do
-    state="$(aws eks describe-capability --cluster-name "${CLUSTER}" --region "${REGION}" \
-      --capability-name "${cap}" --query 'capability.status' --output text 2>/dev/null || echo '')"
-    [ "${state}" = "ACTIVE" ] && break
-    sleep 10
-  done
-  echo "    ${cap}: ${state:-unknown}"
+step "Waiting for the kro EKS Capability and self-managed ACK controllers"
+# kro is an AWS-managed Capability created by terraform/cluster (step 1), so it
+# is normally ACTIVE by now. It installs the ResourceGraphDefinition CRD.
+echo "  - waiting on capability/kro"
+for _ in $(seq 1 60); do
+  state="$(aws eks describe-capability --cluster-name "${CLUSTER}" --region "${REGION}" \
+    --capability-name kro --query 'capability.status' --output text 2>/dev/null || echo '')"
+  [ "${state}" = "ACTIVE" ] && break
+  sleep 10
 done
+echo "    kro: ${state:-unknown}"
+# The ACK service controllers are self-managed via ArgoCD (ack-controllers app,
+# wave 0). Wait for their controller Deployments in ack-system to be available;
+# they install the *.services.k8s.aws CRDs the RGDs + chart depend on.
+for _ in $(seq 1 60); do
+  ready="$(kubectl -n ack-system get deploy -o jsonpath='{range .items[*]}{.status.availableReplicas}{"\n"}{end}' 2>/dev/null | grep -c '^[1-9]')"
+  [ "${ready:-0}" -ge 3 ] && break
+  sleep 10
+done
+kubectl -n ack-system get deploy 2>/dev/null || true
 # The RGDs are served by kro once they reconcile. Wait for all three Active.
 for rgd in agentcorememory.fsi.aws.example.com agentcorebrowser.fsi.aws.example.com agentcorecodeinterpreter.fsi.aws.example.com; do
   echo "  - waiting on resourcegraphdefinition/${rgd}"
   kubectl wait resourcegraphdefinition/${rgd} \
     --for=jsonpath='{.status.state}'=Active --timeout=5m || true
 done
-ok "ACK + kro Capabilities and RGDs ready"
+ok "kro Capability + ACK controllers + RGDs ready"
 
 step "Waiting for financial-services + per-agent ACK resources"
 # Every agent with an agentcore.* toggle gets an AgentCoreMemory /

@@ -91,6 +91,11 @@ if cluster_reachable; then
   delete_app agent-gateway-config        120   # Gateway + JWT/RBAC policies
   delete_app agent-gateway               180   # Gateway controller + service
   delete_app agentcore-rgds              180   # kro ResourceGraphDefinitions (no external state)
+  # ACK controllers last (after the ACK CRs they reconcile are gone), so their
+  # finalizers can complete the AWS-side deletes before the controllers stop.
+  delete_app ack-bedrockagentcorecontrol 300   # AgentCore Memory/Browser/CodeInterpreter controller
+  delete_app ack-iam                     300   # IAM Role/Policy controller
+  delete_app ack-eks                     300   # PodIdentityAssociation controller
   delete_app auto-mode-defaults          120   # StorageClass + IngressClass
   delete_app agentgateway-crds           120
   delete_app gateway-api-crds            120
