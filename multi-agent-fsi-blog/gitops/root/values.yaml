@@ -19,9 +19,11 @@ namespaces:
   litellm: litellm
   financialServices: financial-services
 
-# Self-managed ACK controller settings. region is overridden at bootstrap time
-# by terraform/bootstrap (helm parameter on platform-root) to match the cluster.
+# Self-managed ACK controller settings. clusterName + region are overridden at
+# bootstrap time by terraform/bootstrap (helm parameters on platform-root) to
+# match the live cluster, so nothing is pinned to one cluster name.
 ack:
+  clusterName: finops-agents
   region: us-west-2
 
 # EKS cluster identity used by Agent Gateway to validate ServiceAccount tokens.

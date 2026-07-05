@@ -203,6 +203,17 @@ resource "kubectl_manifest" "root_app" {
               value       = base64encode(trimspace(data.http.eks_jwks.response_body))
               forceString = true
             },
+            # Cluster name + region so the ACK controllers and the
+            # financial-services chart's PodIdentityAssociation / AgentCore
+            # resources target this cluster (not a hard-coded default).
+            {
+              name  = "ack.clusterName"
+              value = var.cluster_name
+            },
+            {
+              name  = "ack.region"
+              value = var.aws_region
+            },
           ]
         }
       }

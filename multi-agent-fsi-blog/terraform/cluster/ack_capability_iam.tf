@@ -90,6 +90,7 @@ resource "aws_iam_role_policy" "ack_controller" {
           "iam:CreateRole",
           "iam:DeleteRole",
           "iam:GetRole",
+          "iam:UpdateRole",
           "iam:PassRole",
           "iam:TagRole",
           "iam:UntagRole",
