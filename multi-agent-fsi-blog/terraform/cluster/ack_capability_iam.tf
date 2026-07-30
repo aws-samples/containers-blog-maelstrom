@@ -1,47 +1,43 @@
 # ----------------------------------------------------------------------------
-# ACK controllers (self-managed via ArgoCD) + kro EKS Capability + IAM roles.
+# ACK + kro EKS Capabilities and their IAM roles.
 #
-# kro (Kube Resource Orchestrator) is installed as an AWS-managed EKS
-# Capability (aws_eks_capability): it reconciles the ResourceGraphDefinitions
-# in gitops/addons/agentcore-rgds/ and creates only in-cluster CRs, so it
-# needs no AWS permissions.
+# AWS Controllers for Kubernetes (ACK) and kro (Kube Resource Orchestrator)
+# are installed as AWS-managed EKS Capabilities (aws_eks_capability). AWS runs
+# the controllers in the cluster; we only supply the IAM role each capability
+# assumes and let the capability install its CRDs + controller Deployments.
 #
-# AWS Controllers for Kubernetes (ACK) are NOT installed via the managed
-# Capability: that build ships an older bedrockagentcorecontrol controller that
-# does not reconcile the Browser kind. Instead the ACK service controllers
-# (bedrockagentcorecontrol, iam, eks) are self-managed via ArgoCD
-# (gitops/root/templates/09-ack-controllers.yaml), pulling the published
-# controller charts from public ECR. They run in the ack-system namespace and
-# share one IAM role, bound to each controller ServiceAccount via EKS Pod
-# Identity. The permission set matches what the previous Crossplane provider
-# role used: AgentCore + Bedrock + IAM (per-agent execution roles) + EKS Pod
-# Identity + STS.
+# Two capabilities:
+#   - ACK  : installs the service controllers (bedrockagentcorecontrol, iam,
+#            eks, …). All ACK controllers assume the ack_capability role below.
+#            The managed build now reconciles the Browser kind, so we no longer
+#            self-manage the controllers via ArgoCD.
+#   - KRO  : installs kro, which reconciles the ResourceGraphDefinitions in
+#            gitops/addons/agentcore-rgds/. kro creates only in-cluster CRs
+#            (the ACK resources the RGDs template), so it needs no AWS perms.
+#
+# Capability roles trust capabilities.eks.amazonaws.com (NOT
+# pods.eks.amazonaws.com — that was the Crossplane / self-managed Pod Identity
+# model). The permission set on the ACK role is the same one the Crossplane
+# provider role used: AgentCore + Bedrock + IAM (per-agent execution roles) +
+# EKS Pod Identity + STS.
 # ----------------------------------------------------------------------------
 
 locals {
-  ack_controller_role  = "${var.cluster_name}-ack-controller"
+  ack_capability_role  = "${var.cluster_name}-ack-capability"
   kro_capability_role  = "${var.cluster_name}-kro-capability"
   litellm_bedrock_role = "${var.cluster_name}-litellm-bedrock"
-
-  # ACK controller ServiceAccounts (chart default names) in ack-system, each
-  # bound to the shared ACK controller role via Pod Identity.
-  ack_controller_service_accounts = [
-    "ack-bedrockagentcorecontrol-controller",
-    "ack-iam-controller",
-    "ack-eks-controller",
-  ]
 }
 
-# --- ACK controller role (self-managed controllers, Pod Identity) -----------
-resource "aws_iam_role" "ack_controller" {
-  name = local.ack_controller_role
+# --- ACK capability role ----------------------------------------------------
+resource "aws_iam_role" "ack_capability" {
+  name = local.ack_capability_role
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Service = "pods.eks.amazonaws.com"
+        Service = "capabilities.eks.amazonaws.com"
       }
       Action = [
         "sts:AssumeRole",
@@ -53,9 +49,9 @@ resource "aws_iam_role" "ack_controller" {
   tags = local.tags
 }
 
-resource "aws_iam_role_policy" "ack_controller" {
-  name = "${local.ack_controller_role}-policy"
-  role = aws_iam_role.ack_controller.id
+resource "aws_iam_role_policy" "ack_capability" {
+  name = "${local.ack_capability_role}-policy"
+  role = aws_iam_role.ack_capability.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -171,32 +167,29 @@ resource "aws_iam_role" "kro_capability" {
   tags = local.tags
 }
 
-# --- kro Capability ---------------------------------------------------------
-# Installs kro + the ResourceGraphDefinition CRD. bootstrap.sh waits for it to
-# reach ACTIVE before the AgentCore RGDs reconcile. (ACK is self-managed via
-# ArgoCD — see 09-ack-controllers.yaml — not installed as a Capability.)
+# --- Capabilities -----------------------------------------------------------
+# The ACK capability installs the service controllers + their CRDs. The kro
+# capability installs kro + the ResourceGraphDefinition CRD. bootstrap.sh
+# waits for both to reach ACTIVE before the financial-services chart's ACK
+# CRs / composite claims can reconcile. aws_eks_capability has no version
+# argument — AWS controls the build (the current managed build reconciles the
+# Browser kind).
+resource "aws_eks_capability" "ack" {
+  cluster_name              = module.eks.cluster_name
+  capability_name           = "ack"
+  type                      = "ACK"
+  role_arn                  = aws_iam_role.ack_capability.arn
+  delete_propagation_policy = "RETAIN"
+
+  tags = local.tags
+}
+
 resource "aws_eks_capability" "kro" {
   cluster_name              = module.eks.cluster_name
   capability_name           = "kro"
   type                      = "KRO"
   role_arn                  = aws_iam_role.kro_capability.arn
   delete_propagation_policy = "RETAIN"
-
-  tags = local.tags
-}
-
-# --- ACK controller Pod Identity associations -------------------------------
-# Bind each self-managed ACK controller ServiceAccount (created by its Helm
-# chart in ack-system) to the shared ACK controller role. Pod Identity binds by
-# namespace + SA name, so these are safe to create before the controllers roll
-# out via ArgoCD.
-resource "aws_eks_pod_identity_association" "ack_controllers" {
-  for_each = toset(local.ack_controller_service_accounts)
-
-  cluster_name    = module.eks.cluster_name
-  namespace       = "ack-system"
-  service_account = each.value
-  role_arn        = aws_iam_role.ack_controller.arn
 
   tags = local.tags
 }

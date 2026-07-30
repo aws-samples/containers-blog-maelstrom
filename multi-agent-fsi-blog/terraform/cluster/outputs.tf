@@ -38,9 +38,14 @@ output "kubeconfig_command" {
   value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
 }
 
-output "ack_controller_role_arn" {
-  description = "IAM role ARN bound (via Pod Identity) to the self-managed ACK service controllers in ack-system (bedrockagentcorecontrol, iam, eks)."
-  value       = aws_iam_role.ack_controller.arn
+output "ack_capability_role_arn" {
+  description = "IAM role ARN assumed by the ACK EKS Capability. Every ACK service controller (bedrockagentcorecontrol, iam, eks) authenticates to AWS under this role."
+  value       = aws_iam_role.ack_capability.arn
+}
+
+output "ack_capability_arn" {
+  description = "ARN of the ACK EKS Capability"
+  value       = aws_eks_capability.ack.arn
 }
 
 output "kro_capability_arn" {

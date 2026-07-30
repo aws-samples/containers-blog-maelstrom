@@ -13,13 +13,11 @@ namespaces:
   # The AgentCore ResourceGraphDefinitions are cluster-scoped kro objects; the
   # Application still needs a destination namespace for ArgoCD bookkeeping.
   agentcoreRgds: kro-system
-  # Self-managed ACK service controllers run here (bedrockagentcorecontrol,
-  # iam, eks). Their ServiceAccounts are bound to IAM roles via Pod Identity.
-  ackSystem: ack-system
   litellm: litellm
   financialServices: financial-services
 
-# Self-managed ACK controller settings. clusterName + region are overridden at
+# Live cluster name + region, consumed by the financial-services chart for the
+# per-agent PodIdentityAssociation / AgentCore resources. Overridden at
 # bootstrap time by terraform/bootstrap (helm parameters on platform-root) to
 # match the live cluster, so nothing is pinned to one cluster name.
 ack:
