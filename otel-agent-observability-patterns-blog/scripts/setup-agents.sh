@@ -53,8 +53,8 @@ done
 echo "▶ Updating agent image tags in gitops values..."
 AGENTS_VALUES="$ROOT_DIR/gitops/addons/agents/values.yaml"
 
-sed -i.bak "s|image: .*research-agent.*|image: $ECR_REPO/otel-agents/research-agent:$IMAGE_TAG|" "$AGENTS_VALUES"
-sed -i.bak "s|image: .*data-agent.*|image: $ECR_REPO/otel-agents/data-agent:$IMAGE_TAG|" "$AGENTS_VALUES"
+sed -i.bak "/name: research-agent/{n;n;s|image: .*|image: $ECR_REPO/otel-agents/research-agent:$IMAGE_TAG|;}" "$AGENTS_VALUES"
+sed -i.bak "/name: data-agent/{n;n;s|image: .*|image: $ECR_REPO/otel-agents/data-agent:$IMAGE_TAG|;}" "$AGENTS_VALUES"
 rm -f "${AGENTS_VALUES}.bak"
 
 echo "✓ Values updated. ArgoCD will detect the change and roll out."
