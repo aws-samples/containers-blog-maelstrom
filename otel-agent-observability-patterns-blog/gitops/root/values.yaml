@@ -10,5 +10,5 @@ amp:
 
 gitops:
   repoURL: https://github.com/aws-samples/containers-blog-maelstrom.git
-  targetRevision: main
+  targetRevision: feature/agent-observability-patterns
   basePath: otel-agent-observability-patterns-blog
