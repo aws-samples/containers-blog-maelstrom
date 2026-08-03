@@ -38,7 +38,7 @@ spec:
               send_batch_size: 256
           exporters:
             otlphttp/langfuse:
-              endpoint: "http://langfuse.{{ .Values.namespaces.observability }}:3000/api/public/otel"
+              endpoint: "http://langfuse-web.{{ .Values.namespaces.observability }}:3000/api/public/otel"
             prometheusremotewrite:
               endpoint: "{{ .Values.amp.remoteWriteEndpoint }}"
               auth:
