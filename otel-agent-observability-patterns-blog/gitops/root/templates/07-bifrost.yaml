@@ -14,6 +14,8 @@ spec:
     helm:
       releaseName: bifrost
       valuesObject:
+        image:
+          tag: "v1.5.0"
         serviceAccount:
           create: true
           name: bifrost
