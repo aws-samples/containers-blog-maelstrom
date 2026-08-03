@@ -34,10 +34,18 @@ spec:
           env:
             - name: AGENT_NAME
               value: {{ .name }}
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: ADOT_ENDPOINT
+              value: "http://$(NODE_IP):4317"
             - name: OTEL_COLLECTOR_ENDPOINT
-              value: "http://otel-collector.observability:4317"
+              value: "http://otel-collector-opentelemetry-collector.observability:4317"
             - name: BIFROST_ENDPOINT
               value: "http://bifrost.agents:8080"
+            - name: BIFROST_MODEL_ALIAS
+              value: "bedrock/us.anthropic.claude-sonnet-4-6"
             - name: AWS_REGION
               value: {{ $.Values.region }}
             - name: BEDROCK_PRIMARY_MODEL
