@@ -22,20 +22,11 @@ spec:
         env:
           - name: AWS_REGION
             value: "{{ .Values.region }}"
+        config:
+          enforceAuthOnInference: false
         plugins:
           governance:
-            enabled: true
-            config:
-              is_vk_mandatory: false
-          otel:
-            enabled: true
-            version: 1
-            config:
-              service_name: "bifrost"
-              collector_url: "otel-collector-opentelemetry-collector.{{ .Values.namespaces.observability }}:4317"
-              trace_type: "genai_extension"
-              protocol: "grpc"
-              insecure: true
+            enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.agents }}
