@@ -41,6 +41,7 @@ for agent in research_agent data_agent; do
 
   echo "▶ Building $AGENT_HYPHEN ($IMAGE)..."
   docker build -t "$IMAGE" \
+    --platform linux/amd64 \
     --build-arg AGENT_MODULE="$agent" \
     -f Dockerfile .
 

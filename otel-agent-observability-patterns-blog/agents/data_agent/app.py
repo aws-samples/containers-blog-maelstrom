@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Route through Bifrost (OpenAI-compatible LLM gateway)
 BIFROST_ENDPOINT = os.getenv("BIFROST_ENDPOINT", "http://bifrost.agents:8080")
-MODEL_ALIAS = os.getenv("BIFROST_MODEL_ALIAS", "bedrock/us.anthropic.claude-sonnet-4-6-20260514")
+MODEL_ALIAS = os.getenv("BIFROST_MODEL_ALIAS", "bedrock/us.anthropic.claude-sonnet-4-6")
 
 model = OpenAIModel(
     client_args={

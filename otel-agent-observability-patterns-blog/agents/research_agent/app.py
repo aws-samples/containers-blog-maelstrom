@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Bifrost handles model routing to Bedrock, fallback, and cost tracking.
 BIFROST_ENDPOINT = os.getenv("BIFROST_ENDPOINT", "http://bifrost.agents:8080")
 # Use provider-prefixed model ID so Bifrost can auto-resolve the provider
-MODEL_ALIAS = os.getenv("BIFROST_MODEL_ALIAS", "bedrock/us.anthropic.claude-sonnet-4-6-20260514")
+MODEL_ALIAS = os.getenv("BIFROST_MODEL_ALIAS", "bedrock/us.anthropic.claude-sonnet-4-6")
 
 model = OpenAIModel(
     client_args={

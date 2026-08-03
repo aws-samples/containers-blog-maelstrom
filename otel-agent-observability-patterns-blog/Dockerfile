@@ -15,8 +15,8 @@ ENV PYTHONPATH=/app
 ENV OTEL_COLLECTOR_ENDPOINT=http://otel-collector.observability:4317
 ENV ADOT_ENDPOINT=http://localhost:4317
 ENV BIFROST_ENDPOINT=http://bifrost.agents:8080
-ENV BIFROST_MODEL_ALIAS=bedrock/us.anthropic.claude-sonnet-4-6-20260514
-ENV BEDROCK_PRIMARY_MODEL=us.anthropic.claude-sonnet-4-6-20260514
+ENV BIFROST_MODEL_ALIAS=bedrock/us.anthropic.claude-sonnet-4-6
+ENV BEDROCK_PRIMARY_MODEL=us.anthropic.claude-sonnet-4-6
 
 EXPOSE 8080
 
