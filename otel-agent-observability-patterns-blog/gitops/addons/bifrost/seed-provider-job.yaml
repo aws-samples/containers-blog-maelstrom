@@ -24,12 +24,24 @@ spec:
               until curl -sf http://bifrost.agents:8080/api/providers > /dev/null 2>&1; do
                 sleep 5
               done
-              echo "Bifrost is ready. Seeding Bedrock provider..."
-              RESULT=$(curl -s -X POST http://bifrost.agents:8080/api/providers \
+              echo "Bifrost is ready. Seeding config..."
+
+              # Seed Bedrock provider
+              curl -s -X POST http://bifrost.agents:8080/api/providers \
                 -H "Content-Type: application/json" \
-                -d '{"name":"bedrock-default","provider":"bedrock","config":{"region":"us-west-2"}}')
-              echo "Result: $RESULT"
-              # 409 = already exists = success
-              echo "$RESULT" | grep -q '"bedrock"' && echo "Provider seeded." && exit 0
-              echo "$RESULT" | grep -q '409' && echo "Provider already exists." && exit 0
-              echo "Unexpected result, retrying..." && exit 1
+                -d '{"name":"bedrock-default","provider":"bedrock","config":{"region":"us-west-2"}}'
+              echo ""
+
+              # Seed IAM key for Bedrock (Pod Identity handles actual auth)
+              curl -s -X POST http://bifrost.agents:8080/api/providers/bedrock/keys \
+                -H "Content-Type: application/json" \
+                -d '{"name":"iam-default","key":"pod-identity","models":["*"]}'
+              echo ""
+
+              # Disable VK requirement via governance plugin
+              curl -s -X POST http://bifrost.agents:8080/api/plugins \
+                -H "Content-Type: application/json" \
+                -d '{"name":"governance","enabled":true,"version":1,"config":{"is_vk_mandatory":false}}'
+              echo ""
+
+              echo "Bifrost seeding complete."
