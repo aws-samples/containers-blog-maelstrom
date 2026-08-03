@@ -13,7 +13,7 @@ agents:
     image: "257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/research-agent:a45a406"
     port: 8080
     capabilities:
-      memory: true
+      memory: false
       browser: false
       codeInterpreter: false
 
@@ -22,6 +22,6 @@ agents:
     image: "257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/data-agent:a45a406"
     port: 8080
     capabilities:
-      memory: true
+      memory: false
       browser: false
-      codeInterpreter: true
+      codeInterpreter: false
