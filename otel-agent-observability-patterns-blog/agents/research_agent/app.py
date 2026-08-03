@@ -6,9 +6,23 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 # --- OTEL Initialization (Strands SDK built-in) ---
-# Uses OTEL_EXPORTER_OTLP_ENDPOINT env var to send traces to ADOT/Collector.
-# Strands SDK automatically creates rich spans for agent calls, tool use, and LLM calls.
-if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+# Mode 1: Direct to Langfuse (LANGFUSE_BASE_URL set)
+# Mode 2: Via OTEL Collector or ADOT (OTEL_EXPORTER_OTLP_ENDPOINT set)
+if os.getenv("LANGFUSE_BASE_URL"):
+    try:
+        import base64
+        from strands.telemetry import StrandsTelemetry
+
+        auth_str = f"{os.getenv('LANGFUSE_PUBLIC_KEY', '')}:{os.getenv('LANGFUSE_SECRET_KEY', '')}"
+        auth_bytes = base64.b64encode(auth_str.encode()).decode()
+
+        os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = os.getenv("LANGFUSE_BASE_URL") + "/api/public/otel"
+        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {auth_bytes},x-langfuse-ingestion-version=4"
+
+        StrandsTelemetry().setup_otlp_exporter()
+    except ImportError:
+        pass
+elif os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
     try:
         from strands.telemetry import StrandsTelemetry
         StrandsTelemetry().setup_otlp_exporter()

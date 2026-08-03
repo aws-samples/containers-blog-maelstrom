@@ -39,9 +39,21 @@ spec:
                 fieldRef:
                   fieldPath: status.hostIP
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://otel-collector-opentelemetry-collector.observability:4318"
+              value: "http://$(NODE_IP):4318"
             - name: OTEL_SERVICE_NAME
               value: {{ .name }}
+            - name: LANGFUSE_BASE_URL
+              value: "http://langfuse-web.observability:3000"
+            - name: LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-api-keys
+                  key: LANGFUSE_PUBLIC_KEY
+            - name: LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-api-keys
+                  key: LANGFUSE_SECRET_KEY
             - name: ADOT_ENDPOINT
               value: "http://$(NODE_IP):4317"
             - name: OTEL_COLLECTOR_ENDPOINT

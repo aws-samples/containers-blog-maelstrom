@@ -6,7 +6,21 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 # --- OTEL Initialization (Strands SDK built-in) ---
-if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+if os.getenv("LANGFUSE_BASE_URL"):
+    try:
+        import base64
+        from strands.telemetry import StrandsTelemetry
+
+        auth_str = f"{os.getenv('LANGFUSE_PUBLIC_KEY', '')}:{os.getenv('LANGFUSE_SECRET_KEY', '')}"
+        auth_bytes = base64.b64encode(auth_str.encode()).decode()
+
+        os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = os.getenv("LANGFUSE_BASE_URL") + "/api/public/otel"
+        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {auth_bytes},x-langfuse-ingestion-version=4"
+
+        StrandsTelemetry().setup_otlp_exporter()
+    except ImportError:
+        pass
+elif os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
     try:
         from strands.telemetry import StrandsTelemetry
         StrandsTelemetry().setup_otlp_exporter()
