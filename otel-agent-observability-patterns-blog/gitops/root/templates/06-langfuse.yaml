@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: langfuse
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    chart: langfuse
+    repoURL: https://langfuse.github.io/langfuse-k8s
+    targetRevision: "3.*"
+    helm:
+      releaseName: langfuse
+      valuesObject:
+        replicaCount: 1
+        postgresql:
+          enabled: true
+          auth:
+            password: "langfuse-demo-pw"
+        redis:
+          enabled: true
+          auth:
+            password: "langfuse-redis-pw"
+        clickhouse:
+          enabled: true
+          auth:
+            password: "langfuse-ch-pw"
+        langfuse:
+          salt:
+            value: "changeme-generate-at-install"
+          nextauth:
+            secret:
+              value: "changeme-generate-at-install"
+            url: "http://langfuse.{{ .Values.namespaces.observability }}:3000"
+        environment:
+          LANGFUSE_ENABLE_OTEL_INGESTION: "true"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.observability }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

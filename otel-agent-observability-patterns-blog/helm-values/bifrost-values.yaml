@@ -1,0 +1,50 @@
+# Bifrost LLM Proxy Helm values
+# Ref: https://github.com/maximhq/bifrost
+# Ref: https://github.com/aws-samples/sample-open-agentic-platform/pull/34
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# Enable Prometheus metrics endpoint
+metrics:
+  enabled: true
+  port: 9090
+  path: /metrics
+
+# OTEL plugin — exports LLM call spans to the local OTel Collector.
+# Bifrost reads inbound W3C traceparent headers and creates child spans,
+# producing a unified trace tree with agent + Bifrost spans correlated.
+plugins:
+  otel:
+    enabled: true
+    version: 1
+    config:
+      service_name: "bifrost"
+      collector_url: "otel-collector.observability:4317"
+      trace_type: "genai_extension"
+      protocol: "grpc"
+      insecure: true
+
+# ServiceMonitor for Prometheus scraping
+serviceMonitor:
+  enabled: true
+  namespace: observability
+  interval: 15s
+  labels:
+    release: prometheus
+
+env:
+  - name: AWS_REGION
+    value: "us-west-2"
+  - name: BIFROST_PRIMARY_MODEL
+    value: "us.anthropic.claude-sonnet-4-6-20260514"
+  - name: BIFROST_FALLBACK_MODEL
+    value: "us.anthropic.claude-haiku-4-5-20260514"
+
+# Pod annotations for Prometheus scraping (if not using ServiceMonitor)
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+  prometheus.io/path: "/metrics"

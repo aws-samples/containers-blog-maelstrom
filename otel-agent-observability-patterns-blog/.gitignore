@@ -1,0 +1,35 @@
+# Terraform
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/tfplan
+**/.terraform.lock.hcl
+*.tfplan
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Docker
+*.tar
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+build.log
+*.bak
+
+# Secrets (never commit real credentials)
+# config.env is committed as a template with defaults only

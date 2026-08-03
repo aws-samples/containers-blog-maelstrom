@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bifrost
+  namespace: agents
+  labels:
+    app: bifrost
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bifrost
+  template:
+    metadata:
+      labels:
+        app: bifrost
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: bifrost
+          image: maximhq/bifrost:latest  # Docker Hub
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 9090
+              name: metrics
+          env:
+            - name: AWS_REGION
+              value: "us-west-2"  # Must match your cluster region
+            - name: BIFROST_PRIMARY_MODEL
+              value: "us.anthropic.claude-sonnet-4-6-20260514"  # Override via config.env
+            - name: BIFROST_FALLBACK_MODEL
+              value: "us.anthropic.claude-haiku-4-5-20260514"  # Override via config.env
+            - name: BIFROST_METRICS_ENABLED
+              value: "true"
+            - name: BIFROST_METRICS_PORT
+              value: "9090"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/bifrost
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: config
+          configMap:
+            name: bifrost-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bifrost-config
+  namespace: agents
+data:
+  config.yaml: |
+    models:
+      - name: claude-sonnet
+        provider: bedrock
+        model_id: us.anthropic.claude-sonnet-4-6-20260514
+        region: us-west-2
+      - name: claude-haiku
+        provider: bedrock
+        model_id: us.anthropic.claude-haiku-4-5-20260514
+        region: us-west-2
+    routing:
+      primary: claude-sonnet
+      fallback: claude-haiku
+    # OTEL plugin — exports LLM call spans to the local OTel Collector.
+    # Bifrost reads inbound W3C traceparent headers and creates child spans,
+    # producing a unified trace tree with agent + Bifrost spans correlated.
+    plugins:
+      otel:
+        enabled: true
+        version: 1
+        config:
+          service_name: "bifrost"
+          collector_url: "otel-collector.observability:4317"
+          trace_type: "genai_extension"
+          protocol: "grpc"
+          insecure: true
+      metrics:
+        enabled: true
+        port: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bifrost
+  namespace: agents
+spec:
+  selector:
+    app: bifrost
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: metrics
+      port: 9090
+      targetPort: 9090

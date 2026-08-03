@@ -1,0 +1,80 @@
+{{- range .Values.agents }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .name }}-sa
+  namespace: agents
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: agents
+  labels:
+    app: {{ .name }}
+    app.kubernetes.io/component: agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+        app.kubernetes.io/component: agent
+    spec:
+      serviceAccountName: {{ .name }}-sa
+      containers:
+        - name: agent
+          image: {{ .image | default (printf "%s:latest" .name) }}
+          ports:
+            - containerPort: {{ .port }}
+          env:
+            - name: AGENT_NAME
+              value: {{ .name }}
+            - name: OTEL_COLLECTOR_ENDPOINT
+              value: "http://otel-collector.observability:4317"
+            - name: BIFROST_ENDPOINT
+              value: "http://bifrost.agents:8080"
+            - name: AWS_REGION
+              value: {{ $.Values.region }}
+            - name: BEDROCK_PRIMARY_MODEL
+              value: {{ $.Values.bedrockPrimaryModel | default "us.anthropic.claude-sonnet-4-6-20260514" }}
+            - name: BEDROCK_FALLBACK_MODEL
+              value: {{ $.Values.bedrockFallbackModel | default "us.anthropic.claude-haiku-4-5-20260514" }}
+            {{- if .capabilities.memory }}
+            - name: AGENTCORE_MEMORY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}-memory-outputs
+                  key: id
+            {{- end }}
+            {{- if .capabilities.codeInterpreter }}
+            - name: AGENTCORE_CODE_INTERPRETER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}-code-interpreter-outputs
+                  key: id
+            {{- end }}
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: agents
+spec:
+  selector:
+    app: {{ .name }}
+  ports:
+    - port: 8080
+      targetPort: {{ .port }}
+{{- end }}

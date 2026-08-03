@@ -1,0 +1,27 @@
+clusterName: agent-observability
+region: us-west-2
+
+# Bedrock model configuration (update when models change)
+bedrockPrimaryModel: us.anthropic.claude-sonnet-4-6-20260514
+bedrockFallbackModel: us.anthropic.claude-haiku-4-5-20260514
+
+# IMPORTANT: Image refs are updated by scripts/setup-agents.sh after build.
+# If you see ImagePullBackOff, run: ./scripts/setup-agents.sh
+agents:
+  - name: research-agent
+    module: research_agent
+    image: "REPLACE_VIA_SETUP_AGENTS_SH"
+    port: 8080
+    capabilities:
+      memory: true
+      browser: false
+      codeInterpreter: false
+
+  - name: data-agent
+    module: data_agent
+    image: "REPLACE_VIA_SETUP_AGENTS_SH"
+    port: 8080
+    capabilities:
+      memory: true
+      browser: false
+      codeInterpreter: true

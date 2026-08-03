@@ -1,0 +1,4 @@
+apiVersion: v2
+name: otel-observability-root
+version: 1.0.0
+description: ArgoCD app-of-apps for OTEL Agent Observability platform

@@ -1,0 +1,69 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-collector
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    chart: opentelemetry-collector
+    repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+    targetRevision: "0.90.*"
+    helm:
+      releaseName: otel-collector
+      extraEnvFrom:
+        - secretRef:
+            name: langfuse-api-keys
+      valuesObject:
+        mode: deployment
+        replicaCount: 1
+        config:
+          receivers:
+            otlp:
+              protocols:
+                grpc: { endpoint: "0.0.0.0:4317" }
+                http: { endpoint: "0.0.0.0:4318" }
+            prometheus:
+              config:
+                scrape_configs:
+                  - job_name: "bifrost"
+                    scrape_interval: 15s
+                    static_configs:
+                      - targets: ["bifrost.agents:9090"]
+          processors:
+            batch:
+              timeout: 5s
+              send_batch_size: 256
+          exporters:
+            otlphttp/langfuse:
+              endpoint: "http://langfuse.{{ .Values.namespaces.observability }}:3000/api/public/otel"
+            prometheusremotewrite:
+              endpoint: "{{ .Values.amp.remoteWriteEndpoint }}"
+              auth:
+                authenticator: sigv4auth
+              resource_to_telemetry_conversion:
+                enabled: true
+          extensions:
+            sigv4auth:
+              region: "{{ .Values.region }}"
+              service: "aps"
+          service:
+            extensions: [sigv4auth]
+            pipelines:
+              traces:
+                receivers: [otlp]
+                processors: [batch]
+                exporters: [otlphttp/langfuse]
+              metrics:
+                receivers: [otlp]
+                processors: [batch]
+                exporters: [prometheusremotewrite]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.observability }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

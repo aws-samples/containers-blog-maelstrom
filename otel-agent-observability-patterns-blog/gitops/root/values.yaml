@@ -1,0 +1,14 @@
+clusterName: agent-observability
+region: us-west-2
+
+namespaces:
+  agents: agents
+  observability: observability
+
+amp:
+  remoteWriteEndpoint: ""  # Set by setup-infra.sh
+
+gitops:
+  repoURL: https://github.com/aws-samples/containers-blog-maelstrom.git
+  targetRevision: main
+  basePath: otel-agent-observability-patterns-blog
