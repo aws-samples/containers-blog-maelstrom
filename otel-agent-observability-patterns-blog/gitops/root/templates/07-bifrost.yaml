@@ -20,11 +20,13 @@ spec:
           create: true
           name: bifrost
         env:
-          - name: BIFROST_ENFORCE_AUTH_ON_INFERENCE
-            value: "false"
           - name: AWS_REGION
             value: "{{ .Values.region }}"
         plugins:
+          governance:
+            enabled: true
+            config:
+              is_vk_mandatory: false
           otel:
             enabled: true
             version: 1

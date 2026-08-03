@@ -1,0 +1,35 @@
+# One-shot Job that seeds the Bedrock provider into Bifrost's config store.
+# Runs after Bifrost is available and idempotently creates the provider.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bifrost-seed-provider
+  namespace: agents
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: seed
+          image: curlimages/curl:8.5.0
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Bifrost to be ready..."
+              until curl -sf http://bifrost.agents:8080/api/providers > /dev/null 2>&1; do
+                sleep 5
+              done
+              echo "Bifrost is ready. Seeding Bedrock provider..."
+              RESULT=$(curl -s -X POST http://bifrost.agents:8080/api/providers \
+                -H "Content-Type: application/json" \
+                -d '{"name":"bedrock-default","provider":"bedrock","config":{"region":"us-west-2"}}')
+              echo "Result: $RESULT"
+              # 409 = already exists = success
+              echo "$RESULT" | grep -q '"bedrock"' && echo "Provider seeded." && exit 0
+              echo "$RESULT" | grep -q '409' && echo "Provider already exists." && exit 0
+              echo "Unexpected result, retrying..." && exit 1
