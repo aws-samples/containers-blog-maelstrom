@@ -11,17 +11,21 @@ from agents.shared.otel_bootstrap import init_otel
 tracer = init_otel("data-agent")
 
 from strands import Agent
-from strands.models.bedrock import BedrockModel
+from strands.models.openai import OpenAIModel
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Route through Bifrost (OpenAI-compatible LLM gateway)
 BIFROST_ENDPOINT = os.getenv("BIFROST_ENDPOINT", "http://bifrost.agents:8080")
+MODEL_ALIAS = os.getenv("BIFROST_MODEL_ALIAS", "bedrock/us.anthropic.claude-sonnet-4-6-20260514")
 
-model = BedrockModel(
-    model_id=os.getenv("BEDROCK_PRIMARY_MODEL", "us.anthropic.claude-sonnet-4-6-20260514"),
-    region_name=os.getenv("AWS_REGION", "us-west-2"),
-    endpoint_url=BIFROST_ENDPOINT if os.getenv("USE_BIFROST", "true") == "true" else None,
+model = OpenAIModel(
+    client_args={
+        "base_url": f"{BIFROST_ENDPOINT}/v1",
+        "api_key": "bifrost-internal",
+    },
+    model_id=MODEL_ALIAS,
 )
 
 agent = Agent(
@@ -62,6 +66,8 @@ def invoke(request: InvokeRequest):
 
             span.set_attribute("llm.token_count.input", input_tokens)
             span.set_attribute("llm.token_count.output", output_tokens)
+            span.set_attribute("llm.model_id", MODEL_ALIAS)
+            span.set_attribute("llm.gateway", "bifrost")
             span.set_status(trace.StatusCode.OK)
 
             return InvokeResponse(

@@ -60,6 +60,11 @@ metadata:
   namespace: agents
 data:
   config.yaml: |
+    providers:
+      bedrock:
+        - name: default
+          region: us-west-2
+          # Credentials are picked up from Pod Identity (AWS_CONTAINER_CREDENTIALS_FULL_URI)
     models:
       - name: claude-sonnet
         provider: bedrock
@@ -72,9 +77,6 @@ data:
     routing:
       primary: claude-sonnet
       fallback: claude-haiku
-    # OTEL plugin — exports LLM call spans to the local OTel Collector.
-    # Bifrost reads inbound W3C traceparent headers and creates child spans,
-    # producing a unified trace tree with agent + Bifrost spans correlated.
     plugins:
       otel:
         enabled: true

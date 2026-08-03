@@ -15,10 +15,9 @@ ENV PYTHONPATH=/app
 ENV OTEL_COLLECTOR_ENDPOINT=http://otel-collector.observability:4317
 ENV ADOT_ENDPOINT=http://localhost:4317
 ENV BIFROST_ENDPOINT=http://bifrost.agents:8080
-ENV USE_BIFROST=true
+ENV BIFROST_MODEL_ALIAS=bedrock/us.anthropic.claude-sonnet-4-6-20260514
 ENV BEDROCK_PRIMARY_MODEL=us.anthropic.claude-sonnet-4-6-20260514
-ENV BEDROCK_FALLBACK_MODEL=us.anthropic.claude-haiku-4-5-20260514
 
 EXPOSE 8080
 
-CMD uvicorn agents.${AGENT_MODULE}.app:app --host 0.0.0.0 --port 8080
+CMD ["sh", "-c", "uvicorn agents.${AGENT_MODULE}.app:app --host 0.0.0.0 --port 8080"]
