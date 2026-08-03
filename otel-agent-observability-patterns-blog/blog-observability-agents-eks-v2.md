@@ -112,13 +112,12 @@ After Langfuse boots for the first time, you need to generate API keys so the OT
 **Step 1:** Port-forward the Langfuse UI to your local machine:
 
 ```bash
-kubectl port-forward svc/langfuse -n observability 3000:3000
-
+kubectl port-forward svc/langfuse-web -n observability 3000:3000
 ```
 
-**Step 2:** Open [http://localhost:3000](http://localhost:3000) in your browser. Create an account, then create a new project.
+**Step 2:** Open [http://localhost:3000](http://localhost:3000) in your browser. Create an account and a new project. See the [Langfuse Self-Hosting Guide](https://langfuse.com/docs/deployment/self-host#setup) for detailed instructions.
 
-**Step 3:** In the Langfuse project settings, navigate to **API Keys** and generate a new key pair. You will receive a Public Key (`pk-lf-...`) and a Secret Key (`sk-lf-...`).
+**Step 3:** In the Langfuse project settings, generate API keys. See [Langfuse API Keys documentation](https://langfuse.com/docs/get-started#create-new-api-credentials) for details. You will receive a Public Key (`pk-lf-...`) and a Secret Key (`sk-lf-...`).
 
 **Step 4:** Update the Kubernetes Secret with your real credentials:
 
@@ -129,12 +128,17 @@ kubectl create secret generic langfuse-api-keys \
   --from-literal=LANGFUSE_SECRET_KEY=sk-lf-your-secret-key \
   --dry-run=client -o yaml | kubectl apply -f -
 
+kubectl create secret generic langfuse-api-keys \
+  -n observability \
+  --from-literal=LANGFUSE_PUBLIC_KEY=pk-lf-01375567-a9e7-42b1-8f5e-9778b214bd98 \
+  --from-literal=LANGFUSE_SECRET_KEY=sk-lf-191b22a8-a9f5-4b0d-8232-5c352bcf45ba \
+```bash
+kubectl rollout restart deployment/otel-collector-opentelemetry-collector -n observability
 ```
-
 **Step 5:** Restart the OTEL Collector to pick up the new credentials:
 
 ```bash
-kubectl rollout restart deployment/otel-collector -n observability
+kubectl rollout restart deployment/otel-collector-opentelemetry-collector -n observability
 
 ```
 

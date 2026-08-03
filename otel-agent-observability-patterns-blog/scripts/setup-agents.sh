@@ -59,7 +59,17 @@ rm -f "${AGENTS_VALUES}.bak"
 
 echo "✓ Values updated. ArgoCD will detect the change and roll out."
 echo ""
+
+# Commit and push the updated image tags so ArgoCD can sync
+echo "▶ Pushing updated image tags to git..."
+GIT_ROOT=$(cd "$ROOT_DIR" && git rev-parse --show-toplevel)
+cd "$GIT_ROOT"
+git add "$AGENTS_VALUES"
+git commit -m "chore: update agent image tags to $IMAGE_TAG" --quiet
+git push origin "$(git branch --show-current)" --quiet 2>&1 || echo "  ⚠ git push failed — push manually for ArgoCD to sync"
+echo "✓ Pushed to git. ArgoCD will sync within ~3 minutes."
+echo ""
 echo "============================================================"
 echo " ✅ Done — images pushed with tag: $IMAGE_TAG"
-echo " ArgoCD will sync within ~2 minutes."
+echo " ArgoCD will sync within ~3 minutes."
 echo "============================================================"
