@@ -1,0 +1,39 @@
+# ADOT DaemonSet Collector — Pattern 1 (Decentralized)
+# Listens on localhost:4317 on each node, exports traces to CloudWatch/X-Ray.
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: adot
+  namespace: opentelemetry-operator-system
+spec:
+  mode: daemonset
+  serviceAccount: adot-collector
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4317"
+          http:
+            endpoint: "0.0.0.0:4318"
+    processors:
+      batch:
+        timeout: 5s
+    exporters:
+      awsxray:
+        region: us-west-2
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [awsxray]
+  hostNetwork: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: adot-collector
+  namespace: opentelemetry-operator-system
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # Populated by setup-infra via Pod Identity

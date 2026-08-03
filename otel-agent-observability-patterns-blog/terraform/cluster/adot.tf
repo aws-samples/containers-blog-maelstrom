@@ -25,3 +25,11 @@ resource "aws_iam_role_policy_attachment" "adot_xray" {
   role       = aws_iam_role.adot.name
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
+
+# Pod Identity for the ADOT DaemonSet collector
+resource "aws_eks_pod_identity_association" "adot_collector" {
+  cluster_name    = module.eks.cluster_name
+  namespace       = "opentelemetry-operator-system"
+  service_account = "adot-collector"
+  role_arn        = aws_iam_role.adot.arn
+}
