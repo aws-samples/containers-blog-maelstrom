@@ -24,6 +24,11 @@ spec:
       labels:
         app: {{ .name }}
         app.kubernetes.io/component: agent
+      annotations:
+        # Pattern 1 (Decentralized): ADOT auto-instrumentation injects
+        # OpenTelemetry SDK + exports directly to CloudWatch GenAI Observability.
+        # No collector needed — agent sends traces to CloudWatch agentlessly.
+        instrumentation.opentelemetry.io/inject-python: "true"
     spec:
       serviceAccountName: {{ .name }}-sa
       containers:

@@ -20,14 +20,16 @@ if os.getenv("LANGFUSE_BASE_URL"):
         os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {auth_bytes},x-langfuse-ingestion-version=4"
 
         StrandsTelemetry().setup_otlp_exporter()
-    except ImportError:
-        pass
+        print(f"[OTEL] Langfuse telemetry initialized: {os.environ['OTEL_EXPORTER_OTLP_ENDPOINT']}")
+    except Exception as e:
+        print(f"[OTEL] Failed to initialize Langfuse telemetry: {e}")
 elif os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
     try:
         from strands.telemetry import StrandsTelemetry
         StrandsTelemetry().setup_otlp_exporter()
-    except ImportError:
-        pass
+        print(f"[OTEL] OTLP telemetry initialized: {os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT')}")
+    except Exception as e:
+        print(f"[OTEL] Failed to initialize OTLP telemetry: {e}")
 
 # Instrument httpx for W3C traceparent propagation through Bifrost
 try:

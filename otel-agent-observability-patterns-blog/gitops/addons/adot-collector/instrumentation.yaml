@@ -1,0 +1,31 @@
+# ADOT Auto-Instrumentation CR — Pattern 1 (Decentralized/Agentless)
+# The ADOT operator injects the OpenTelemetry Python SDK into annotated pods
+# and exports traces directly to CloudWatch via the X-Ray OTLP endpoint.
+# No collector DaemonSet or sidecar needed.
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: adot-python
+  namespace: agents
+spec:
+  propagators:
+    - tracecontext
+    - baggage
+    - xray
+  python:
+    image: public.ecr.aws/aws-observability/adot-autoinstrumentation-python:v0.9.0
+  exporter:
+    endpoint: https://xray.us-west-2.amazonaws.com
+  env:
+    - name: OTEL_TRACES_EXPORTER
+      value: "otlp"
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: "http/protobuf"
+    - name: OTEL_AWS_APPLICATION_SIGNALS_ENABLED
+      value: "true"
+    - name: OTEL_AWS_APPLICATION_SIGNALS_EXPORTER_ENDPOINT
+      value: "https://xray.us-west-2.amazonaws.com"
+    - name: OTEL_PYTHON_DISTRO
+      value: "aws_distro"
+    - name: OTEL_PYTHON_CONFIGURATOR
+      value: "aws_configurator"

@@ -54,6 +54,11 @@ resource "helm_release" "argocd" {
     name  = "configs.params.server\\.insecure"
     value = "true"
   }
+
+  set {
+    name  = "redis.image.tag"
+    value = "7.4.3-alpine"
+  }
 }
 
 # Install cert-manager (required by ADOT managed add-on)
