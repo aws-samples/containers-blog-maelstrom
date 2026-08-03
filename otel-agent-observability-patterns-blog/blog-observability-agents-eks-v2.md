@@ -113,6 +113,7 @@ After Langfuse boots for the first time, you need to generate API keys so the OT
 
 ```bash
 kubectl port-forward svc/langfuse-web -n observability 3000:3000
+
 ```
 
 **Step 2:** Open [http://localhost:3000](http://localhost:3000) in your browser. Create an account and a new project. See the [Langfuse Self-Hosting Guide](https://langfuse.com/docs/deployment/self-host#setup) for detailed instructions.
@@ -134,7 +135,9 @@ kubectl create secret generic langfuse-api-keys \
   --from-literal=LANGFUSE_SECRET_KEY=sk-lf-191b22a8-a9f5-4b0d-8232-5c352bcf45ba \
 ```bash
 kubectl rollout restart deployment/otel-collector-opentelemetry-collector -n observability
+
 ```
+
 **Step 5:** Restart the OTEL Collector to pick up the new credentials:
 
 ```bash
@@ -288,6 +291,17 @@ The pattern is called "decentralized" because there is no shared collection poin
                         (localhost)
 
 ```
+
+### Enabling Transactional Search
+
+For the decentralized pattern to surface traces in the CloudWatch GenAI Observability console, **transactional search** must be enabled on your X-Ray traces. This allows CloudWatch to index and query individual trace spans by their attributes (agent name, model ID, token counts). Enable it in the CloudWatch console under **Settings → Traces → Transactional search**, or via the CLI:
+
+```bash
+aws cloudwatch put-configuration   --configuration '{"transactionalSearch":{"enabled":true}}'
+
+```
+
+Without transactional search enabled, traces are still collected but will not appear in the GenAI Observability console's interactive query views.
 
 ### Viewing Traces in CloudWatch
 

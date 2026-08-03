@@ -4,11 +4,20 @@ import os
 import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from opentelemetry import trace
 
-from agents.shared.otel_bootstrap import init_otel
+# --- OTEL Initialization (Strands SDK built-in) ---
+if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    try:
+        from strands.telemetry import StrandsTelemetry
+        StrandsTelemetry().setup_otlp_exporter()
+    except ImportError:
+        pass
 
-tracer = init_otel("data-agent")
+try:
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+    HTTPXClientInstrumentor().instrument()
+except ImportError:
+    pass
 
 from strands import Agent
 from strands.models.openai import OpenAIModel
@@ -55,27 +64,17 @@ def health():
 @app.post("/invoke", response_model=InvokeResponse)
 def invoke(request: InvokeRequest):
     """Invoke the data agent with a user query."""
-    with tracer.start_as_current_span("agent.invoke") as span:
-        span.set_attribute("agent.name", "data-agent")
-        span.set_attribute("agent.query", request.query[:200])
+    try:
+        result = agent(request.query)
+        tokens_in = getattr(result, "usage", None)
+        input_tokens = tokens_in.input_tokens if tokens_in else 0
+        output_tokens = tokens_in.output_tokens if tokens_in else 0
 
-        try:
-            result = agent(request.query)
-            input_tokens = getattr(getattr(result, "usage", None), "input_tokens", 0)
-            output_tokens = getattr(getattr(result, "usage", None), "output_tokens", 0)
-
-            span.set_attribute("llm.token_count.input", input_tokens)
-            span.set_attribute("llm.token_count.output", output_tokens)
-            span.set_attribute("llm.model_id", MODEL_ALIAS)
-            span.set_attribute("llm.gateway", "bifrost")
-            span.set_status(trace.StatusCode.OK)
-
-            return InvokeResponse(
-                response=str(result),
-                tokens_input=input_tokens,
-                tokens_output=output_tokens,
-            )
-        except Exception as e:
-            span.set_status(trace.StatusCode.ERROR, str(e))
-            span.record_exception(e)
-            raise HTTPException(status_code=500, detail=str(e))
+        return InvokeResponse(
+            response=str(result),
+            tokens_input=input_tokens,
+            tokens_output=output_tokens,
+        )
+    except Exception as e:
+        logger.error(f"Agent invocation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
