@@ -25,3 +25,7 @@ output "adot_role_arn" {
 output "eks_version" {
   value = var.eks_version
 }
+
+output "otel_collector_role_arn" {
+  value = aws_iam_role.otel_collector.arn
+}
