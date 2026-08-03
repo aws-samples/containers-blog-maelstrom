@@ -19,6 +19,11 @@ spec:
         serviceAccount:
           create: true
           name: bifrost
+        env:
+          - name: BIFROST_ENFORCE_AUTH_ON_INFERENCE
+            value: "false"
+          - name: AWS_REGION
+            value: "{{ .Values.region }}"
         plugins:
           otel:
             enabled: true
