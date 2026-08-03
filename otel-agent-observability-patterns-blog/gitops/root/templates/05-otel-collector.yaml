@@ -13,12 +13,12 @@ spec:
     targetRevision: "0.90.*"
     helm:
       releaseName: otel-collector
-      extraEnvFrom:
-        - secretRef:
-            name: langfuse-api-keys
       valuesObject:
         mode: deployment
         replicaCount: 1
+        image:
+          repository: otel/opentelemetry-collector-contrib
+          tag: "0.104.0"
         config:
           receivers:
             otlp:
@@ -46,18 +46,20 @@ spec:
               resource_to_telemetry_conversion:
                 enabled: true
           extensions:
+            health_check:
+              endpoint: "0.0.0.0:13133"
             sigv4auth:
               region: "{{ .Values.region }}"
               service: "aps"
           service:
-            extensions: [sigv4auth]
+            extensions: [health_check, sigv4auth]
             pipelines:
               traces:
                 receivers: [otlp]
                 processors: [batch]
                 exporters: [otlphttp/langfuse]
               metrics:
-                receivers: [otlp]
+                receivers: [otlp, prometheus]
                 processors: [batch]
                 exporters: [prometheusremotewrite]
   destination:
@@ -67,3 +69,5 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
