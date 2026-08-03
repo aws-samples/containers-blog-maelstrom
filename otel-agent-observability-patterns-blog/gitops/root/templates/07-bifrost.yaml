@@ -8,9 +8,25 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: {{ .Values.gitops.repoURL }}
-    targetRevision: {{ .Values.gitops.targetRevision }}
-    path: {{ .Values.gitops.basePath }}/gitops/addons/bifrost
+    chart: bifrost
+    repoURL: https://maximhq.github.io/bifrost/helm-charts
+    targetRevision: "2.*"
+    helm:
+      releaseName: bifrost
+      valuesObject:
+        serviceAccount:
+          create: true
+          name: bifrost
+        plugins:
+          otel:
+            enabled: true
+            version: 1
+            config:
+              service_name: "bifrost"
+              collector_url: "otel-collector-opentelemetry-collector.{{ .Values.namespaces.observability }}:4317"
+              trace_type: "genai_extension"
+              protocol: "grpc"
+              insecure: true
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.agents }}
@@ -18,3 +34,5 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
