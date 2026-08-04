@@ -1,6 +1,6 @@
 # Building a Multi-Agent Financial Services Platform on EKS Auto Mode
 
-A turn-key, GitOps-driven reference architecture for a production-shaped **multi-agent AI platform** on Amazon EKS Auto Mode. Four Strands agents coordinate through **Agent Gateway** (with real JWT authentication and per-principal authorization), use **Amazon Bedrock AgentCore** for Memory, Browser, and Code Interpreter, and route every LLM call through **LiteLLM** for spend tracking and fallback routing.
+A turn-key, GitOps-driven reference architecture for a production-shaped **multi-agent AI platform** on Amazon EKS Auto Mode. Four Strands agents coordinate through **Agent Gateway** (with real JWT authentication and per-principal authorization), use **Amazon Bedrock AgentCore** for Memory, Browser, and Code Interpreter, and route every LLM call through **LiteLLM** for spend tracking and fallback routing. All AWS resources are provisioned declaratively with **AWS Controllers for Kubernetes (ACK)** and **kro** (Kube Resource Orchestrator), installed as AWS-managed EKS Capabilities.
 
 One `./scripts/bootstrap.sh` runs the whole thing.
 
@@ -67,8 +67,8 @@ For the blog, that means the cluster Terraform is ~100 lines and every platform 
 multi-agent-fsi-blog/
 ├── scripts/bootstrap.sh        # one-command end-to-end bring-up
 ├── terraform/
-│   ├── cluster/                # EKS Auto Mode + VPC + IAM role for the
-│   │                             Crossplane AWS providers
+│   ├── cluster/                # EKS Auto Mode + VPC + ACK & kro EKS
+│   │                             Capabilities + their IAM roles
 │   └── bootstrap/              # ArgoCD install + platform-root Application
 │                                 (reads cluster OIDC issuer + JWKS,
 │                                  plumbs into ArgoCD helm parameters)
@@ -78,8 +78,9 @@ multi-agent-fsi-blog/
 │   └── addons/
 │       ├── agent-gateway-config/   Gateway, Jaeger, tracing policy, RBAC
 │       ├── auto-mode-defaults/     default StorageClass + IngressClass
-│       ├── crossplane-providers/   Upbound AWS provider manifests +
-│       │                           DeploymentRuntimeConfig + ProviderConfig
+│       ├── agentcore-rgds/         kro ResourceGraphDefinitions for the
+│       │                           AgentCore composite kinds (Memory /
+│       │                           Browser / CodeInterpreter)
 │       └── litellm/                values.yaml for the BerriAI Helm chart
 └── apps/
     └── financial-services/
@@ -87,7 +88,7 @@ multi-agent-fsi-blog/
         ├── mcp-server/         # FastAPI JSON-RPC tools server
         ├── gitops/             # Helm chart (synced by platform-root).
         │                         templates/agentcore-resources.yaml
-        │                         renders per-agent Crossplane MRs.
+        │                         renders per-agent ACK resources + claims.
         └── deploy.sh           # finch build+push 5 images to Docker Hub
 ```
 
@@ -95,7 +96,7 @@ Everything under `multi-agent-fsi-blog/` is self-contained — no dependencies o
 
 > The `apps/financial-services/terraform/` directory is still present on disk
 > as a break-glass fallback: if a reader ever needs to hand-provision
-> AgentCore for a single agent instead of letting Crossplane do it, they
+> AgentCore for a single agent instead of letting ACK do it, they
 > can `terraform apply` that root module directly. The chart does not
 > reference it anymore.
 
@@ -128,11 +129,11 @@ cd containers-blog-maelstrom/multi-agent-fsi-blog
 
 That kicks off five phases (about 20 minutes end-to-end, most of it EKS cluster creation):
 
-1. `terraform apply` on `terraform/cluster/` — VPC + EKS Auto Mode cluster + IAM role for the Crossplane AWS providers (bound via Pod Identity to `crossplane-system/crossplane-aws-provider-sa`).
+1. `terraform apply` on `terraform/cluster/` — VPC + EKS Auto Mode cluster + the **ACK** and **kro** EKS Capabilities (AWS-managed controllers) and their IAM roles, plus a LiteLLM Bedrock Pod Identity role.
 2. `aws eks update-kubeconfig` — so you can talk to the cluster.
 3. `terraform apply` on `terraform/bootstrap/` — installs ArgoCD via Helm, reads the cluster's OIDC issuer + JWKS, and plumbs both into the `platform-root` ArgoCD Application via `helm.parameters` (see [Identity wiring](#identity-wiring-the-interesting-part) below).
-4. Waits for every addon Application to reach `Synced / Healthy` — Gateway API + agentgateway CRDs, Auto Mode defaults, Crossplane core, Upbound AWS providers, Agent Gateway + config, LiteLLM, and the financial-services chart.
-5. Waits on each Crossplane managed resource (`Memory`, `Browser`, `CodeInterpreter`, `Role`, `RolePolicy`, `PodIdentityAssociation`) to reach `Ready=True`, then rolls the agent Deployments so they pick up the newly-published connection Secrets.
+4. Waits for the ACK + kro Capabilities to be `ACTIVE`, then for every addon Application to reach `Synced / Healthy` — Gateway API + agentgateway CRDs, Auto Mode defaults, the AgentCore RGDs, Agent Gateway + config, LiteLLM, and the financial-services chart.
+5. Waits on each ACK resource (`Memory`, `Browser`, `CodeInterpreter`, `Role`, `PodIdentityAssociation`) to reach `ACK.ResourceSynced=True` and on the kro-emitted Secrets to be populated, then rolls the agent Deployments so they pick up the newly-published IDs.
 
 Environment overrides (optional):
 
@@ -147,10 +148,10 @@ GITOPS_REPO_URL=https://github.com/<your-fork>/containers-blog-maelstrom \
 
 | Phase | Time | What happens |
 |---|---|---|
-| `terraform apply` cluster stack | ~15 min | VPC + subnets + NAT + EKS Auto Mode control plane + IAM for Crossplane providers |
+| `terraform apply` cluster stack | ~15 min | VPC + subnets + NAT + EKS Auto Mode control plane + ACK & kro Capabilities + IAM |
 | `terraform apply` bootstrap stack | ~2 min | ArgoCD Helm release + platform-root Application |
-| ArgoCD addon reconcile (waves -1 → 3) | ~6 min | CRDs, Crossplane core, Upbound AWS providers, Agent Gateway, LiteLLM |
-| Crossplane provisions AgentCore | ~3-5 min | Per-agent Memory / Browser / CodeInterpreter / IAM / Pod Identity |
+| ArgoCD addon reconcile (waves -1 → 3) | ~6 min | CRDs, AgentCore RGDs, Agent Gateway, LiteLLM |
+| ACK provisions AgentCore | ~3-5 min | Per-agent Memory / Browser / CodeInterpreter / IAM / Pod Identity |
 | Agent pods ready + first query | ~1 min | MCP server, 4 Strands agents, Gateway policies |
 | **Total cold start** | **~30 min** | fresh AWS account → working multi-agent platform |
 
@@ -166,30 +167,32 @@ Wave │ Application          │ Why
  -1  │ gateway-api-crds     │ HTTPRoute CRD must exist before any route
  -1  │ agentgateway-crds    │ AgentgatewayBackend / AgentgatewayPolicy CRDs
   0  │ auto-mode-defaults   │ default StorageClass + IngressClass for Auto Mode
-  0  │ crossplane-core      │ Crossplane controller + core CRDs
-  1  │ crossplane-providers │ Upbound provider-family-aws + bedrockagentcore +
-      │                      │   iam + eks providers; ProviderConfig (IRSA/Pod
-      │                      │   Identity on crossplane-aws-provider-sa)
+  1  │ agentcore-rgds       │ kro ResourceGraphDefinitions serving the composite
+      │                      │   AgentCoreMemory / Browser / CodeInterpreter
+      │                      │   kinds (ACK + kro controllers come from the EKS
+      │                      │   Capabilities created by terraform/cluster)
   2  │ agent-gateway        │ The proxy itself (needs Gateway CRDs)
   2  │ agent-gateway-config │ Gateway resource, Jaeger, tracing policy, RBAC
   3  │ litellm              │ OpenAI-compatible proxy in front of Bedrock
-  4  │ financial-services   │ Per-agent Crossplane MRs + MCP server + agents
+  4  │ financial-services   │ Per-agent ACK resources + claims + MCP server + agents
 ```
 
 **Inside `financial-services`** (rendered per entry in `.Values.agents`):
 
 ```
 Every agent gets:
-  Role.iam.aws.upbound.io                       (IAM role for the pod)
-  RolePolicy.iam.aws.upbound.io                 (inline bedrock:Invoke* policy)
-  PodIdentityAssociation.eks.aws.upbound.io     (binds <agent>-sa to the role)
+  Role.iam.services.k8s.aws                     (IAM role for the pod, inline
+                                                 bedrock:Invoke* policy folded in)
+  PodIdentityAssociation.eks.services.k8s.aws   (binds <agent>-sa to the role)
 
-Plus per agentcore.* toggle:
-  Memory.bedrockagentcore.aws.upbound.io        (when memory = true)
-  Browser.bedrockagentcore.aws.upbound.io       (when browser = true)
-  CodeInterpreter.bedrockagentcore.aws.upbound.io   (when codeInterpreter = true)
+Plus per agentcore.* toggle, a kro composite claim whose RGD emits an ACK
+resource + a Secret:
+  AgentCoreMemory           → Memory.bedrockagentcorecontrol.services.k8s.aws
+  AgentCoreBrowser          → Browser.bedrockagentcorecontrol.services.k8s.aws
+  AgentCoreCodeInterpreter  → CodeInterpreter.bedrockagentcorecontrol.services.k8s.aws
 
-Each AgentCore MR publishes its `id` to a connection Secret:
+The RGD graph writes the ACK resource's status.id into a Secret (kro orders
+it after the resource, so it only lands once the id resolves):
   fs-<agent>-memory-outputs             ← consumed as MEMORY_ID
   fs-<agent>-browser-outputs            ← consumed as BROWSER_ID
   fs-<agent>-code-interpreter-outputs   ← consumed as CODE_INTERPRETER_ID
@@ -201,7 +204,7 @@ Plus the K8s pieces:
   5× AgentgatewayPolicy (1 JWT authn + A2A/MCP authz derived from agents[].role+.tools)
 ```
 
-Adding a new specialist is appending one entry to `.Values.agents` — Crossplane MRs, Gateway routes, authz policies, and the agent Deployment all fan out from that single declaration:
+Adding a new specialist is appending one entry to `.Values.agents` — ACK resources, kro claims, Gateway routes, authz policies, and the agent Deployment all fan out from that single declaration:
 
 ```yaml
 agents:
@@ -219,21 +222,22 @@ Watch it happen:
 
 ```bash
 kubectl get application -n argocd -w
-kubectl get memories,browsers,codeinterpreters,roles,rolepolicies,podidentityassociations \
+kubectl get memories,browsers,codeinterpreters.bedrockagentcorecontrol.services.k8s.aws,\
+roles.iam.services.k8s.aws,podidentityassociations.eks.services.k8s.aws \
   -n financial-services -w
 ```
 
-Expected end state: every Application `Synced / Healthy`, every Crossplane MR `READY=True SYNCED=True`.
+Expected end state: every Application `Synced / Healthy`, every ACK resource `SYNCED=True` (the `ACK.ResourceSynced` condition).
 
-### If an agent's Crossplane MR stalls
+### If an agent's ACK resource stalls
 
-Unlike the Flux/Terraform-controller approach this used to run on, Crossplane MRs have conventional K8s failure modes — `kubectl describe <kind> <name>` surfaces the last AWS API error on the `Synced` condition. Common issues:
+ACK resources have conventional K8s failure modes — `kubectl describe <kind> <name>` surfaces the last AWS API error on the `ACK.ResourceSynced` condition. Common issues:
 
-- **Name collision from a previous aborted run.** Delete the orphan AgentCore resource in AWS (or import it into the MR via `crossplane.io/external-name`), then let the MR reconcile.
-- **Provider not Healthy yet.** `kubectl get provider.pkg.crossplane.io` — if any provider is `INSTALLED=False` or `HEALTHY=False`, the MR will sit in `Synced=False`. Usually resolves within ~2 min of the `crossplane-providers` Application going Synced; if not, check `kubectl describe provider <name>`.
-- **Pod Identity not propagated.** If the provider Deployment's SA isn't bound to the IAM role yet, AWS calls 403. `aws eks describe-pod-identity-association` and confirm `crossplane-system/crossplane-aws-provider-sa` is associated with the role from `terraform/cluster` outputs.
+- **Name collision from a previous aborted run.** Delete the orphan AgentCore resource in AWS (or adopt it via an `AdoptedResource`), then let the controller reconcile.
+- **Capability not ACTIVE yet.** `aws eks list-capabilities --cluster-name <cluster>` — if the ACK Capability isn't `ACTIVE`, its controllers aren't running and the resource sits unreconciled. The kro RGDs likewise need the kro Capability `ACTIVE` (`kubectl get resourcegraphdefinitions` should show all three `Active`).
+- **Capability role missing a permission.** If the ACK controller gets a 403, check the inline policy on the `<cluster>-ack-capability` IAM role from `terraform/cluster/ack_capability_iam.tf`.
 
-**Blast radius is per-MR.** An unhealthy `Memory` for `financial-advisor` doesn't affect `portfolio-analyst`'s `CodeInterpreter` — each MR reconciles independently, writes its own connection Secret, and feeds exactly one agent.
+**Blast radius is per-resource.** An unhealthy `Memory` for `financial-advisor` doesn't affect `portfolio-analyst`'s `CodeInterpreter` — each ACK resource reconciles independently, its RGD writes its own Secret, and it feeds exactly one agent.
 
 ---
 
@@ -395,11 +399,11 @@ Full reversal, in the exact reverse order of creation so nothing references a re
 cd multi-agent-fsi-blog
 
 # 1. Delete the ArgoCD app-of-apps. ArgoCD cascades the delete to every
-#    child Application, including financial-services. As Crossplane
-#    managed resources (Memory, Browser, CodeInterpreter, Role,
-#    RolePolicy, PodIdentityAssociation) get deleted, their controllers
-#    call the matching AWS delete APIs — same behaviour as
-#    `terraform destroy` used to give us, just driven by K8s finalizers.
+#    child Application, including financial-services. As the ACK
+#    resources (Memory, Browser, CodeInterpreter, Role,
+#    PodIdentityAssociation) get deleted, their controllers call the
+#    matching AWS delete APIs — same behaviour as `terraform destroy`
+#    used to give us, just driven by K8s finalizers.
 kubectl delete application platform-root -n argocd
 # Wait for children to fully drain (~2 min):
 kubectl get application -n argocd -w
@@ -413,20 +417,20 @@ cd ../cluster
 terraform destroy -auto-approve -var "cluster_name=finops-agents"
 ```
 
-If step 1 stalls (usually because a Crossplane MR can't reach AWS to `Delete`), clear finalizers one layer at a time:
+If step 1 stalls (usually because an ACK resource can't reach AWS to delete), clear finalizers one layer at a time:
 
 ```bash
 # Let ArgoCD finish pruning first:
 kubectl patch application financial-services -n argocd \
   -p '{"metadata":{"finalizers":null}}' --type=merge
 
-# Then any stuck AgentCore MR (one-liner per type):
-kubectl -n financial-services get memories,browsers,codeinterpreters -o name \
+# Then any stuck AgentCore ACK resource (one-liner per type):
+kubectl -n financial-services get memories,browsers,codeinterpreters.bedrockagentcorecontrol.services.k8s.aws -o name \
   | xargs -r -I{} kubectl patch {} -n financial-services \
       -p '{"metadata":{"finalizers":null}}' --type=merge
 
-# Same treatment for per-agent IAM + Pod Identity MRs:
-kubectl -n financial-services get roles.iam.aws.upbound.io,rolepolicies.iam.aws.upbound.io,podidentityassociations.eks.aws.upbound.io -o name \
+# Same treatment for per-agent IAM + Pod Identity ACK resources:
+kubectl -n financial-services get roles.iam.services.k8s.aws,podidentityassociations.eks.services.k8s.aws -o name \
   | xargs -r -I{} kubectl patch {} -n financial-services \
       -p '{"metadata":{"finalizers":null}}' --type=merge
 
@@ -444,7 +448,7 @@ kubectl -n financial-services get roles.iam.aws.upbound.io,rolepolicies.iam.aws.
 - **Agent Gateway is not the Google A2A spec.** This walkthrough uses plain JSON over HTTP to `/agents/<name>`. For A2A-spec-compliant interop, wrap the agent's FastAPI `POST /` handler with the task/artifact envelope.
 - **Browser reliability.** Yahoo Finance layout drifts. The market-data agent already falls back to MCP deterministic prices on scraping failures — fine for a demo, not for production.
 - **JWKS is pinned in-chart.** Inline JWKS is simple and fast; rotation is `terraform apply`. For automatic rotation, swap `jwks.inline` for `jwks.remote` pointing at an in-cluster proxy with the EKS issuer cert installed.
-- **Role sharing.** `finops-agents-crossplane-aws-provider` is currently reused by the Crossplane AWS providers, LiteLLM, and every agent Pod (via its per-agent IAM role). Fine for a demo; production deployments should split into per-workload roles scoped to exactly the AWS APIs each workload calls.
+- **Role scoping.** The `<cluster>-ack-capability` role grants the ACK controllers a broad set of AgentCore + IAM + EKS permissions, and each agent Pod gets its own `fs-<agent>-agent-role`. LiteLLM has a dedicated `<cluster>-litellm-bedrock` role. Fine for a demo; production deployments should tighten the capability role to exactly the AWS APIs the installed ACK controllers call.
 
 ---
 

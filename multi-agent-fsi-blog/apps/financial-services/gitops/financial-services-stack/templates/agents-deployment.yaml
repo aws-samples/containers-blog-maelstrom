@@ -43,11 +43,10 @@ _shared/a2a_client.py + mcp_client.py.
 {{- end }}
 
 {{/*
-Per-agent outputs come from Crossplane connection Secrets, one per
-AgentCore resource the agent opted into. Each Crossplane MR publishes
-its attributes (including the `id`) via writeConnectionSecretToRef —
-we fan them into the agent's env below. Keys follow the Terraform
-aws provider attribute names; `id` is the primary key for each MR.
+Per-agent outputs come from connection Secrets, one per AgentCore resource the
+agent opted into. Each kro composite claim's RGD writes the underlying ACK
+resource's status.id into the Secret under key `id` — we fan them into the
+agent's env below. `id` is the AgentCore resource ID.
 */}}
 {{- range $agent := .Values.agents }}
 {{- $sa := printf "%s-sa" $agent.name }}

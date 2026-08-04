@@ -24,6 +24,13 @@ spec:
         - name: eks.jwksJson
           value: {{ .Values.eks.jwksJson | quote }}
           forceString: true
+        # Cluster name + region for the ACK PodIdentityAssociation / AgentCore
+        # resources. Fed from the root chart (terraform/bootstrap sets these on
+        # platform-root), so the chart is not pinned to one cluster name.
+        - name: eksClusterName
+          value: {{ .Values.ack.clusterName | quote }}
+        - name: awsRegion
+          value: {{ .Values.ack.region | quote }}
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.financialServices | quote }}

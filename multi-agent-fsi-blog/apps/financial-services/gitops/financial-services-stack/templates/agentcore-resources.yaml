@@ -1,17 +1,20 @@
 {{- /*
-Per-agent AgentCore + IAM provisioning via Crossplane.
+Per-agent AgentCore + IAM provisioning via ACK + kro.
 
 For each agent:
 
-  Always rendered (raw Upbound MRs — no secret output needed):
-    - Role                       (IAM role, pods.eks.amazonaws.com trust)
-    - RolePolicy                 (inline policy: bedrock:InvokeModel*,
+  Always rendered (native ACK resources — reconciled by the controllers the
+  ACK EKS Capability installs):
+    - Role                       (iam.services.k8s.aws — pods.eks.amazonaws.com
+                                   trust, inline policy: bedrock:InvokeModel*,
                                    bedrock-agentcore:*)
-    - PodIdentityAssociation     (binds <agent>-sa to the Role)
+    - PodIdentityAssociation     (eks.services.k8s.aws — binds <agent>-sa to
+                                   the Role via roleRef)
 
-  Rendered per agentcore.* toggle via Crossplane Claims that wrap the
-  AgentCore MRs. The Composition publishes id/arn/name into the
-  connection Secret, which agents-deployment.yaml wires into env:
+  Rendered per agentcore.* toggle as kro composite claims. Each claim's RGD
+  (gitops/addons/agentcore-rgds) emits the ACK Memory/Browser/CodeInterpreter
+  plus a FieldExport that publishes status.id into the connection Secret named
+  below, which agents-deployment.yaml wires into env:
     - AgentCoreMemory            (when agentcore.memory = true)
     - AgentCoreBrowser           (when agentcore.browser = true)
     - AgentCoreCodeInterpreter   (when agentcore.codeInterpreter = true)
@@ -24,45 +27,30 @@ metadata:
 {{- $ns := $.Values.namespace }}
 {{- $role := printf "fs-%s-agent-role" $agent.name }}
 ---
-# IAM Role for {{ $agent.name }} (Pod Identity target)
-apiVersion: iam.aws.upbound.io/v1beta1
+# IAM Role for {{ $agent.name }} (Pod Identity target). The inline policy that
+# used to be a separate Crossplane RolePolicy is folded into inlinePolicies.
+apiVersion: iam.services.k8s.aws/v1alpha1
 kind: Role
 metadata:
   name: {{ $role }}
-  annotations:
-    argocd.argoproj.io/sync-wave: "0"
-    crossplane.io/external-name: {{ $role }}
-spec:
-  forProvider:
-    assumeRolePolicy: |-
-      {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-            "Effect": "Allow",
-            "Principal": { "Service": "pods.eks.amazonaws.com" },
-            "Action": [ "sts:AssumeRole", "sts:TagSession" ]
-          }
-        ]
-      }
-    tags:
-      Agent: {{ $agent.name }}
-      Project: financial-services
-  providerConfigRef:
-    name: default
-  deletionPolicy: Delete
----
-apiVersion: iam.aws.upbound.io/v1beta1
-kind: RolePolicy
-metadata:
-  name: {{ $role }}-inline
+  namespace: {{ $ns }}
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
-  forProvider:
-    roleRef:
-      name: {{ $role }}
-    policy: |-
+  name: {{ $role }}
+  assumeRolePolicyDocument: |-
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": { "Service": "pods.eks.amazonaws.com" },
+          "Action": [ "sts:AssumeRole", "sts:TagSession" ]
+        }
+      ]
+    }
+  inlinePolicies:
+    {{ $role }}-inline: |-
       {
         "Version": "2012-10-17",
         "Statement": [
@@ -91,37 +79,38 @@ spec:
           }
         ]
       }
-  providerConfigRef:
-    name: default
-  deletionPolicy: Delete
+  tags:
+    - key: Agent
+      value: {{ $agent.name }}
+    - key: Project
+      value: financial-services
 ---
 # ---- Pod Identity Association: {{ $agent.name }}-sa → {{ $role }} ----
-apiVersion: eks.aws.upbound.io/v1beta1
+apiVersion: eks.services.k8s.aws/v1alpha1
 kind: PodIdentityAssociation
 metadata:
   name: {{ printf "fs-%s-pi" $agent.name }}
+  namespace: {{ $ns }}
   annotations:
     argocd.argoproj.io/sync-wave: "0"
+    services.k8s.aws/region: {{ $.Values.awsRegion }}
 spec:
-  forProvider:
-    region: {{ $.Values.awsRegion }}
-    clusterName: {{ $.Values.eksClusterName }}
-    namespace: {{ $ns }}
-    serviceAccount: {{ printf "%s-sa" $agent.name }}
-    roleArnRef:
+  clusterName: {{ $.Values.eksClusterName }}
+  namespace: {{ $ns }}
+  serviceAccount: {{ printf "%s-sa" $agent.name }}
+  # Resolve the role ARN from the ACK Role above once it reconciles.
+  roleRef:
+    from:
       name: {{ $role }}
-    tags:
-      Agent: {{ $agent.name }}
-  providerConfigRef:
-    name: default
-  deletionPolicy: Delete
+  tags:
+    Agent: {{ $agent.name }}
 
 {{- if $agent.agentcore.memory }}
 ---
 # ---- Memory claim for {{ $agent.name }} ----
-# Composition publishes status.atProvider.id / arn / name into the
-# connection secret below. Agents consume MEMORY_ID from that secret.
-apiVersion: fsi.aws.example.com/v1alpha1
+# The RGD emits the ACK Memory + a FieldExport that publishes status.id into
+# the writeConnectionSecretName Secret. Agents consume MEMORY_ID from it.
+apiVersion: kro.run/v1alpha1
 kind: AgentCoreMemory
 metadata:
   name: {{ printf "fs-%s-memory" $agent.name }}
@@ -129,23 +118,19 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
-  parameters:
-    region: {{ $.Values.awsRegion }}
-    name: {{ printf "fs_%s_memory" (replace "-" "_" $agent.name) | quote }}
-    description: {{ printf "Memory for fs-%s" $agent.name | quote }}
-    eventExpiryDuration: 30
-    tags:
-      Agent: {{ $agent.name }}
-  compositionRef:
-    name: agentcore-memory.fsi.aws.example.com
-  writeConnectionSecretToRef:
-    name: {{ printf "fs-%s-memory-outputs" $agent.name }}
+  region: {{ $.Values.awsRegion }}
+  name: {{ printf "fs_%s_memory" (replace "-" "_" $agent.name) | quote }}
+  description: {{ printf "Memory for fs-%s" $agent.name | quote }}
+  eventExpiryDuration: 30
+  tags:
+    Agent: {{ $agent.name }}
+  writeConnectionSecretName: {{ printf "fs-%s-memory-outputs" $agent.name }}
 {{- end }}
 
 {{- if $agent.agentcore.browser }}
 ---
 # ---- Browser claim for {{ $agent.name }} ----
-apiVersion: fsi.aws.example.com/v1alpha1
+apiVersion: kro.run/v1alpha1
 kind: AgentCoreBrowser
 metadata:
   name: {{ printf "fs-%s-browser" $agent.name }}
@@ -153,23 +138,19 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
-  parameters:
-    region: {{ $.Values.awsRegion }}
-    name: {{ printf "fs_%s_browser" (replace "-" "_" $agent.name) | quote }}
-    description: {{ printf "Browser for fs-%s" $agent.name | quote }}
-    networkMode: {{ $.Values.networkMode }}
-    tags:
-      Agent: {{ $agent.name }}
-  compositionRef:
-    name: agentcore-browser.fsi.aws.example.com
-  writeConnectionSecretToRef:
-    name: {{ printf "fs-%s-browser-outputs" $agent.name }}
+  region: {{ $.Values.awsRegion }}
+  name: {{ printf "fs_%s_browser" (replace "-" "_" $agent.name) | quote }}
+  description: {{ printf "Browser for fs-%s" $agent.name | quote }}
+  networkMode: {{ $.Values.networkMode }}
+  tags:
+    Agent: {{ $agent.name }}
+  writeConnectionSecretName: {{ printf "fs-%s-browser-outputs" $agent.name }}
 {{- end }}
 
 {{- if $agent.agentcore.codeInterpreter }}
 ---
 # ---- Code Interpreter claim for {{ $agent.name }} ----
-apiVersion: fsi.aws.example.com/v1alpha1
+apiVersion: kro.run/v1alpha1
 kind: AgentCoreCodeInterpreter
 metadata:
   name: {{ printf "fs-%s-code-interpreter" $agent.name }}
@@ -177,17 +158,13 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
-  parameters:
-    region: {{ $.Values.awsRegion }}
-    name: {{ printf "fs_%s_code_interpreter" (replace "-" "_" $agent.name) | quote }}
-    description: {{ printf "Code Interpreter for fs-%s" $agent.name | quote }}
-    networkMode: {{ $.Values.networkMode }}
-    tags:
-      Agent: {{ $agent.name }}
-  compositionRef:
-    name: agentcore-code-interpreter.fsi.aws.example.com
-  writeConnectionSecretToRef:
-    name: {{ printf "fs-%s-code-interpreter-outputs" $agent.name }}
+  region: {{ $.Values.awsRegion }}
+  name: {{ printf "fs_%s_code_interpreter" (replace "-" "_" $agent.name) | quote }}
+  description: {{ printf "Code Interpreter for fs-%s" $agent.name | quote }}
+  networkMode: {{ $.Values.networkMode }}
+  tags:
+    Agent: {{ $agent.name }}
+  writeConnectionSecretName: {{ printf "fs-%s-code-interpreter-outputs" $agent.name }}
 {{- end }}
 
 {{- end }}

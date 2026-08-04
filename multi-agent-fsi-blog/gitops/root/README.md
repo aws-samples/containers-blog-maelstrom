@@ -3,8 +3,10 @@
 # is one Application pointing at an addon chart or manifest path.
 # Sync waves drive ordering:
 #   -1  CRDs (Gateway API, agentgateway CRDs)
-#    0  Flux (source-controller, notification-controller)
-#    1  Tofu Controller (needs Flux)
-#    2  Agent Gateway (needs CRDs)
+#    0  auto-mode-defaults (default StorageClass + IngressClass)
+#    1  agentcore-rgds (kro ResourceGraphDefinitions for the AgentCore composite
+#        kinds; the ACK + kro controllers are installed by the EKS Capabilities
+#        created in terraform/cluster)
+#    2  Agent Gateway + agent-gateway-config (needs CRDs)
 #    3  LiteLLM (independent)
-#    4  financial-services stack (needs Agent Gateway + Tofu Controller + LiteLLM)
+#    4  financial-services stack (needs Agent Gateway + AgentCore RGDs + LiteLLM)

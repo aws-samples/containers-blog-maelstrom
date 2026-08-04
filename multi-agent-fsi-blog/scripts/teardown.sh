@@ -7,9 +7,10 @@
 # triggers cascade-prune of every resource it rendered, in reverse
 # sync-wave order within the app. We do the same across apps: delete
 # financial-services first, wait for ArgoCD to prune its agents +
-# AgentCoreMemory/Browser/CodeInterpreter claims + IAM/PIA MRs (which
-# cascade to real AWS cleanup via deletionPolicy: Delete), then move to
-# the next Application in reverse root sync-wave order.
+# AgentCoreMemory/Browser/CodeInterpreter claims + the ACK Memory/Browser/
+# CodeInterpreter/Role/PodIdentityAssociation resources they compose (ACK
+# deletes the real AWS resource when its CR is removed), then move to the
+# next Application in reverse root sync-wave order.
 #
 # Per-app timeout with a finalizer-strip fallback — if cascade-prune
 # stalls on one Application we strip its finalizer and continue, so a
@@ -85,14 +86,15 @@ if cluster_reachable; then
   # Order: wave 5 -> 3 -> 2 -> 1 -> 0 -> -1, then platform-root.
   # Timeouts account for AgentCore async deletes, IAM eventual consistency,
   # and agent pod termination grace periods.
-  delete_app financial-services          600   # agents + Claims -> XRs -> MRs -> AWS
-  delete_app crossplane-compositions     180   # XRDs + Compositions (no external state)
+  delete_app financial-services          600   # agents + claims -> ACK CRs -> AWS
   delete_app litellm                     180   # Deployment + Postgres PVC
-  delete_app crossplane-provider-config  180   # ProviderConfig (just a CR)
   delete_app agent-gateway-config        120   # Gateway + JWT/RBAC policies
   delete_app agent-gateway               180   # Gateway controller + service
-  delete_app crossplane-providers        300   # Upbound Provider packages (need to finalize)
-  delete_app crossplane-core             300   # Crossplane controller + core CRDs
+  delete_app agentcore-rgds              180   # kro ResourceGraphDefinitions (no external state)
+  # The ACK service controllers live in the managed ACK Capability, not an
+  # ArgoCD Application — they keep running until terraform destroys the
+  # cluster/Capability, so the AgentCore/IAM/PIA AWS-side deletes triggered by
+  # the financial-services prune above complete before the controllers stop.
   delete_app auto-mode-defaults          120   # StorageClass + IngressClass
   delete_app agentgateway-crds           120
   delete_app gateway-api-crds            120

@@ -10,9 +10,19 @@ basePath: multi-agent-fsi-blog
 # ArgoCD destination namespaces per addon.
 namespaces:
   agentGateway: agentgateway-system
-  crossplane: crossplane-system
+  # The AgentCore ResourceGraphDefinitions are cluster-scoped kro objects; the
+  # Application still needs a destination namespace for ArgoCD bookkeeping.
+  agentcoreRgds: kro-system
   litellm: litellm
   financialServices: financial-services
+
+# Live cluster name + region, consumed by the financial-services chart for the
+# per-agent PodIdentityAssociation / AgentCore resources. Overridden at
+# bootstrap time by terraform/bootstrap (helm parameters on platform-root) to
+# match the live cluster, so nothing is pinned to one cluster name.
+ack:
+  clusterName: finops-agents
+  region: us-west-2
 
 # EKS cluster identity used by Agent Gateway to validate ServiceAccount tokens.
 # These are populated at bootstrap time by terraform/bootstrap (helm.parameters

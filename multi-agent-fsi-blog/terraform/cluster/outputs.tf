@@ -38,12 +38,22 @@ output "kubeconfig_command" {
   value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
 }
 
-output "crossplane_provider_role_arn" {
-  description = "IAM role ARN bound to crossplane-system/crossplane-aws-provider-sa via Pod Identity. Used by every Upbound AWS provider (aws-bedrockagentcore, aws-iam, aws-eks) to authenticate to AWS."
-  value       = aws_iam_role.crossplane_provider.arn
+output "ack_capability_role_arn" {
+  description = "IAM role ARN assumed by the ACK EKS Capability. Every ACK service controller (bedrockagentcorecontrol, iam, eks) authenticates to AWS under this role."
+  value       = aws_iam_role.ack_capability.arn
 }
 
-output "crossplane_provider_role_name" {
-  description = "Crossplane AWS provider IAM role name"
-  value       = aws_iam_role.crossplane_provider.name
+output "ack_capability_arn" {
+  description = "ARN of the ACK EKS Capability"
+  value       = aws_eks_capability.ack.arn
+}
+
+output "kro_capability_arn" {
+  description = "ARN of the kro EKS Capability (reconciles the AgentCore ResourceGraphDefinitions)"
+  value       = aws_eks_capability.kro.arn
+}
+
+output "litellm_bedrock_role_arn" {
+  description = "IAM role ARN bound to litellm/litellm via Pod Identity for direct Bedrock model invocation."
+  value       = aws_iam_role.litellm_bedrock.arn
 }
