@@ -39,7 +39,7 @@ echo ""
 # ---------------------------------------------------------------
 # Step 1: Provision EKS cluster + networking + IAM
 # ---------------------------------------------------------------
-echo "▶ [1/5] Provisioning EKS cluster and AWS resources..."
+echo "▶ [1/4] Provisioning EKS cluster and AWS resources..."
 echo "         (EKS Auto Mode, Pod Identity, ACK + kro)"
 echo ""
 
@@ -65,7 +65,7 @@ echo ""
 # ---------------------------------------------------------------
 # Step 2: Configure kubectl
 # ---------------------------------------------------------------
-echo "▶ [2/5] Configuring kubectl context..."
+echo "▶ [2/4] Configuring kubectl context..."
 echo ""
 
 aws eks update-kubeconfig \
@@ -79,7 +79,7 @@ echo ""
 # ---------------------------------------------------------------
 # Step 3: Bootstrap ArgoCD + kro RBAC
 # ---------------------------------------------------------------
-echo "▶ [3/5] Bootstrapping ArgoCD and kro RBAC..."
+echo "▶ [3/4] Bootstrapping ArgoCD and kro RBAC..."
 echo ""
 
 cd "$ROOT_DIR/terraform/bootstrap"
@@ -104,7 +104,7 @@ echo ""
 # ---------------------------------------------------------------
 # Step 4: Deploy root ArgoCD Application
 # ---------------------------------------------------------------
-echo "▶ [4/5] Deploying ArgoCD root Application (syncs all workloads)..."
+echo "▶ [4/4] Deploying ArgoCD root Application (syncs all workloads)..."
 echo ""
 
 kubectl apply -f - <<EOF
@@ -138,10 +138,27 @@ EOF
 echo "  Waiting for ArgoCD to sync all applications..."
 sleep 10
 
+# Create Langfuse API key secrets with the known seed values.
+# These match the LANGFUSE_INIT_* env vars in the Langfuse Helm values,
+# so they are valid immediately once Langfuse finishes initializing.
+echo "  Creating Langfuse API key secrets..."
+PK="pk-lf-agent-obs-seed"
+SK="sk-lf-agent-obs-seed"
+AUTH_TOKEN=$(echo -n "$PK:$SK" | base64)
+for NS in observability agents; do
+  kubectl create ns "$NS" 2>/dev/null || true
+  kubectl create secret generic langfuse-api-keys \
+    -n "$NS" \
+    --from-literal=LANGFUSE_PUBLIC_KEY="$PK" \
+    --from-literal=LANGFUSE_SECRET_KEY="$SK" \
+    --from-literal=LANGFUSE_AUTH_TOKEN="$AUTH_TOKEN" \
+    --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
+done
+
 echo ""
 echo "  Waiting for Langfuse..."
 kubectl wait --for=condition=available deployment -l app.kubernetes.io/name=langfuse \
-  -n observability --timeout=300s 2>/dev/null || echo "  (langfuse still syncing)"
+  -n observability --timeout=600s 2>/dev/null || echo "  (langfuse still syncing)"
 
 echo "  Waiting for Bifrost..."
 kubectl wait --for=condition=available deployment/bifrost \
@@ -153,16 +170,6 @@ kubectl wait --for=condition=available deployment -l app.kubernetes.io/component
 
 echo ""
 echo "✓ ArgoCD root application synced"
-echo ""
-
-# ---------------------------------------------------------------
-# Step 5: Configure Langfuse API keys automatically
-# ---------------------------------------------------------------
-echo "▶ [5/5] Configuring Langfuse API keys..."
-echo ""
-
-"$SCRIPT_DIR/setup-langfuse-keys.sh"
-
 echo ""
 
 # ---------------------------------------------------------------

@@ -33,9 +33,20 @@ spec:
           nextauth:
             secret:
               value: "changeme-generate-at-install"
-            url: "http://langfuse.{{ .Values.namespaces.observability }}:3000"
+            url: "http://langfuse-web.{{ .Values.namespaces.observability }}:3000"
         environment:
           LANGFUSE_ENABLE_OTEL_INGESTION: "true"
+          # Headless initialization — auto-creates org, project, and API keys on startup.
+          # No manual UI setup required.
+          LANGFUSE_INIT_ORG_ID: "seed-org-agent-obs"
+          LANGFUSE_INIT_ORG_NAME: "Agent Observability"
+          LANGFUSE_INIT_PROJECT_ID: "seed-project-agent-obs"
+          LANGFUSE_INIT_PROJECT_NAME: "agent-observability"
+          LANGFUSE_INIT_PROJECT_PUBLIC_KEY: "pk-lf-agent-obs-seed"
+          LANGFUSE_INIT_PROJECT_SECRET_KEY: "sk-lf-agent-obs-seed"
+          LANGFUSE_INIT_USER_EMAIL: "admin@agent-observability.local"
+          LANGFUSE_INIT_USER_NAME: "Admin"
+          LANGFUSE_INIT_USER_PASSWORD: "AgentObs2026!"
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.observability }}

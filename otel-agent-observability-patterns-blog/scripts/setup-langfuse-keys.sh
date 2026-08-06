@@ -44,6 +44,37 @@ if [ -n "$EXISTING_PK" ] && [ "$EXISTING_PK" != "pk-lf-REPLACE-ME" ]; then
 fi
 
 # ---------------------------------------------------------------
+# Wait for Langfuse pods to be ready (they need PVCs, DB init, etc.)
+# ---------------------------------------------------------------
+echo "  Waiting for Langfuse pods to be ready (this may take 5-10 minutes)..."
+echo "  (Langfuse needs Postgres, ClickHouse, and Redis to initialize)"
+
+# First wait for the namespace and deployment to exist
+DEPLOY_RETRIES=0
+until kubectl get deployment -n "$NAMESPACE" -l app.kubernetes.io/name=langfuse -o name 2>/dev/null | grep -q deployment; do
+  DEPLOY_RETRIES=$((DEPLOY_RETRIES + 1))
+  if [ $DEPLOY_RETRIES -ge 60 ]; then
+    echo "  ✗ Langfuse deployment not found after 5 minutes."
+    echo "    Check ArgoCD: kubectl get applications -n argocd"
+    exit 1
+  fi
+  sleep 5
+done
+
+# Wait for the web deployment to be available (includes DB readiness)
+kubectl wait --for=condition=available deployment -l app.kubernetes.io/name=langfuse \
+  -n "$NAMESPACE" --timeout=600s 2>&1 || {
+  echo "  ✗ Langfuse did not become ready within 10 minutes."
+  echo "    Check: kubectl get pods -n $NAMESPACE"
+  echo "    Logs:  kubectl logs -n $NAMESPACE -l app.kubernetes.io/name=langfuse --tail=50"
+  exit 1
+}
+echo "  ✓ Langfuse pods are ready"
+
+# Short pause to let the HTTP server finish internal startup
+sleep 10
+
+# ---------------------------------------------------------------
 # Port-forward Langfuse
 # ---------------------------------------------------------------
 echo "  Starting port-forward to Langfuse..."
@@ -54,15 +85,15 @@ trap "kill $PF_PID 2>/dev/null || true" EXIT
 LANGFUSE_URL="http://localhost:$LOCAL_PORT"
 
 # ---------------------------------------------------------------
-# Wait for Langfuse to be ready
+# Wait for Langfuse HTTP endpoint to respond
 # ---------------------------------------------------------------
-echo "  Waiting for Langfuse to be healthy..."
+echo "  Waiting for Langfuse health endpoint..."
 RETRIES=0
-MAX_RETRIES=60
+MAX_RETRIES=30
 until curl -sf "$LANGFUSE_URL/api/public/health" >/dev/null 2>&1; do
   RETRIES=$((RETRIES + 1))
   if [ $RETRIES -ge $MAX_RETRIES ]; then
-    echo "  ✗ Langfuse did not become healthy after ${MAX_RETRIES} attempts."
+    echo "  ✗ Langfuse health endpoint not responding after ${MAX_RETRIES} attempts."
     echo "    Check: kubectl get pods -n $NAMESPACE -l app.kubernetes.io/name=langfuse"
     exit 1
   fi
