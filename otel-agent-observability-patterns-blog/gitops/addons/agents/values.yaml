@@ -10,7 +10,7 @@ bedrockFallbackModel: us.anthropic.claude-haiku-4-5-20251001-v1:0
 agents:
   - name: research-agent
     module: research_agent
-    image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/research-agent:de65ef6
+    image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/research-agent:8ad63ff
     port: 8080
     capabilities:
       memory: false
@@ -19,7 +19,7 @@ agents:
 
   - name: data-agent
     module: data_agent
-    image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/data-agent:de65ef6
+    image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/data-agent:8ad63ff
     port: 8080
     capabilities:
       memory: false
