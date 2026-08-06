@@ -1,6 +1,9 @@
-# Centralized vs. Decentralized: OTEL Observability Patterns for AI Agents on Amazon EKS
+# Decentralized vs. Centralized: Observability Patterns for AI Agents on Amazon EKS with Bifrost and Langfuse
 
-**Authors:** Hari Muthusamy, Elamaran Shanmugam**Channel:** Containers | **Focus Area:** Observability | **Level:** Advanced (300)**Primary AWS Services:** Amazon EKS, Amazon CloudWatch**Feature Highlight:** EKS Pod Identity, EKS Auto Mode
+**Authors:** Hari Muthusamy, Elamaran Shanmugam
+**Channel:** Containers | **Focus Area:** Observability | **Level:** Advanced (300)
+**Primary AWS Services:** Amazon EKS, Amazon Bedrock
+**Feature Highlight:** EKS Pod Identity, EKS Auto Mode
 
 ---
 
@@ -8,21 +11,21 @@
 
 As organizations deploy AI agents at scale on Kubernetes, a critical operational gap emerges: **how do you observe what your agents are actually doing?** Traditional application monitoring tells you whether a pod is healthy, but it cannot tell you why an agent hallucinated, which tool calls consumed your token budget, or where a multi-step reasoning chain broke down.
 
-AI agents built on frameworks like Strands SDK or LangGraph introduce new observability dimensions beyond traditional request/response patterns:
+AI agents built on frameworks like Strands SDK introduce observability dimensions beyond traditional request/response patterns:
 
 - **LLM call traces** — model invocations, token counts, latency per call, and model parameters
 - **Tool/function call spans** — which tools the agent invoked, their inputs/outputs, and whether they succeeded
 - **Agent reasoning chains** — the multi-step decision flow from user query to final response
 - **Cost attribution** — per-agent, per-request token spend mapped back to the model and region
 
-OpenTelemetry (OTEL) provides the instrumentation standard, but the *destination* of those signals — and the operational model around them — varies significantly depending on your organization's needs.
+The question is not *whether* to instrument, but *how*: should each agent own its telemetry pipeline end-to-end (decentralized), or should a shared collection layer aggregate signals before routing them to the backend (centralized)?
 
-In this post, we walk through two production-ready observability patterns for AI agents running on Amazon EKS:
+In this post, we deploy two production-ready observability patterns for AI agents running on Amazon EKS. Both patterns use **Bifrost** as the LLM gateway for all agent calls and **Langfuse** as the single observability backend for traces, cost, and metrics. The difference is how telemetry is collected:
 
-1. **Decentralized:** ADOT auto-instrumentation → Amazon CloudWatch GenAI Observability
-2. **Centralized:** OTEL Collector → Langfuse + Amazon Managed Prometheus → Grafana
+1. **Decentralized:** The Strands SDK auto-instruments agent code. Each agent exports traces directly to Langfuse — no shared collector infrastructure.
+2. **Centralized:** Developers use the explicit OTEL SDK for fine-grained control. All telemetry flows through a shared OTEL Collector before reaching Langfuse.
 
-We deploy both patterns side-by-side on the same EKS cluster, instrument the same set of agents with both, and show you how to choose between them — or run both simultaneously for different purposes. All infrastructure is provisioned with Terraform, and agent runtime resources are managed through AWS Controllers for Kubernetes (ACK) composed with kro (Kube Resource Orchestrator) — for details on the ACK + kro approach, see [Multi-Agent Systems for Financial Services on Amazon EKS and AgentCore](https://aws.amazon.com/blogs/industries/multi-agent-systems-for-financial-services-on-amazon-eks-and-agentcore/).
+We deploy both patterns side-by-side on the same EKS cluster, instrument the same agents with each, and show you how to choose between them. All infrastructure is provisioned with Terraform, and workloads are delivered via ArgoCD.
 
 > **GitHub Repository:** [aws-samples/containers-blog-maelstrom/otel-agent-observability-patterns-blog](https://github.com/aws-samples/containers-blog-maelstrom/tree/main/otel-agent-observability-patterns-blog)
 
@@ -30,24 +33,46 @@ We deploy both patterns side-by-side on the same EKS cluster, instrument the sam
 
 ## Architecture Overview
 
+![Architecture: Observability Patterns for AI Agents on Amazon EKS](images/architecture-diagram.png)
 
+*Figure 1. Dual observability patterns on Amazon EKS. Both patterns route LLM calls through Bifrost and land traces in Langfuse. The decentralized path (orange) exports directly from each agent to Langfuse. The centralized path (blue) routes all telemetry through a shared OTEL Collector.*
 
-![Architecture: OTEL Observability Patterns for AI Agents on Amazon EKS](images/architecture-diagram.png)
+The platform runs on Amazon EKS Auto Mode. The architecture separates into three layers:
 
-*Figure 1. Dual observability patterns on Amazon EKS. The decentralized path (orange) routes through the ADOT managed add-on to Amazon CloudWatch GenAI Observability. The centralized path (blue) routes through a self-hosted OTEL Collector to Langfuse and Amazon Managed Prometheus, with Amazon Managed Grafana for dashboards.*
+1. **Agent layer** — Strands SDK agents, each bound to its own AgentCore capabilities (Memory, Code Interpreter, Browser) via kro claims. All LLM calls route through Bifrost.
+2. **Gateway layer** — Bifrost receives every LLM request, routes to Amazon Bedrock (with model fallback), and emits correlated OTEL spans. The W3C `traceparent` header from the agent is propagated to create unified trace trees.
+3. **Observability layer** — Langfuse receives traces from both agents and Bifrost (directly for Pattern 1, via Collector for Pattern 2). A single unified trace per invocation shows agent reasoning, tool calls, LLM latency, token usage, and cost.
 
-The platform runs on Amazon EKS Auto Mode. Agent pods instrument with the OTEL SDK and dual-export telemetry to both observability backends simultaneously. The architecture separates into three layers:
+### Trace Correlation — How It Works
 
-1. **Agent layer** — Strands SDK agents instrumented with the OTEL SDK, each bound to its own AgentCore capabilities (Memory, Code Interpreter, Browser) via kro claims.
-2. **Collection layer** — Two independent collectors running in parallel: the ADOT managed add-on (DaemonSet) and a self-hosted OTEL Collector (Deployment).
-3. **Backend layer** — Amazon CloudWatch GenAI Observability for the decentralized pattern; Langfuse plus Amazon Managed Prometheus plus Amazon Managed Grafana for the centralized pattern.
+The mechanism is identical in both patterns:
+
+1. Agent starts a trace and opens a root span (via Strands auto-instrumentation or explicit OTEL SDK)
+2. `HTTPXClientInstrumentor` injects `traceparent` into the outbound HTTP call to Bifrost
+3. Bifrost's OTEL plugin reads `traceparent`, extracts the trace ID and parent span ID
+4. Bifrost creates a child span for the Bedrock `InvokeModel` call under the same trace ID
+5. Both agent spans and Bifrost child spans are exported to Langfuse
+6. Langfuse reconstructs the full tree under one trace ID
+
+The result in Langfuse for a single agent invocation:
+
+```
+Trace: research-agent | 3.2s | $0.0043
+├── agent.invoke ────────────────────────────────────────── 3.2s
+│   ├── tool.call: web_search ──────────────────────────── 0.8s
+│   ├── [Bifrost] bedrock.invoke: claude-sonnet-5 ─────── 1.2s
+│   │     input_tokens: 450, output_tokens: 280, cost: $0.0026
+│   ├── tool.call: summarize ───────────────────────────── 0.3s
+│   └── [Bifrost] bedrock.invoke: claude-sonnet-5 ─────── 0.9s
+│         input_tokens: 620, output_tokens: 150, cost: $0.0017
+```
 
 ---
 
 ## Prerequisites
 
-- AWS account with Bedrock model access (Claude Sonnet 4.6 in `us-west-2`)
-- Terraform ≥ 1.5
+- AWS account with Bedrock model access (Claude Sonnet 5 in `us-west-2`)
+- Terraform >= 1.5
 - `kubectl`, `helm` 3.x, AWS CLI v2
 - Container runtime (Docker or Finch) for image builds
 
@@ -55,7 +80,7 @@ The platform runs on Amazon EKS Auto Mode. Agent pods instrument with the OTEL S
 
 ## Infrastructure Setup
 
-The infrastructure setup is automated through a single script. Clone the repository and run:
+Clone the repository and run:
 
 ```bash
 git clone https://github.com/aws-samples/containers-blog-maelstrom.git
@@ -65,7 +90,6 @@ cd containers-blog-maelstrom/otel-agent-observability-patterns-blog
 vi config.env
 
 ./scripts/setup-infra.sh
-
 ```
 
 The `config.env` file is the single place to configure all dynamic values:
@@ -75,367 +99,355 @@ The `config.env` file is the single place to configure all dynamic values:
 export AWS_REGION=us-west-2
 export EKS_CLUSTER_NAME=agent-observability
 export EKS_VERSION=1.35
-export BEDROCK_PRIMARY_MODEL=us.anthropic.claude-sonnet-4-6-20260514
-export BEDROCK_FALLBACK_MODEL=us.anthropic.claude-haiku-4-5-20260514
-
+export BEDROCK_PRIMARY_MODEL=us.anthropic.claude-sonnet-5-v2-20260715
+export BEDROCK_FALLBACK_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0
 ```
-
-All scripts source this file automatically. When a new EKS version becomes available or a new model is released, update `config.env` and re-run the relevant script — no code changes required.
 
 The script takes approximately 15–20 minutes and provisions:
 
-- **EKS cluster (v1.35)** with Auto Mode, Pod Identity, and the ADOT managed add-on
+- **EKS cluster (v1.35)** with Auto Mode and Pod Identity
 - **ACK + kro EKS Capabilities** for managing AgentCore resources as Kubernetes CRs
-- **Amazon Managed Prometheus** and **Amazon Managed Grafana** for the centralized metrics path
-- **ArgoCD** for GitOps delivery of all workloads (agents, OTEL Collector, Langfuse, Bifrost)
+- **ArgoCD** for GitOps delivery of all workloads (agents, Bifrost, Langfuse, OTEL Collector)
 
-After completion, the script configures your `kubectl` context and waits for all capabilities to reach the `ACTIVE` state. Here is what is running once setup completes:
+After completion, ArgoCD syncs and deploys:
 
-| Component | What It Is | What We Use It For |
+| Component | What It Is | Role in This Architecture |
 | --- | --- | --- |
-| **Amazon EKS (v1.35)** | AWS-managed Kubernetes service that runs containerized workloads at scale. Auto Mode handles compute, networking, and security patching automatically. | Runs all agent pods, collectors, and observability infrastructure. Pod Identity provides zero-credential IAM. |
-| **ACK + kro** | ACK (AWS Controllers for Kubernetes) provisions AWS resources via Kubernetes CRs. kro (Kube Resource Orchestrator) composes multiple ACK resources into single higher-level claims. | Declares AgentCore capabilities (Memory, Browser, CodeInterpreter) as Kubernetes-native resources without Terraform or CLI. |
-| **ADOT** | AWS Distro for OpenTelemetry — an AWS-supported distribution of the OpenTelemetry Collector, deployed as a managed EKS add-on. | Collects OTEL traces and metrics from agent pods (DaemonSet on every node) and exports them to CloudWatch for the decentralized pattern. |
-| **Amazon Managed Prometheus** | A fully managed, Prometheus-compatible monitoring service that scales automatically. No servers to operate. | Stores time-series metrics (agent latency, token usage, error rates) shipped by the OTEL Collector for the centralized pattern. |
-| **Amazon Managed Grafana** | A fully managed Grafana service for interactive visualization and alerting. Integrates natively with AMP as a data source. | Displays real-time agent performance dashboards and fires alerts on token budget or latency thresholds. |
-| **ArgoCD** | A declarative, GitOps continuous delivery tool for Kubernetes. It watches a Git repository and reconciles the cluster state to match. | Manages all workloads (agents, collectors, Langfuse, Bifrost) from the repository — a Git commit triggers a rollout. |
-| **OTEL Collector** | The vendor-neutral OpenTelemetry Collector — a pipeline for receiving, processing, and exporting telemetry data. | Receives OTLP from agents, fans out traces to Langfuse and metrics to AMP. Also scrapes Bifrost's Prometheus endpoint. |
-| **Langfuse** | An open-source LLM observability and analytics platform purpose-built for AI applications. Provides prompt management, evaluation, and cost tracking. | Receives agent traces via OTLP and surfaces prompt versioning, quality scoring, session tracking, cost analytics, and evaluation datasets. |
-| **Bifrost** | A high-performance LLM gateway/proxy that routes model requests with adaptive load balancing, fallback, and per-request cost tracking. | Routes all agent LLM calls to Amazon Bedrock. Provides model fallback (Sonnet → Haiku), cost metrics, and OTEL trace correlation via its plugin. |
-
-> **Note:** The Terraform configurations are at `terraform/cluster/` and `terraform/bootstrap/` if you want to inspect or customize individual resources before running the script.
+| **Amazon EKS (v1.35)** | AWS-managed Kubernetes with Auto Mode for compute, networking, and patching. | Runs all agent pods, Bifrost, Langfuse, and OTEL Collector. Pod Identity provides zero-credential IAM. |
+| **ACK + kro** | ACK provisions AWS resources via K8s CRs. kro composes multiple ACK resources into single claims. | Declares AgentCore capabilities (Memory, Browser, CodeInterpreter) as Kubernetes-native resources. |
+| **Bifrost** | High-performance LLM gateway with model routing, fallback, and OTEL integration. | Routes all agent LLM calls to Bedrock. Handles Sonnet→Haiku fallback on throttle. Emits correlated OTEL spans. |
+| **Langfuse** | Open-source LLM observability platform for traces, cost tracking, prompt analytics. | Single observability backend for both patterns. Receives traces via OTLP, shows cost, token usage, and quality. |
+| **OTEL Collector** | Vendor-neutral OpenTelemetry Collector for receiving, processing, and exporting telemetry. | Pattern 2 only. Aggregates telemetry from agents and Bifrost before forwarding to Langfuse. |
+| **ArgoCD** | Declarative GitOps continuous delivery for Kubernetes. | Manages all workloads — a git commit triggers a rollout. |
 
 ### Configure Langfuse Credentials
 
-After Langfuse boots for the first time, you need to generate API keys so the OTEL Collector can authenticate when sending traces. Follow these steps:
+After Langfuse boots, generate API keys so agents and the Collector can authenticate:
 
-**Step 1:** Port-forward the Langfuse UI to your local machine:
+**Step 1:** Port-forward the Langfuse UI:
 
 ```bash
 kubectl port-forward svc/langfuse-web -n observability 3000:3000
-
 ```
 
-**Step 2:** Open [http://localhost:3000](http://localhost:3000) in your browser. Create an account and a new project. See the [Langfuse Self-Hosting Guide](https://langfuse.com/docs/deployment/self-host#setup) for detailed instructions.
+**Step 2:** Open [http://localhost:3000](http://localhost:3000). Create an account and a new project.
 
-**Step 3:** In the Langfuse project settings, generate API keys. See [Langfuse API Keys documentation](https://langfuse.com/docs/get-started#create-new-api-credentials) for details. You will receive a Public Key (`pk-lf-...`) and a Secret Key (`sk-lf-...`).
+**Step 3:** In project Settings → API Keys, generate a Public Key (`pk-lf-...`) and Secret Key (`sk-lf-...`).
 
-**Step 4:** Update the Kubernetes Secret with your real credentials:
+**Step 4:** Update the Kubernetes Secret:
 
 ```bash
+PK="pk-lf-your-public-key"
+SK="sk-lf-your-secret-key"
+AUTH_TOKEN=$(echo -n "$PK:$SK" | base64)
+
 kubectl create secret generic langfuse-api-keys \
   -n observability \
-  --from-literal=LANGFUSE_PUBLIC_KEY=pk-lf-your-public-key \
-  --from-literal=LANGFUSE_SECRET_KEY=sk-lf-your-secret-key \
+  --from-literal=LANGFUSE_PUBLIC_KEY="$PK" \
+  --from-literal=LANGFUSE_SECRET_KEY="$SK" \
+  --from-literal=LANGFUSE_AUTH_TOKEN="$AUTH_TOKEN" \
   --dry-run=client -o yaml | kubectl apply -f -
-
-kubectl create secret generic langfuse-api-keys \
-  -n observability \
-  --from-literal=LANGFUSE_PUBLIC_KEY=pk-lf-01375567-a9e7-42b1-8f5e-9778b214bd98 \
-  --from-literal=LANGFUSE_SECRET_KEY=sk-lf-191b22a8-a9f5-4b0d-8232-5c352bcf45ba \
-```bash
-kubectl rollout restart deployment/otel-collector-opentelemetry-collector -n observability
-
 ```
 
-**Step 5:** Restart the OTEL Collector to pick up the new credentials:
+**Step 5:** Restart affected components:
 
 ```bash
+# Agents pick up the new credentials on next pod restart
+kubectl rollout restart deployment -n agents
+
+# OTEL Collector (Pattern 2) picks up the auth token
 kubectl rollout restart deployment/otel-collector-opentelemetry-collector -n observability
-
 ```
-
-> **Note:** Until real keys are configured, the OTEL Collector will log HTTP 401 errors when exporting to Langfuse. The decentralized pattern (CloudWatch traces via ADOT) is unaffected and flows normally regardless.
 
 ---
 
-## Agent Instrumentation with OTEL
+## The Decentralized Pattern — Strands SDK Direct to Langfuse
 
-The observability story starts inside the agent code. The goal is simple: every meaningful action the agent takes — calling a model, invoking a tool, making a decision — should produce a **span** that both CloudWatch and Langfuse can render as part of a distributed trace.
+In the decentralized pattern, the **Strands SDK built-in telemetry** handles all instrumentation. There are no explicit `tracer.start_span()` calls in agent code. The framework auto-instruments every LLM call, tool invocation, and reasoning step, then exports directly to Langfuse via OTLP. No shared collector infrastructure sits in the middle.
 
-### Dual-Export OTEL Bootstrap
+This pattern is "decentralized" because each agent owns its complete telemetry pipeline end-to-end. If one agent's export fails, the others are unaffected. There is no single point of failure in the collection layer.
 
-When an agent pod starts, it calls `init_otel()` once. This creates a TracerProvider with two exporters running in parallel — one for each observability pattern. From that point on, every span the agent creates is automatically sent to both backends with zero additional code.
+### How It Works
+
+```
+┌──────────────────┐          ┌──────────────────┐          ┌──────────────┐
+│   Agent Pod      │          │     Bifrost      │          │   Langfuse   │
+│                  │          │  (LLM Gateway)   │          │              │
+│  Strands SDK     │HTTP+trcpr│                  │  Bedrock │  Receives:   │
+│  auto-telemetry  ├─────────▶│  reads           ├─────────▶│  • Agent     │
+│                  │          │  traceparent,    │          │    spans     │
+│                  │          │  creates child   │          │  • Bifrost   │
+│                  │          │  spans           │          │    LLM spans │
+│                  │          │                  │          │              │
+│   OTLP ──────────┼──────────┼──────────────────┼─────────▶│  unified     │
+│                  │          │   OTLP ──────────┼─────────▶│  trace tree  │
+└──────────────────┘          └──────────────────┘          └──────────────┘
+```
+
+### Agent Code (Pattern 1)
+
+The agent code is minimal. Telemetry setup is a single function call at startup:
+
+```python
+from agents.shared.otel_bootstrap import init_telemetry
+
+# Bootstrap: detects LANGFUSE_BASE_URL env var → configures Strands OTLP export
+init_telemetry(service_name="research-agent")
+
+from strands import Agent
+from strands.models.openai import OpenAIModel
+
+# All LLM calls route through Bifrost
+model = OpenAIModel(
+    client_args={"base_url": "http://bifrost.agents:8080/v1", "api_key": "bifrost-internal"},
+    model_id="bedrock/us.anthropic.claude-sonnet-5",
+)
+
+agent = Agent(model=model, tools=[web_search, summarize], system_prompt="...")
+result = agent("What are the top S&P 500 sectors this quarter?")
+```
+
+The `init_telemetry()` function detects `LANGFUSE_BASE_URL` on the pod and configures Strands SDK to export OTLP traces directly to Langfuse. It also instruments httpx so the `traceparent` header propagates to Bifrost automatically.
 
 The full implementation is at `agents/shared/otel_bootstrap.py`.
 
-```python
-def init_otel(service_name: str):
-    """Initialize OTEL with dual export to ADOT and self-hosted Collector."""
-    provider = TracerProvider(resource=Resource.create({
-        ResourceAttributes.SERVICE_NAME: service_name,
-        "agent.framework": "strands-sdk",
-    }))
+### Environment Variables (Pattern 1)
 
-    # Exporter 1 → ADOT (DaemonSet on same node, localhost:4317)
-    #   Forwards to CloudWatch GenAI Observability
-    provider.add_span_processor(BatchSpanProcessor(
-        OTLPSpanExporter(endpoint="http://localhost:4317", insecure=True)
-    ))
-
-    # Exporter 2 → Self-hosted OTEL Collector (ClusterIP service)
-    #   Fans out to Langfuse (traces) + AMP (metrics)
-    provider.add_span_processor(BatchSpanProcessor(
-        OTLPSpanExporter(
-            endpoint=os.getenv("OTEL_COLLECTOR_ENDPOINT",
-                              "http://otel-collector.observability:4317"),
-            insecure=True,
-        )
-    ))
-
-    trace.set_tracer_provider(provider)
-    return trace.get_tracer(service_name)
-
+```yaml
+env:
+  - name: LANGFUSE_BASE_URL
+    value: "http://langfuse-web.observability:3000"
+  - name: LANGFUSE_PUBLIC_KEY
+    valueFrom: { secretKeyRef: { name: langfuse-api-keys, key: LANGFUSE_PUBLIC_KEY } }
+  - name: LANGFUSE_SECRET_KEY
+    valueFrom: { secretKeyRef: { name: langfuse-api-keys, key: LANGFUSE_SECRET_KEY } }
+  - name: BIFROST_ENDPOINT
+    value: "http://bifrost.agents:8080"
 ```
 
-### Agent Code with Semantic Spans
+---
 
-Each agent wraps its key operations in OTEL spans that carry LLM-specific attributes. The `@tracer.start_as_current_span` decorator opens a span when the function starts and closes it when it returns. Inside the function, you attach attributes that power the dashboards.
+## The Centralized Pattern — OTEL SDK + Collector to Langfuse
 
-See `agents/research_agent/app.py`.
+In the centralized pattern, developers use the **explicit OpenTelemetry SDK** for fine-grained instrumentation control. All telemetry — from agents and from Bifrost — flows through a shared OTEL Collector Deployment in the `observability` namespace before reaching Langfuse.
 
-```python
-tracer = init_otel("research-agent")
+This pattern is "centralized" because a single collection point aggregates all telemetry. The Collector gives you batching, attribute enrichment, sampling, and a single egress point. Adding a new backend requires only a new exporter block in the Collector config — no agent code changes.
 
-@tracer.start_as_current_span("agent.invoke")
-def handle_request(user_query: str) -> str:
-    span = trace.get_current_span()
-    span.set_attribute("agent.name", "research-agent")
-    span.set_attribute("agent.query", user_query[:200])
-
-    response = agent(user_query)
-
-    # Token usage — powers cost dashboards in both backends
-    span.set_attribute("llm.token_count.input", response.usage.input_tokens)
-    span.set_attribute("llm.token_count.output", response.usage.output_tokens)
-    span.set_attribute("llm.model_id", "us.anthropic.claude-sonnet-4-6-20260514")
-
-    return str(response)
+### How It Works
 
 ```
+┌──────────────────┐          ┌──────────────────┐          ┌──────────────────┐
+│   Agent Pod      │          │     Bifrost      │          │  OTEL Collector  │
+│                  │          │  (LLM Gateway)   │          │  (observability) │
+│  Explicit OTEL   │HTTP+trcpr│                  │          │                  │
+│  SDK spans       ├─────────▶│  reads           │          │                  │
+│                  │          │  traceparent,    │          │                  │
+│                  │          │  creates child   │          │  ┌────────────┐  │
+│                  │          │  spans           │          │  │  Batch +   │  │
+│   OTLP ──────────┼──────────┼──────────────────┼─────────▶│  │  Forward   │  │
+│                  │          │   OTLP ──────────┼─────────▶│  └─────┬──────┘  │
+└──────────────────┘          └──────────────────┘          └────────┼─────────┘
+                                                                     │ OTLP/HTTP
+                                                                     ▼
+                                                             ┌──────────────┐
+                                                             │   Langfuse   │
+                                                             │              │
+                                                             │  unified     │
+                                                             │  trace tree  │
+                                                             └──────────────┘
+```
 
-The Strands SDK also auto-instruments tool calls — each tool invocation becomes a child span under `agent.invoke`, so you see the full reasoning tree without additional code.
+### Agent Code (Pattern 2)
+
+The same `init_telemetry()` function detects `OTEL_EXPORTER_OTLP_ENDPOINT` instead of `LANGFUSE_BASE_URL` and routes traces to the Collector:
+
+```python
+from agents.shared.otel_bootstrap import init_telemetry
+
+# Bootstrap: detects OTEL_EXPORTER_OTLP_ENDPOINT → configures Strands OTLP to Collector
+init_telemetry(service_name="research-agent")
+```
+
+The agent code is identical — the pattern switch is purely an environment variable change on the pod.
+
+### Environment Variables (Pattern 2)
+
+```yaml
+env:
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: "http://otel-collector-opentelemetry-collector.observability:4317"
+  - name: BIFROST_ENDPOINT
+    value: "http://bifrost.agents:8080"
+```
+
+### OTEL Collector Configuration
+
+The Collector receives OTLP from both agents and Bifrost, batches spans, and forwards to Langfuse:
+
+```yaml
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc: { endpoint: "0.0.0.0:4317" }
+        http: { endpoint: "0.0.0.0:4318" }
+  processors:
+    batch:
+      timeout: 5s
+      send_batch_size: 256
+  exporters:
+    otlphttp/langfuse:
+      endpoint: "http://langfuse-web.observability:3000/api/public/otel"
+      headers:
+        Authorization: "Basic ${env:LANGFUSE_AUTH_TOKEN}"
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [otlphttp/langfuse]
+```
+
+---
+
+## Bifrost — LLM Gateway for Both Patterns
+
+Bifrost sits between every agent and Amazon Bedrock in both patterns. It is not an observability-specific component — it is the LLM routing layer that also contributes correlated telemetry.
+
+### What Bifrost Does
+
+1. **Model routing** — receives OpenAI-compatible `/v1/chat/completions` requests and routes them to Bedrock models using the `bedrock/` prefix in the model ID.
+2. **Fallback** — if the primary model (Claude Sonnet 4.6) is throttled, Bifrost automatically falls back to the configured secondary (Claude Haiku 4.5).
+3. **Trace correlation** — the OTEL plugin reads the inbound `traceparent` header and creates a child span with LLM-specific attributes (model, tokens, latency, cost).
+4. **Cost attribution** — Bifrost calculates per-request cost based on model pricing and attaches it as a span attribute visible in Langfuse.
+
+### Bifrost OTEL Plugin Configuration
+
+The Bifrost OTEL plugin target determines where its spans go:
+
+- **Pattern 1:** Bifrost sends spans directly to Langfuse (`http://langfuse-web.observability:3000/api/public/otel`)
+- **Pattern 2:** Bifrost sends spans to the OTEL Collector (`otel-collector.observability:4317`)
+
+This is configured via the ArgoCD Helm values:
+
+```yaml
+# gitops/root/values.yaml
+bifrost:
+  otelTarget: "http://langfuse-web.observability:3000/api/public/otel"  # Pattern 1
+  otelProtocol: "http"
+```
+
+To switch to Pattern 2:
+
+```yaml
+bifrost:
+  otelTarget: "otel-collector-opentelemetry-collector.observability:4317"
+  otelProtocol: "grpc"
+```
 
 ---
 
 ## Deploying the Agents
 
-With the infrastructure running and agent code instrumented, build the images and let ArgoCD deploy them:
+Build images and let ArgoCD deploy:
 
 ```bash
 ./scripts/setup-agents.sh
-
 ```
 
-ArgoCD detects the new image tags, syncs the agent Deployments, and rolls out pods into the `agents` namespace. Within a few minutes, the agents are live and serving requests. From this point on, every agent invocation produces traces that flow to both observability backends simultaneously.
-
-Verify the agents are running:
+ArgoCD detects the new image tags, syncs the Deployments, and rolls out pods. Verify:
 
 ```bash
 kubectl get pods -n agents
-
 ```
 
-### Running Queries Against the Agents
-
-With the agents deployed, send a few queries to generate traces. Port-forward the agent service and use `curl` to invoke it:
+### Running Queries
 
 ```bash
-# Port-forward the research agent to localhost
 kubectl port-forward svc/research-agent -n agents 8080:8080 &
 
-# Query 1: Simple research (triggers LLM call + web_search tool)
+# Simple research query (LLM call + tool calls)
 curl -s -X POST http://localhost:8080/invoke \
   -H "Content-Type: application/json" \
   -d '{"query": "What are the top 3 performing S&P 500 sectors this quarter?"}' | jq .
 
-# Query 2: Multi-step analysis (multiple LLM calls + summarize tool)
+# Multi-step analysis
 curl -s -X POST http://localhost:8080/invoke \
   -H "Content-Type: application/json" \
-  -d '{"query": "Compare NVIDIA and AMD stock performance over the last 6 months and summarize the key drivers."}' | jq .
-
-# Query 3: Large context request (tests token budget tracking)
-curl -s -X POST http://localhost:8080/invoke \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Analyze the Federal Reserve June 2026 meeting minutes and extract the top 5 policy signals impacting tech stocks."}' | jq .
-
+  -d '{"query": "Compare NVIDIA and AMD stock performance over the last 6 months."}' | jq .
 ```
 
-Each query triggers a full reasoning chain — LLM calls, tool invocations, and response synthesis — all captured as OTEL spans. After 30–60 seconds, these traces appear in both CloudWatch GenAI Observability and Langfuse. Let us look at how each pattern surfaces them.
+Each query produces a unified trace in Langfuse showing the full reasoning chain with correlated Bifrost LLM spans.
 
 ---
 
-## The Decentralized Pattern — ADOT → CloudWatch GenAI Observability
+## Viewing Traces in Langfuse
 
-In the decentralized pattern, each agent pod exports telemetry to a local ADOT collector running on the same node. There is no centralized observability infrastructure to manage — ADOT runs as a managed DaemonSet, and all data flows directly to CloudWatch. This makes it the zero-ops option: you enable the ADOT add-on, instrument your agents, and GenAI traces appear in the CloudWatch console automatically.
+Open the Langfuse UI and navigate to Traces. Each agent invocation appears as a single trace with the full span tree:
 
-The pattern is called "decentralized" because there is no shared collection point inside the cluster. Each node's ADOT instance independently ships telemetry to the AWS-managed backend, eliminating the Collector as a single point of failure. The observability pipeline scales with the cluster without any manual intervention.
+- **Root span:** `agent.invoke` with the user query
+- **Tool spans:** `tool.call: web_search`, `tool.call: summarize` as children
+- **LLM spans (from Bifrost):** `bedrock.invoke: claude-sonnet-5` as children of the agent span, each with:
+  - `input_tokens`, `output_tokens` — exact token counts
+  - `cost` — dollar amount for that specific generation
+  - `model` — which model actually served the request (visible when fallback occurs)
+  - `latency` — time spent waiting for Bedrock
 
-### How It Works
+Langfuse aggregates this data across all traces to surface:
 
-```
-┌──────────────┐       ┌──────────────────┐       ┌─────────────────────────────┐
-│              │       │                  │       │      Amazon CloudWatch       │
-│  Agent Pod   │       │  ADOT Collector  │       │                             │
-│              │       │  (DaemonSet)     │       │  ┌───────────────────────┐  │
-│  Strands SDK │       │                  │       │  │ GenAI Observability   │  │
-│  + OTEL SDK  │       │                  │       │  │                       │  │
-│              │       │                  │       │  │  • Model latency      │  │
-│              ├──────▶│   OTLP :4317     ├──────▶│  │  • Token usage/agent  │  │
-│              │       │                  │       │  │  • Cost attribution   │  │
-│              │       │                  │       │  │  • Error rates/tool   │  │
-│              │       │                  │       │  └───────────────────────┘  │
-└──────────────┘       └──────────────────┘       └─────────────────────────────┘
-
-     Agent               Same Node                      AWS Managed
-                        (localhost)
-
-```
-
-### Enabling Transactional Search
-
-For the decentralized pattern to surface traces in the CloudWatch GenAI Observability console, **transactional search** must be enabled on your X-Ray traces. This allows CloudWatch to index and query individual trace spans by their attributes (agent name, model ID, token counts). Enable it in the CloudWatch console under **Settings → Traces → Transactional search**, or via the CLI:
-
-```bash
-aws cloudwatch put-configuration   --configuration '{"transactionalSearch":{"enabled":true}}'
-
-```
-
-Without transactional search enabled, traces are still collected but will not appear in the GenAI Observability console's interactive query views.
-
-### Viewing Traces in CloudWatch
-
-When we send a request to the research agent, the full trace appears in the CloudWatch GenAI Observability console. Here is what a single invocation looks like:
-
-```
-[root] agent.invoke (research-agent) ─────────────────────── 3.2s
-  ├── [span] llm.call ──────────────────────────────────── 1.2s
-  │         model: claude-sonnet-4.6
-  │         input_tokens: 450, output_tokens: 280
-  ├── [span] tool.call (web_search) ────────────────────── 0.8s
-  │         status: success
-  ├── [span] llm.call ──────────────────────────────────── 0.9s
-  │         model: claude-sonnet-4.6
-  │         input_tokens: 620, output_tokens: 150
-  └── [span] tool.call (summarize) ─────────────────────── 0.3s
-            status: success
-
-```
-
-The GenAI console aggregates these traces across all agents and surfaces:
-
-- **Model invocation latency** — p50/p99 per model, so you can spot degradation
-- **Token usage per agent** — which agents are consuming the most tokens
-- **Cost attribution** — estimated spend per agent based on model pricing
-- **Error rates per tool** — which tools fail most often and for which agents
-
-*Figure 2. CloudWatch GenAI Observability console screenshots will be added after deployment.*
-
----
-
-## The Centralized Pattern — OTEL Collector → Langfuse + AMP + Grafana
-
-In the centralized pattern, all agent pods export telemetry to a single OTEL Collector Deployment in the `observability` namespace. The Collector acts as a fan-out point: it receives OTLP signals from every agent, batches and enriches them, and routes traces to Langfuse while shipping metrics to Amazon Managed Prometheus.
-
-This pattern is called "centralized" because a single collection point aggregates all telemetry before forwarding it to multiple backends. The tradeoff is clear: you gain richer analytics (Langfuse's prompt versioning, scoring, and session tracking), cross-agent correlation, and flexible routing — at the cost of running the Collector and Langfuse in-cluster. For teams doing active prompt iteration and quality evaluation, this investment pays for itself quickly.
-
-The Collector also enables future extensibility: adding a new backend (for example, Datadog, Honeycomb, or an S3 sink for compliance archival) requires only a new exporter block in the Collector configuration — no agent code changes.
-
-### How It Works
-
-```
-┌──────────────┐       ┌───────────────────────┐       ┌─────────────────────┐
-│              │       │                       │       │      Langfuse       │
-│  Agent Pod   │       │    OTEL Collector     │       │  (LLM Analytics)    │
-│              │       │  (observability ns)   │       │                     │
-│  Strands SDK │       │                       │       │  • Prompt versions  │
-│  + OTEL SDK  │       │                       ├──────▶│  • Quality scoring  │
-│              │       │                       │       │  • Session tracking │
-│              ├──────▶│     OTLP :4317        │       │  • Cost analytics   │
-│              │       │                       │       └─────────────────────┘
-│              │       │                       │        (traces via OTLP/HTTP)
-└──────────────┘       │                       │
-                       │                       │       ┌─────────────────────┐
-                       │                       │       │        AMP          │
-                       │                       ├──────▶│  (Metrics Store)    │
-                       │                       │       │                     │
-                       └───────────────────────┘       │  • Agent throughput │
-                                                       │  • Latency p50/p99 │
-                        (metrics via Remote Write      │  • Error rates     │
-                         with SigV4 auth)              └──────────┬──────────┘
-                                                                  │ PromQL
-                                                                  ▼
-                                                       ┌─────────────────────┐
-                                                       │  Amazon Managed     │
-                                                       │  Grafana            │
-                                                       │  • Dashboards       │
-                                                       │  • Alerts           │
-                                                       └─────────────────────┘
-
-```
-
-### Viewing Traces in Langfuse
-
-The same agent invocation that appeared in CloudWatch also appears in Langfuse — but with a different lens. Because the agents use `HTTPXClientInstrumentor`, outbound calls to Bifrost carry a W3C `traceparent` header. Bifrost's OTEL plugin reads this header and creates child spans under the same trace ID, producing a unified trace tree that connects agent reasoning to the actual LLM call:
-
-```
-Trace: research-agent | 3.2s | $0.0043
-├── Generation (via Bifrost): claude-sonnet-4.6 ─────────── 1.2s | 450→280 tokens | $0.0026
-│     prompt_version: v2.3
-│     bifrost.model_route: primary
-├── Tool: web_search ──────────────────────── 0.8s | success
-│     input: "S&P 500 trend July 2026"
-├── Generation (via Bifrost): claude-sonnet-4.6 ─────────── 0.9s | 620→150 tokens | $0.0017
-│     prompt_version: v2.3
-└── Tool: summarize ───────────────────────── 0.3s | success
-      output_length: 342 chars
-
-```
-
-Beyond individual traces, Langfuse aggregates data to answer operational questions:
-
-- **Which prompt version performs better?** — compare quality scores across v2.2 vs. v2.3
-- **Which agents cost the most?** — ranked cost per agent with daily trends
-- **Are sessions degrading?** — track multi-turn conversation quality over time
-- **Is this change safe to ship?** — run the evaluation dataset against a new prompt before deploying
-
-### Viewing Metrics in Grafana
-
-A pre-built Grafana dashboard (`gitops/addons/grafana-dashboards/agent-observability.json`) is deployed automatically via ArgoCD. It displays real-time panels for both agent and Bifrost metrics:
-
-**Agent Metrics:**
-
-- **Request rate** — invocations per second per agent
-- **Latency percentiles** — p50/p95/p99 for end-to-end agent response time
-- **Token usage** — input vs. output token rate per agent
-- **Estimated cost** — dollar-per-minute spend per agent based on model pricing
-- **Tool success rate** — percentage of successful tool calls with error breakdown
-
-**Bifrost LLM Proxy Metrics:**
-
-- **Request rate by model** — how many requests each model (Sonnet vs. Haiku) is serving
-- **Model latency (p95)** — response time per model at the gateway level
-- **Throttle/fallback rate** — when Sonnet hits throttle limits and traffic falls back to Haiku
-- **Token throughput** — input/output tokens per second flowing through the gateway
-
-Bifrost exposes a `/metrics` endpoint on port 9090 (enabled in the Helm values). The OTEL Collector scrapes this endpoint every 15 seconds and ships the metrics to AMP alongside the agent OTEL metrics. This gives you a unified view of both the agent reasoning layer and the LLM routing layer in one dashboard.
-
-*Figure 3. Langfuse trace view and Grafana agent dashboard screenshots will be added after deployment.*
+- **Cost per agent** — which agents consume the most budget
+- **Cost per session** — multi-turn conversation cost tracking
+- **Model fallback visibility** — when Sonnet→Haiku fallback occurs, it is visible in the trace
+- **Token usage trends** — input vs. output token rates over time
+- **Prompt version tracking** — Strands SDK captures prompt snapshots automatically
 
 ---
 
 ## When to Use Which Pattern
 
-| Dimension | Decentralized (CloudWatch) | Centralized (Langfuse + AMP) |
+| Dimension | Decentralized (Strands Direct) | Centralized (OTEL Collector) |
 | --- | --- | --- |
-| **Setup effort** | Minimal — ADOT managed add-on + IAM | Moderate — deploy Langfuse, OTEL Collector, and AMP workspace |
-| **Operational overhead** | AWS-managed; no infrastructure to run | Self-managed Langfuse (or SaaS); Collector pods in-cluster |
-| **LLM-specific analytics** | CloudWatch GenAI console — model latency, tokens, and cost | Langfuse — prompt versioning, scoring, sessions, and datasets |
-| **Multi-cluster visibility** | CloudWatch cross-account observability | Collector federation to a shared AMP endpoint |
-| **Cost model** | Pay-per-trace ingestion (CloudWatch pricing) | AMP ingestion + Langfuse hosting (or SaaS tier) |
-| **Best for** | Platform/SRE teams — "Are my agents healthy and within budget?" | ML engineering teams — "Is my prompt working well and where should I iterate?" |
+| **Instrumentation** | Framework auto-instruments — no custom spans | Developer writes explicit spans and attributes |
+| **Collection topology** | Each agent exports independently to Langfuse | All telemetry flows through a shared Collector |
+| **Setup effort** | Minimal — set env vars, framework does the rest | Moderate — deploy Collector, configure pipelines |
+| **Failure isolation** | One agent's export failure does not affect others | Collector is a shared dependency |
+| **Extensibility** | Add backends = change each agent's config | Add backends = add an exporter to Collector config |
+| **Control over traces** | Framework decides what to trace | Developer decides span boundaries and attributes |
+| **Best for** | Teams that want fast setup and framework defaults | Teams that need custom attributes, sampling, or multi-backend routing |
 
-Both patterns can run independently or simultaneously on the same cluster. Choose based on your team's existing tooling and operational needs — or deploy both and use each for what it does best.
+Both patterns produce the **same unified trace** in Langfuse. The Bifrost LLM spans are identical regardless of pattern. The only difference is who creates the agent-side spans (framework vs. developer) and how they reach Langfuse (direct vs. via Collector).
+
+---
+
+## Switching Between Patterns
+
+Switching is a deployment-time configuration change — no agent code modifications required:
+
+**To run Pattern 1 (Decentralized):**
+
+```yaml
+# Agent pod env vars
+LANGFUSE_BASE_URL: "http://langfuse-web.observability:3000"
+LANGFUSE_PUBLIC_KEY: <from secret>
+LANGFUSE_SECRET_KEY: <from secret>
+
+# Bifrost values
+bifrost.otelTarget: "http://langfuse-web.observability:3000/api/public/otel"
+bifrost.otelProtocol: "http"
+```
+
+**To run Pattern 2 (Centralized):**
+
+```yaml
+# Agent pod env vars (replace LANGFUSE_BASE_URL with OTEL endpoint)
+OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector-opentelemetry-collector.observability:4317"
+
+# Bifrost values
+bifrost.otelTarget: "otel-collector-opentelemetry-collector.observability:4317"
+bifrost.otelProtocol: "grpc"
+```
+
+Commit the change to git → ArgoCD syncs → pods restart with new env vars → traces flow through the new path. Langfuse shows the same unified trace either way.
 
 ---
 
@@ -443,42 +455,39 @@ Both patterns can run independently or simultaneously on the same cluster. Choos
 
 ```bash
 ./scripts/teardown.sh
-
 ```
 
-The teardown script deletes agent workloads first (triggering ACK resource cleanup), waits for AWS-side deletes to complete (~2 minutes), and then destroys the Terraform stacks. If an ACK resource gets stuck in the `Deleting` state, clear the finalizer:
+The teardown script deletes agent workloads first (triggering ACK resource cleanup), waits for AWS-side deletes to complete, and then destroys the Terraform stacks. If an ACK resource gets stuck in `Deleting`, clear the finalizer:
 
 ```bash
 kubectl patch <kind>/<name> -n agents \
   -p '{"metadata":{"finalizers":null}}' --type=merge
-
 ```
 
 ---
 
 ## Conclusion
 
-Observability for AI agents is not optional — it is the operational foundation that tells you whether your agents are delivering value or burning money. The two patterns in this post give you coverage across the spectrum:
+Observability for AI agents requires more than pod health checks. You need to see the full reasoning chain — which tools were called, how many tokens each LLM call consumed, what it cost, and whether the model fell back to a cheaper alternative.
 
-- **Decentralized (CloudWatch GenAI)** for immediate, zero-infrastructure visibility into model performance and cost.
-- **Centralized (Langfuse + AMP + Grafana)** for deep prompt engineering analytics, scoring, and cross-team dashboards.
+The two patterns in this post give you that visibility with different tradeoffs:
 
-By deploying both on the same EKS cluster with Terraform-managed infrastructure, you get a production-grade setup that is reproducible, version-controlled, and extensible. Every agent invocation is traced end-to-end — from the user's request, through the reasoning chain, to the final response — with cost, latency, and quality metrics at every step.
+- **Decentralized** — let the Strands SDK handle instrumentation. Each agent exports directly to Langfuse. Fast to set up, zero shared infrastructure, framework-level traces out of the box.
+- **Centralized** — own the instrumentation with the OTEL SDK. Route everything through a Collector. Full control over span shapes, attributes, sampling, and future backend flexibility.
 
-The complete implementation is available at the [AWS Samples GitHub repository](https://github.com/aws-samples/containers-blog-maelstrom/tree/main/otel-agent-observability-patterns-blog).
+Both patterns use Bifrost as the LLM gateway for every agent call. Bifrost handles model routing and fallback while contributing correlated OTEL spans with token counts and cost. Both patterns land in Langfuse, producing the same unified trace tree per invocation.
+
+The complete implementation — Terraform, ArgoCD GitOps manifests, agent code, and OTEL configuration — is available at the [AWS Samples GitHub repository](https://github.com/aws-samples/containers-blog-maelstrom/tree/main/otel-agent-observability-patterns-blog).
 
 ---
 
 ## References
 
-- [Amazon CloudWatch GenAI Observability](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-GenAI-Observability.html)
-- [AWS Distro for OpenTelemetry (ADOT)](https://aws-otel.github.io/)
 - [Langfuse OTEL Integration](https://langfuse.com/docs/integrations/opentelemetry)
-- [Amazon Managed Prometheus](https://docs.aws.amazon.com/prometheus/)
-- [Amazon Managed Grafana](https://docs.aws.amazon.com/grafana/)
+- [Bifrost LLM Gateway](https://github.com/maximhq/bifrost)
 - [AWS Controllers for Kubernetes (ACK)](https://aws-controllers-k8s.github.io/community/)
 - [kro — Kube Resource Orchestrator](https://kro.run/)
 - [EKS Auto Mode](https://docs.aws.amazon.com/eks/latest/userguide/automode.html)
 - [Strands Agents SDK](https://github.com/strands-agents/sdk-python)
+- [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/)
 - [Multi-Agent Systems for Financial Services on Amazon EKS and AgentCore](https://aws.amazon.com/blogs/industries/multi-agent-systems-for-financial-services-on-amazon-eks-and-agentcore/)
-

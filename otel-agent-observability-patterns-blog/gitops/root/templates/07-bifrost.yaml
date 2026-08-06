@@ -1,3 +1,6 @@
+# Bifrost LLM Gateway — shared by both patterns.
+# Routes all agent LLM calls to Bedrock. OTEL plugin creates child spans
+# correlated with agent traces via W3C traceparent.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -25,6 +28,16 @@ spec:
         config:
           enforceAuthOnInference: false
         plugins:
+          otel:
+            enabled: true
+            version: 1
+            config:
+              service_name: "bifrost"
+              # Pattern 1: direct to Langfuse. Pattern 2: override to otel-collector.observability:4317
+              collector_url: "{{ .Values.bifrost.otelTarget }}"
+              trace_type: "genai_extension"
+              protocol: "{{ .Values.bifrost.otelProtocol }}"
+              insecure: true
           governance:
             enabled: false
   destination:

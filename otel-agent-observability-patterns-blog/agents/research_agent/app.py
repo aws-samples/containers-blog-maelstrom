@@ -1,62 +1,53 @@
-"""FastAPI application for the research agent with OTEL instrumentation."""
+"""Research agent — Strands SDK agent instrumented for both observability patterns.
+
+Telemetry is bootstrapped once at startup by init_telemetry(). The active pattern
+is determined entirely by env vars — no code changes needed when switching:
+
+  Pattern 1 (Decentralized): set LANGFUSE_BASE_URL + keys on the pod
+  Pattern 2 (Centralized):   set OTEL_EXPORTER_OTLP_ENDPOINT on the pod
+
+All LLM calls route through Bifrost (BIFROST_ENDPOINT). Bifrost reads the
+W3C traceparent header injected by HTTPXClientInstrumentor and creates a child
+span under the same trace ID, producing a unified trace in Langfuse:
+
+  agent.invoke
+    ├── tool.call: web_search
+    ├── [Bifrost] bedrock.invoke: claude-sonnet-5  ← cost + token attrs
+    ├── tool.call: summarize
+    └── [Bifrost] bedrock.invoke: claude-sonnet-5  ← cost + token attrs
+"""
 
 import os
 import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-# --- OTEL Initialization (Strands SDK built-in) ---
-# Mode 1: Direct to Langfuse (LANGFUSE_BASE_URL set)
-# Mode 2: Via OTEL Collector or ADOT (OTEL_EXPORTER_OTLP_ENDPOINT set)
-if os.getenv("LANGFUSE_BASE_URL"):
-    try:
-        import base64
-        from strands.telemetry import StrandsTelemetry
+from agents.shared.otel_bootstrap import init_telemetry
 
-        auth_str = f"{os.getenv('LANGFUSE_PUBLIC_KEY', '')}:{os.getenv('LANGFUSE_SECRET_KEY', '')}"
-        auth_bytes = base64.b64encode(auth_str.encode()).decode()
+# Bootstrap telemetry before importing Strands so the TracerProvider is
+# registered before the SDK creates any spans.
+init_telemetry(service_name=os.getenv("OTEL_SERVICE_NAME", "research-agent"))
 
-        os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = os.getenv("LANGFUSE_BASE_URL") + "/api/public/otel"
-        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {auth_bytes},x-langfuse-ingestion-version=4"
-
-        StrandsTelemetry().setup_otlp_exporter()
-        print(f"[OTEL] Langfuse telemetry initialized: {os.environ['OTEL_EXPORTER_OTLP_ENDPOINT']}")
-    except Exception as e:
-        print(f"[OTEL] Failed to initialize Langfuse telemetry: {e}")
-elif os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
-    try:
-        from strands.telemetry import StrandsTelemetry
-        StrandsTelemetry().setup_otlp_exporter()
-        print(f"[OTEL] OTLP telemetry initialized: {os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT')}")
-    except Exception as e:
-        print(f"[OTEL] Failed to initialize OTLP telemetry: {e}")
-
-# Instrument httpx for W3C traceparent propagation through Bifrost
-try:
-    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-    HTTPXClientInstrumentor().instrument()
-except ImportError:
-    pass
-
-from strands import Agent
-from strands.models.openai import OpenAIModel
-from agents.research_agent.tools.web_search import web_search
-from agents.research_agent.tools.summarize import summarize
+from strands import Agent                                 # noqa: E402
+from strands.models.openai import OpenAIModel            # noqa: E402
+from agents.research_agent.tools.web_search import web_search   # noqa: E402
+from agents.research_agent.tools.summarize import summarize      # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- Agent setup ---
-# Route through Bifrost (OpenAI-compatible LLM gateway).
-# Bifrost handles model routing to Bedrock, fallback, and cost tracking.
+# ---------------------------------------------------------------------------
+# Bifrost LLM gateway — shared by both patterns.
+# Bifrost routes to Bedrock, handles model fallback (Sonnet → Haiku on
+# throttle), and emits correlated OTEL spans to Langfuse.
+# ---------------------------------------------------------------------------
 BIFROST_ENDPOINT = os.getenv("BIFROST_ENDPOINT", "http://bifrost.agents:8080")
-# Use provider-prefixed model ID so Bifrost can auto-resolve the provider
-MODEL_ALIAS = os.getenv("BIFROST_MODEL_ALIAS", "bedrock/us.anthropic.claude-sonnet-4-6")
+MODEL_ALIAS = os.getenv("BIFROST_MODEL_ALIAS", "bedrock/us.anthropic.claude-sonnet-5")
 
 model = OpenAIModel(
     client_args={
         "base_url": f"{BIFROST_ENDPOINT}/v1",
-        "api_key": "bifrost-internal",  # Bifrost doesn't require real API keys for internal traffic
+        "api_key": "bifrost-internal",
     },
     model_id=MODEL_ALIAS,
 )
@@ -64,14 +55,16 @@ model = OpenAIModel(
 agent = Agent(
     model=model,
     system_prompt=(
-        "You are a financial research agent specializing in market analysis. "
+        "You are a financial research agent specialising in market analysis. "
         "Use the web_search tool to find current market data and the summarize "
         "tool to condense long findings into actionable insights."
     ),
     tools=[web_search, summarize],
 )
 
-# --- FastAPI app ---
+# ---------------------------------------------------------------------------
+# FastAPI app
+# ---------------------------------------------------------------------------
 app = FastAPI(title="Research Agent", version="1.0.0")
 
 
@@ -92,19 +85,18 @@ def health():
 
 @app.post("/invoke", response_model=InvokeResponse)
 def invoke(request: InvokeRequest):
-    """Invoke the research agent with a user query."""
+    """Invoke the research agent. Strands SDK auto-instruments the call,
+    creating spans for every LLM invocation and tool call. Bifrost contributes
+    correlated child spans with token counts and cost attributes."""
     try:
         result = agent(request.query)
 
-        tokens_in = getattr(result, "usage", None)
-        input_tokens = tokens_in.input_tokens if tokens_in else 0
-        output_tokens = tokens_in.output_tokens if tokens_in else 0
-
+        usage = getattr(result, "usage", None)
         return InvokeResponse(
             response=str(result),
-            tokens_input=input_tokens,
-            tokens_output=output_tokens,
+            tokens_input=usage.input_tokens if usage else 0,
+            tokens_output=usage.output_tokens if usage else 0,
         )
     except Exception as e:
-        logger.error(f"Agent invocation failed: {e}")
+        logger.error("Agent invocation failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

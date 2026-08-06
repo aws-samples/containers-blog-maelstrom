@@ -61,32 +61,6 @@ resource "helm_release" "argocd" {
   }
 }
 
-# Install cert-manager (required by ADOT managed add-on)
-resource "helm_release" "cert_manager" {
-  name             = "cert-manager"
-  repository       = "https://charts.jetstack.io"
-  chart            = "cert-manager"
-  version          = "1.15.1"
-  namespace        = "cert-manager"
-  create_namespace = true
-  timeout          = 600
-  wait             = false  # Auto Mode nodes may take time to provision
-
-  set {
-    name  = "crds.enabled"
-    value = "true"
-  }
-}
-
-# Install ADOT as EKS managed add-on (requires cert-manager)
-resource "aws_eks_addon" "adot" {
-  cluster_name             = var.cluster_name
-  addon_name               = "adot"
-  service_account_role_arn = var.adot_role_arn
-
-  depends_on = [helm_release.cert_manager]
-}
-
 # Install kro (Kube Resource Orchestrator)
 resource "helm_release" "kro" {
   name             = "kro"

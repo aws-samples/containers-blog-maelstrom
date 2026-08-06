@@ -1,5 +1,7 @@
-# One-shot Job that seeds the Bedrock provider into Bifrost's config store.
-# Runs after Bifrost is available and idempotently creates the provider.
+# One-shot Job that seeds the Bedrock provider and OTEL plugin into Bifrost.
+# Runs after Bifrost is available and idempotently configures:
+#   1. Bedrock provider with Pod Identity auth
+#   2. OTEL plugin pointing at the configured target (Langfuse or Collector)
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -16,30 +18,71 @@ spec:
       containers:
         - name: seed
           image: curlimages/curl:8.5.0
+          envFrom:
+            - secretRef:
+                name: langfuse-api-keys
+          env:
+            - name: BIFROST_HOST
+              value: "http://bifrost.agents:8080"
+            - name: AWS_REGION
+              value: "us-west-2"
+            # OTEL target — matches gitops/root/values.yaml bifrost.otelTarget
+            # Pattern 1: http://langfuse-web.observability:3000/api/public/otel
+            # Pattern 2: otel-collector-opentelemetry-collector.observability:4317
+            - name: OTEL_TARGET
+              value: "http://langfuse-web.observability:3000/api/public/otel"
+            - name: OTEL_PROTOCOL
+              value: "http"
           command:
             - /bin/sh
             - -c
             - |
               echo "Waiting for Bifrost to be ready..."
-              until curl -sf http://bifrost.agents:8080/api/providers > /dev/null 2>&1; do
+              until curl -sf "$BIFROST_HOST/api/providers" > /dev/null 2>&1; do
                 sleep 5
               done
               echo "Bifrost is ready. Seeding config..."
 
-              # Seed Bedrock provider
-              curl -s -X POST http://bifrost.agents:8080/api/providers \
+              # 1. Seed Bedrock provider
+              curl -sf -X POST "$BIFROST_HOST/api/providers" \
                 -H "Content-Type: application/json" \
-                -d '{"name":"bedrock-default","provider":"bedrock","config":{"region":"us-west-2"}}'
+                -d "{\"name\":\"bedrock-default\",\"provider\":\"bedrock\",\"config\":{\"region\":\"$AWS_REGION\"}}"
               echo ""
 
-              # Seed IAM key for Bedrock (Pod Identity handles actual auth)
-              curl -s -X POST http://bifrost.agents:8080/api/providers/bedrock/keys \
+              # 2. Seed IAM key for Bedrock (Pod Identity handles actual auth)
+              curl -sf -X POST "$BIFROST_HOST/api/providers/bedrock/keys" \
                 -H "Content-Type: application/json" \
                 -d '{"name":"iam-default","key":"pod-identity","models":["*"]}'
               echo ""
 
-              # Disable VK requirement via governance plugin
-              curl -s -X POST http://bifrost.agents:8080/api/plugins \
+              # 3. Configure OTEL plugin — sends correlated LLM spans to target
+              # Build auth header for Langfuse (used when OTEL_TARGET is Langfuse directly)
+              AUTH_HEADER=""
+              if [ -n "$LANGFUSE_PUBLIC_KEY" ] && [ -n "$LANGFUSE_SECRET_KEY" ]; then
+                AUTH_HEADER=$(echo -n "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" | base64)
+              fi
+
+              curl -sf -X POST "$BIFROST_HOST/api/plugins" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"name\": \"otel\",
+                  \"enabled\": true,
+                  \"version\": 1,
+                  \"config\": {
+                    \"service_name\": \"bifrost\",
+                    \"collector_url\": \"$OTEL_TARGET\",
+                    \"trace_type\": \"genai_extension\",
+                    \"protocol\": \"$OTEL_PROTOCOL\",
+                    \"insecure\": true,
+                    \"headers\": {
+                      \"Authorization\": \"Basic $AUTH_HEADER\"
+                    }
+                  }
+                }"
+              echo ""
+
+              # 4. Disable VK requirement via governance plugin
+              curl -sf -X POST "$BIFROST_HOST/api/plugins" \
                 -H "Content-Type: application/json" \
                 -d '{"name":"governance","enabled":true,"version":1,"config":{"is_vk_mandatory":false}}'
               echo ""

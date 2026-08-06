@@ -5,8 +5,12 @@ namespaces:
   agents: agents
   observability: observability
 
-amp:
-  remoteWriteEndpoint: ""  # Set by setup-infra.sh
+# Bifrost OTEL plugin target — controls where Bifrost sends LLM spans.
+# Pattern 1 (Decentralized): direct to Langfuse OTLP endpoint
+# Pattern 2 (Centralized):   to the OTEL Collector (otel-collector.observability:4317)
+bifrost:
+  otelTarget: "http://langfuse-web.observability:3000/api/public/otel"
+  otelProtocol: "http"
 
 gitops:
   repoURL: https://github.com/aws-samples/containers-blog-maelstrom.git

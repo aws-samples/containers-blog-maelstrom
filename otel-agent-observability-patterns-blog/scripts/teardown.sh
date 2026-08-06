@@ -16,7 +16,7 @@ CLUSTER_NAME="$EKS_CLUSTER_NAME"
 REGION="$AWS_REGION"
 
 echo "============================================================"
-echo " OTEL Agent Observability - Teardown"
+echo " OTEL Agent Observability — Teardown"
 echo "============================================================"
 echo " Cluster: $CLUSTER_NAME | Region: $REGION"
 echo "============================================================"
@@ -41,8 +41,7 @@ cd "$ROOT_DIR/terraform/bootstrap"
 terraform destroy -auto-approve \
   -var="cluster_name=$CLUSTER_NAME" \
   -var="region=$REGION" \
-  -var="kro_role_arn=" \
-  -var="adot_role_arn=" 2>/dev/null || true
+  -var="kro_role_arn=" 2>/dev/null || true
 echo "  Bootstrap destroyed ✓"
 echo ""
 

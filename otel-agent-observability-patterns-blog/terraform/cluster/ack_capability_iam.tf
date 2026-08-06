@@ -1,5 +1,5 @@
-# ACK controller and ADOT are installed via Helm in the bootstrap module
-# (they require the cluster to be fully ready + cert-manager for ADOT)
+# ACK controller is installed via Helm in the bootstrap module
+# (requires the cluster to be fully ready)
 
 # IAM role for ACK controllers (Pod Identity)
 resource "aws_iam_role" "ack_capability" {

@@ -1,20 +1,8 @@
-# ============================================================
-# REFERENCE ONLY — NOT USED IN THE ARGOCD DEPLOYMENT
-# ============================================================
-# The actual OTEL Collector config is inlined in:
-#   gitops/root/templates/05-otel-collector.yaml
-#
-# This file documents the Helm values structure for manual
-# helm install if you want to test outside the ArgoCD flow.
-# ============================================================
-
-# OTEL Collector Helm values
+# OTEL Collector Helm values — Pattern 2 (Centralized) only
+# Receives OTLP from agents and Bifrost, forwards traces to Langfuse.
+# No AMP, no Prometheus scrape — single pipeline to Langfuse.
 mode: deployment
 replicaCount: 1
-
-serviceAccount:
-  annotations:
-    eks.amazonaws.com/role-arn: ""  # Set by setup-infra.sh from Terraform output
 
 config:
   receivers:
@@ -24,13 +12,6 @@ config:
           endpoint: "0.0.0.0:4317"
         http:
           endpoint: "0.0.0.0:4318"
-    prometheus:
-      config:
-        scrape_configs:
-          - job_name: "bifrost"
-            scrape_interval: 15s
-            static_configs:
-              - targets: ["bifrost.agents:9090"]
 
   processors:
     batch:
@@ -39,31 +20,18 @@ config:
 
   exporters:
     otlphttp/langfuse:
-      endpoint: "http://langfuse.observability:3000/api/public/otel"
+      endpoint: "http://langfuse-web.observability:3000/api/public/otel"
       headers:
-        # Langfuse keys are sourced from a K8s Secret mounted as env vars
-        Authorization: "Basic ${env:LANGFUSE_PUBLIC_KEY}:${env:LANGFUSE_SECRET_KEY}"
-    prometheusremotewrite:
-      # Endpoint is injected by setup-infra.sh via --set override
-      endpoint: "https://aps-workspaces.us-west-2.amazonaws.com/workspaces/PLACEHOLDER/api/v1/remote_write"
-      auth:
-        authenticator: sigv4auth
-      resource_to_telemetry_conversion:
-        enabled: true
+        Authorization: "Basic ${env:LANGFUSE_AUTH_TOKEN}"
 
   extensions:
-    sigv4auth:
-      region: "us-west-2"
-      service: "aps"
+    health_check:
+      endpoint: "0.0.0.0:13133"
 
   service:
-    extensions: [sigv4auth]
+    extensions: [health_check]
     pipelines:
       traces:
         receivers: [otlp]
         processors: [batch]
         exporters: [otlphttp/langfuse]
-      metrics:
-        receivers: [otlp, prometheus]
-        processors: [batch]
-        exporters: [prometheusremotewrite]
