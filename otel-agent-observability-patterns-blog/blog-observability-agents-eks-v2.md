@@ -99,7 +99,7 @@ The `config.env` file is the single place to configure all dynamic values:
 export AWS_REGION=us-west-2
 export EKS_CLUSTER_NAME=agent-observability
 export EKS_VERSION=1.35
-export BEDROCK_PRIMARY_MODEL=us.anthropic.claude-sonnet-5-v2-20260715
+export BEDROCK_PRIMARY_MODEL=us.anthropic.claude-sonnet-5
 export BEDROCK_FALLBACK_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0
 ```
 
@@ -122,41 +122,24 @@ After completion, ArgoCD syncs and deploys:
 
 ### Configure Langfuse Credentials
 
-After Langfuse boots, generate API keys so agents and the Collector can authenticate:
+Langfuse is configured with **headless initialization** — the org, project, and API keys are auto-created on first boot via environment variables. No manual UI setup is required.
 
-**Step 1:** Port-forward the Langfuse UI:
+The pre-configured credentials are:
+
+| | Value |
+|---|---|
+| **Langfuse UI login** | `admin@agent-observability.local` / `AgentObs2026!` |
+| **Public Key** | `pk-lf-agent-obs-seed` |
+| **Secret Key** | `sk-lf-agent-obs-seed` |
+
+These keys are stored in the `langfuse-api-keys` Kubernetes Secret (deployed in both `observability` and `agents` namespaces) and consumed by agents and the OTEL Collector automatically.
+
+To access the Langfuse UI:
 
 ```bash
 kubectl port-forward svc/langfuse-web -n observability 3000:3000
-```
-
-**Step 2:** Open [http://localhost:3000](http://localhost:3000). Create an account and a new project.
-
-**Step 3:** In project Settings → API Keys, generate a Public Key (`pk-lf-...`) and Secret Key (`sk-lf-...`).
-
-**Step 4:** Update the Kubernetes Secret:
-
-```bash
-PK="pk-lf-your-public-key"
-SK="sk-lf-your-secret-key"
-AUTH_TOKEN=$(echo -n "$PK:$SK" | base64)
-
-kubectl create secret generic langfuse-api-keys \
-  -n observability \
-  --from-literal=LANGFUSE_PUBLIC_KEY="$PK" \
-  --from-literal=LANGFUSE_SECRET_KEY="$SK" \
-  --from-literal=LANGFUSE_AUTH_TOKEN="$AUTH_TOKEN" \
-  --dry-run=client -o yaml | kubectl apply -f -
-```
-
-**Step 5:** Restart affected components:
-
-```bash
-# Agents pick up the new credentials on next pod restart
-kubectl rollout restart deployment -n agents
-
-# OTEL Collector (Pattern 2) picks up the auth token
-kubectl rollout restart deployment/otel-collector-opentelemetry-collector -n observability
+# Open http://localhost:3000
+# Login: admin@agent-observability.local / AgentObs2026!
 ```
 
 ---
@@ -275,14 +258,14 @@ The agent code is identical — the pattern switch is purely an environment vari
 ```yaml
 env:
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
-    value: "http://otel-collector-opentelemetry-collector.observability:4317"
+    value: "http://otel-collector-opentelemetry-collector.observability:4318"
   - name: BIFROST_ENDPOINT
     value: "http://bifrost.agents:8080"
 ```
 
 ### OTEL Collector Configuration
 
-The Collector receives OTLP from both agents and Bifrost, batches spans, and forwards to Langfuse:
+The Collector receives OTLP from both agents and Bifrost, batches spans, and forwards to Langfuse. The `x-langfuse-ingestion-version: 4` header is required for Langfuse v3 OTLP compatibility:
 
 ```yaml
 config:
@@ -300,6 +283,7 @@ config:
       endpoint: "http://langfuse-web.observability:3000/api/public/otel"
       headers:
         Authorization: "Basic ${env:LANGFUSE_AUTH_TOKEN}"
+        x-langfuse-ingestion-version: "4"
   service:
     pipelines:
       traces:
@@ -317,7 +301,7 @@ Bifrost sits between every agent and Amazon Bedrock in both patterns. It is not 
 ### What Bifrost Does
 
 1. **Model routing** — receives OpenAI-compatible `/v1/chat/completions` requests and routes them to Bedrock models using the `bedrock/` prefix in the model ID.
-2. **Fallback** — if the primary model (Claude Sonnet 4.6) is throttled, Bifrost automatically falls back to the configured secondary (Claude Haiku 4.5).
+2. **Fallback** — if the primary model (Claude Sonnet 5) is throttled, Bifrost automatically falls back to the configured secondary (Claude Haiku 4.5).
 3. **Trace correlation** — the OTEL plugin reads the inbound `traceparent` header and creates a child span with LLM-specific attributes (model, tokens, latency, cost).
 4. **Cost attribution** — Bifrost calculates per-request cost based on model pricing and attaches it as a span attribute visible in Langfuse.
 
@@ -325,24 +309,30 @@ Bifrost sits between every agent and Amazon Bedrock in both patterns. It is not 
 
 The Bifrost OTEL plugin target determines where its spans go:
 
-- **Pattern 1:** Bifrost sends spans directly to Langfuse (`http://langfuse-web.observability:3000/api/public/otel`)
-- **Pattern 2:** Bifrost sends spans to the OTEL Collector (`otel-collector.observability:4317`)
+- **Pattern 1:** Bifrost sends spans directly to Langfuse (`http://langfuse-web.observability:3000/api/public/otel/v1/traces`)
+- **Pattern 2:** Bifrost sends spans to the OTEL Collector (`otel-collector-opentelemetry-collector.observability:4318`)
 
-This is configured via the ArgoCD Helm values:
+The plugin is configured via the Bifrost seed job (`gitops/addons/bifrost/seed-provider-job.yaml`) which runs after Bifrost boots:
 
 ```yaml
-# gitops/root/values.yaml
-bifrost:
-  otelTarget: "http://langfuse-web.observability:3000/api/public/otel"  # Pattern 1
-  otelProtocol: "http"
+# Bifrost OTEL plugin config (set via seed job)
+plugins:
+  otel:
+    enabled: true
+    config:
+      service_name: "bifrost"
+      collector_url: "http://langfuse-web.observability:3000/api/public/otel/v1/traces"
+      trace_type: "genai_extension"
+      protocol: "http"
+      headers:
+        Authorization: "Basic <base64(pubkey:secretkey)>"
+        x-langfuse-ingestion-version: "4"
 ```
 
-To switch to Pattern 2:
+To switch to Pattern 2, update the seed job's `OTEL_TARGET` to point at the Collector:
 
 ```yaml
-bifrost:
-  otelTarget: "otel-collector-opentelemetry-collector.observability:4317"
-  otelProtocol: "grpc"
+collector_url: "http://otel-collector-opentelemetry-collector.observability:4318/v1/traces"
 ```
 
 ---
@@ -421,30 +411,14 @@ Both patterns produce the **same unified trace** in Langfuse. The Bifrost LLM sp
 
 ## Switching Between Patterns
 
-Switching is a deployment-time configuration change — no agent code modifications required:
-
-**To run Pattern 1 (Decentralized):**
+The repository deploys both patterns simultaneously — the `research-agent` uses Pattern 1 (Decentralized) and the `data-agent` uses Pattern 2 (Centralized). To switch a specific agent's pattern, change its environment variables in the deployment template (`gitops/addons/agents/values.yaml`):
 
 ```yaml
-# Agent pod env vars
-LANGFUSE_BASE_URL: "http://langfuse-web.observability:3000"
-LANGFUSE_PUBLIC_KEY: <from secret>
-LANGFUSE_SECRET_KEY: <from secret>
-
-# Bifrost values
-bifrost.otelTarget: "http://langfuse-web.observability:3000/api/public/otel"
-bifrost.otelProtocol: "http"
-```
-
-**To run Pattern 2 (Centralized):**
-
-```yaml
-# Agent pod env vars (replace LANGFUSE_BASE_URL with OTEL endpoint)
-OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector-opentelemetry-collector.observability:4317"
-
-# Bifrost values
-bifrost.otelTarget: "otel-collector-opentelemetry-collector.observability:4317"
-bifrost.otelProtocol: "grpc"
+agents:
+  - name: research-agent
+    pattern: decentralized   # Pattern 1: direct to Langfuse
+  - name: data-agent
+    pattern: centralized     # Pattern 2: via OTEL Collector
 ```
 
 Commit the change to git → ArgoCD syncs → pods restart with new env vars → traces flow through the new path. Langfuse shows the same unified trace either way.
