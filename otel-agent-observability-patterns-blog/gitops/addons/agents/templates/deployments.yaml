@@ -61,7 +61,7 @@ spec:
             - name: BIFROST_ENDPOINT
               value: "http://bifrost.agents:8080"
             - name: BIFROST_MODEL_ALIAS
-              value: "bedrock/anthropic.claude-sonnet-5-v2-20260715"
+              value: "bedrock/us.anthropic.claude-sonnet-5"
             - name: AWS_REGION
               value: {{ $.Values.region }}
             {{- if .capabilities.memory }}
