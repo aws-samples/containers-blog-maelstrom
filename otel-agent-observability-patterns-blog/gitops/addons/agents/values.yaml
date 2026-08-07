@@ -7,7 +7,7 @@ region: us-west-2
 agents:
   - name: research-agent
     module: research_agent
-    image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/research-agent:d61ff15
+    image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/research-agent:9e5bfbd
     port: 8080
     pattern: decentralized
     capabilities:
@@ -17,7 +17,7 @@ agents:
 
   - name: data-agent
     module: data_agent
-    image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/data-agent:d61ff15
+    image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/data-agent:9e5bfbd
     port: 8080
     pattern: centralized
     capabilities:
