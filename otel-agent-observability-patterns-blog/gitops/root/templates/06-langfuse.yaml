@@ -1,3 +1,6 @@
+# Langfuse v3 — deployed as raw manifests from gitops/addons/langfuse/
+# Using direct manifests instead of the community Helm chart because the chart
+# has a broken S3 secret reference that prevents OTLP ingestion from working.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -8,51 +11,9 @@ metadata:
 spec:
   project: default
   source:
-    chart: langfuse
-    repoURL: https://langfuse.github.io/langfuse-k8s
-    targetRevision: "1.*"
-    helm:
-      releaseName: langfuse
-      valuesObject:
-        replicaCount: 1
-        postgresql:
-          enabled: true
-          auth:
-            password: "langfuse-demo-pw"
-        redis:
-          enabled: true
-          auth:
-            password: "langfuse-redis-pw"
-        clickhouse:
-          enabled: true
-          auth:
-            password: "langfuse-ch-pw"
-        langfuse:
-          salt:
-            value: "changeme-generate-at-install"
-          nextauth:
-            secret:
-              value: "changeme-generate-at-install"
-            url: "http://langfuse-web.{{ .Values.namespaces.observability }}:3000"
-        environment:
-          LANGFUSE_ENABLE_OTEL_INGESTION: "true"
-          # S3 (MinIO) credentials — Langfuse OTLP ingestion writes events to S3.
-          # The Helm chart sets ACCESS_KEY_ID but leaves SECRET_ACCESS_KEY empty due
-          # to a bug in the chart's secret reference. Set it explicitly here.
-          LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: "qh79sbErAL"
-          LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: "qh79sbErAL"
-          LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: "qh79sbErAL"
-          # Headless initialization — auto-creates org, project, and API keys on startup.
-          # No manual UI setup required.
-          LANGFUSE_INIT_ORG_ID: "seed-org-agent-obs"
-          LANGFUSE_INIT_ORG_NAME: "Agent Observability"
-          LANGFUSE_INIT_PROJECT_ID: "seed-project-agent-obs"
-          LANGFUSE_INIT_PROJECT_NAME: "agent-observability"
-          LANGFUSE_INIT_PROJECT_PUBLIC_KEY: "pk-lf-agent-obs-seed"
-          LANGFUSE_INIT_PROJECT_SECRET_KEY: "sk-lf-agent-obs-seed"
-          LANGFUSE_INIT_USER_EMAIL: "admin@agent-observability.local"
-          LANGFUSE_INIT_USER_NAME: "Admin"
-          LANGFUSE_INIT_USER_PASSWORD: "AgentObs2026!"
+    repoURL: {{ .Values.gitops.repoURL }}
+    targetRevision: {{ .Values.gitops.targetRevision }}
+    path: {{ .Values.gitops.basePath }}/gitops/addons/langfuse
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.observability }}
@@ -60,3 +21,5 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

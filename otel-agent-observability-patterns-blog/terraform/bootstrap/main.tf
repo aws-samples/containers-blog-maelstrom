@@ -57,7 +57,7 @@ resource "helm_release" "argocd" {
 
   set {
     name  = "redis.image.tag"
-    value = "7.4.3-alpine"
+    value = "7.4.6-alpine"
   }
 }
 
