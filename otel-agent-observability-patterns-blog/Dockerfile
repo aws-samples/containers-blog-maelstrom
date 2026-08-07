@@ -16,7 +16,7 @@ ENV PYTHONPATH=/app
 
 # Defaults — overridden by K8s deployment env vars at runtime
 ENV BIFROST_ENDPOINT=http://bifrost.agents:8080
-ENV BIFROST_MODEL_ALIAS=bedrock/us.anthropic.claude-sonnet-5
+ENV BIFROST_MODEL_ALIAS=bedrock/anthropic.claude-sonnet-5-v2-20260715
 
 EXPOSE 8080
 

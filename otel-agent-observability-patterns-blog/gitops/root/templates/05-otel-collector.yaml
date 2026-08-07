@@ -1,5 +1,5 @@
-# OTEL Collector — Pattern 2 (Centralized) only
-# Receives OTLP from agents and Bifrost, forwards all traces to Langfuse.
+# OTEL Collector — Pattern 2 (Centralized)
+# Receives OTLP from data-agent and Bifrost, forwards all traces to Langfuse.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -21,9 +21,12 @@ spec:
         image:
           repository: otel/opentelemetry-collector-contrib
           tag: "0.104.0"
-        extraEnvsFrom:
-          - secretRef:
-              name: langfuse-api-keys
+        extraEnvs:
+          - name: LANGFUSE_AUTH_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: langfuse-api-keys
+                key: LANGFUSE_AUTH_TOKEN
         config:
           receivers:
             otlp:
@@ -39,6 +42,7 @@ spec:
               endpoint: "http://langfuse-web.{{ .Values.namespaces.observability }}:3000/api/public/otel"
               headers:
                 Authorization: "Basic ${env:LANGFUSE_AUTH_TOKEN}"
+                x-langfuse-ingestion-version: "4"
           extensions:
             health_check:
               endpoint: "0.0.0.0:13133"

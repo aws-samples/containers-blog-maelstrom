@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 # throttle), and emits correlated OTEL spans to Langfuse.
 # ---------------------------------------------------------------------------
 BIFROST_ENDPOINT = os.getenv("BIFROST_ENDPOINT", "http://bifrost.agents:8080")
-MODEL_ALIAS = os.getenv("BIFROST_MODEL_ALIAS", "bedrock/us.anthropic.claude-sonnet-5")
+MODEL_ALIAS = os.getenv("BIFROST_MODEL_ALIAS", "bedrock/anthropic.claude-sonnet-5-v2-20260715")
 
 model = OpenAIModel(
     client_args={

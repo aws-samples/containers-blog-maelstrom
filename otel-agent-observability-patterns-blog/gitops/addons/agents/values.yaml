@@ -1,17 +1,15 @@
 clusterName: agent-observability
 region: us-west-2
 
-# Bedrock model configuration (update when models change)
-bedrockPrimaryModel: us.anthropic.claude-sonnet-5-v2-20260715
-bedrockFallbackModel: us.anthropic.claude-haiku-4-5-20251001-v1:0
-
-# IMPORTANT: Image refs are updated by scripts/setup-agents.sh after build.
-# If you see ImagePullBackOff, run: ./scripts/setup-agents.sh
+# Each agent demonstrates a different observability pattern:
+#   research-agent → Pattern 1 (Decentralized): direct to Langfuse
+#   data-agent     → Pattern 2 (Centralized): via OTEL Collector to Langfuse
 agents:
   - name: research-agent
     module: research_agent
     image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/research-agent:d61ff15
     port: 8080
+    pattern: decentralized
     capabilities:
       memory: false
       browser: false
@@ -21,6 +19,7 @@ agents:
     module: data_agent
     image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/data-agent:d61ff15
     port: 8080
+    pattern: centralized
     capabilities:
       memory: false
       browser: false
