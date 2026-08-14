@@ -17,6 +17,10 @@ spec:
           value: "{{ .Values.clusterName }}"
         - name: region
           value: "{{ .Values.region }}"
+        - name: imageTag
+          value: "{{ .Values.agents.imageTag }}"
+        - name: ecrRepo
+          value: "{{ .Values.agents.ecrRepo }}"
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.agents }}

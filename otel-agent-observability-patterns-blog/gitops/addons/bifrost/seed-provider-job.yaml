@@ -52,7 +52,7 @@ spec:
               # 2. Seed IAM key for Bedrock (Pod Identity handles actual auth)
               curl -sf -X POST "$BIFROST_HOST/api/providers/bedrock/keys" \
                 -H "Content-Type: application/json" \
-                -d '{"name":"iam-default","key":"pod-identity","models":["*"]}'
+                -d "{\"name\":\"iam-default\",\"key\":\"pod-identity\",\"models\":[\"*\"],\"bedrock_key_config\":{\"region\":\"$AWS_REGION\"}}"
               echo ""
 
               # 3. Configure OTEL plugin — sends correlated LLM spans to target

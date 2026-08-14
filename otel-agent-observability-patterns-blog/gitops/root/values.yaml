@@ -12,6 +12,10 @@ bifrost:
   otelTarget: "http://langfuse-web.observability:3000/api/public/otel"
   otelProtocol: "http"
 
+agents:
+  imageTag: "latest"
+  ecrRepo: ""
+
 gitops:
   repoURL: https://github.com/aws-samples/containers-blog-maelstrom.git
   targetRevision: feature/agent-observability-patterns

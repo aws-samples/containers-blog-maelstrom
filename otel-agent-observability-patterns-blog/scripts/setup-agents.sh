@@ -55,18 +55,18 @@ done
 # This avoids requiring git push access — ArgoCD picks up the override immediately.
 echo "▶ Patching ArgoCD agents application with new image tag..."
 
-kubectl patch application agents -n argocd --type merge -p "
+kubectl patch application platform-root -n argocd --type merge -p "
 spec:
   source:
     helm:
       parameters:
         - name: clusterName
-          value: \"$(kubectl get application agents -n argocd -o jsonpath='{.spec.source.helm.parameters[?(@.name==\"clusterName\")].value}')\"
+          value: \"$(kubectl get application platform-root -n argocd -o jsonpath='{.spec.source.helm.parameters[?(@.name==\"clusterName\")].value}')\"
         - name: region
-          value: \"$(kubectl get application agents -n argocd -o jsonpath='{.spec.source.helm.parameters[?(@.name==\"region\")].value}')\"
-        - name: imageTag
+          value: \"$(kubectl get application platform-root -n argocd -o jsonpath='{.spec.source.helm.parameters[?(@.name==\"region\")].value}')\"
+        - name: agents.imageTag
           value: \"$IMAGE_TAG\"
-        - name: ecrRepo
+        - name: agents.ecrRepo
           value: \"$ECR_REPO\"
 " 2>/dev/null && echo "✓ ArgoCD application patched with imageTag=$IMAGE_TAG" \
   || echo "  ⚠ ArgoCD patch failed — falling back to direct kubectl rollout"
@@ -81,7 +81,7 @@ done
 echo "✓ Agent deployments updated"
 
 # Trigger ArgoCD sync to reconcile
-kubectl annotate application agents -n argocd \
+kubectl annotate application platform-root -n argocd \
   argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
 
 echo ""
