@@ -169,7 +169,7 @@ echo "  Seeding Bifrost with Bedrock provider and OTEL plugin..."
 kubectl delete job/bifrost-seed-provider -n agents 2>/dev/null || true
 kubectl apply -f "$ROOT_DIR/gitops/addons/bifrost/seed-provider-job.yaml"
 kubectl wait --for=condition=complete job/bifrost-seed-provider \
-  -n agents --timeout=120s 2>/dev/null && echo "  ✓ Bifrost seeded" \
+  -n agents --timeout=300s 2>/dev/null && echo "  ✓ Bifrost seeded" \
   || echo "  ⚠ Bifrost seed job did not complete — check: kubectl logs job/bifrost-seed-provider -n agents"
 
 echo ""
