@@ -24,7 +24,7 @@ vi config.env
 
 ## Prerequisites
 
-- AWS account with Bedrock model access (Claude Sonnet 4.6, `us-west-2`)
+- AWS account with Bedrock model access (Claude Sonnet 5 in `us-west-2`)
 - Terraform >= 1.5, kubectl, helm 3.x, AWS CLI v2
 - Docker or Finch for image builds
 

@@ -156,13 +156,26 @@ for NS in observability agents; do
 done
 
 echo ""
+echo "  Waiting for Bifrost..."
+kubectl wait --for=condition=available deployment/bifrost \
+  -n agents --timeout=300s 2>/dev/null || \
+kubectl wait --for=jsonpath='{.status.readyReplicas}'=1 statefulset/bifrost \
+  -n agents --timeout=300s 2>/dev/null || echo "  (bifrost still syncing)"
+
+# Seed Bifrost with Bedrock provider config and OTEL plugin.
+# The Bifrost Helm chart deploys the binary but provider/plugin config
+# must be injected via the API at runtime.
+echo "  Seeding Bifrost with Bedrock provider and OTEL plugin..."
+kubectl delete job/bifrost-seed-provider -n agents 2>/dev/null || true
+kubectl apply -f "$ROOT_DIR/gitops/addons/bifrost/seed-provider-job.yaml"
+kubectl wait --for=condition=complete job/bifrost-seed-provider \
+  -n agents --timeout=120s 2>/dev/null && echo "  ✓ Bifrost seeded" \
+  || echo "  ⚠ Bifrost seed job did not complete — check: kubectl logs job/bifrost-seed-provider -n agents"
+
+echo ""
 echo "  Waiting for Langfuse..."
 kubectl wait --for=condition=available deployment -l app.kubernetes.io/name=langfuse \
   -n observability --timeout=600s 2>/dev/null || echo "  (langfuse still syncing)"
-
-echo "  Waiting for Bifrost..."
-kubectl wait --for=condition=available deployment/bifrost \
-  -n agents --timeout=300s 2>/dev/null || echo "  (bifrost still syncing)"
 
 echo "  Waiting for agent pods..."
 kubectl wait --for=condition=available deployment -l app.kubernetes.io/component=agent \

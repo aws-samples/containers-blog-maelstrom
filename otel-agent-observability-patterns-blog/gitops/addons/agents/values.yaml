@@ -1,13 +1,16 @@
 clusterName: agent-observability
 region: us-west-2
 
+# Image defaults — overridden by setup-agents.sh via ArgoCD Helm parameter overrides
+imageTag: "latest"
+ecrRepo: ""
+
 # Each agent demonstrates a different observability pattern:
 #   research-agent → Pattern 1 (Decentralized): direct to Langfuse
 #   data-agent     → Pattern 2 (Centralized): via OTEL Collector to Langfuse
 agents:
   - name: research-agent
     module: research_agent
-    image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/research-agent:9e5bfbd
     port: 8080
     pattern: decentralized
     capabilities:
@@ -17,7 +20,6 @@ agents:
 
   - name: data-agent
     module: data_agent
-    image: 257077212816.dkr.ecr.us-west-2.amazonaws.com/otel-agents/data-agent:9e5bfbd
     port: 8080
     pattern: centralized
     capabilities:

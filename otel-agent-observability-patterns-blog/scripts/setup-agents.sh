@@ -4,7 +4,8 @@ set -euo pipefail
 #####################################################################
 # setup-agents.sh
 # Builds agent container images, tags with git SHA, pushes to ECR,
-# and updates the ArgoCD agent values with the new image tags.
+# and patches the ArgoCD Application with the new image tags.
+# No git push required — image tags are set via ArgoCD parameter overrides.
 #####################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,27 +51,41 @@ for agent in research_agent data_agent; do
   echo ""
 done
 
-# Update ArgoCD agent values with new image tags
-echo "▶ Updating agent image tags in gitops values..."
-AGENTS_VALUES="$ROOT_DIR/gitops/addons/agents/values.yaml"
+# Patch ArgoCD Application to use the new image tag via Helm parameter overrides.
+# This avoids requiring git push access — ArgoCD picks up the override immediately.
+echo "▶ Patching ArgoCD agents application with new image tag..."
 
-sed -i.bak "/name: research-agent/{n;n;s|image: .*|image: $ECR_REPO/otel-agents/research-agent:$IMAGE_TAG|;}" "$AGENTS_VALUES"
-sed -i.bak "/name: data-agent/{n;n;s|image: .*|image: $ECR_REPO/otel-agents/data-agent:$IMAGE_TAG|;}" "$AGENTS_VALUES"
-rm -f "${AGENTS_VALUES}.bak"
+kubectl patch application agents -n argocd --type merge -p "
+spec:
+  source:
+    helm:
+      parameters:
+        - name: clusterName
+          value: \"$(kubectl get application agents -n argocd -o jsonpath='{.spec.source.helm.parameters[?(@.name==\"clusterName\")].value}')\"
+        - name: region
+          value: \"$(kubectl get application agents -n argocd -o jsonpath='{.spec.source.helm.parameters[?(@.name==\"region\")].value}')\"
+        - name: imageTag
+          value: \"$IMAGE_TAG\"
+        - name: ecrRepo
+          value: \"$ECR_REPO\"
+" 2>/dev/null && echo "✓ ArgoCD application patched with imageTag=$IMAGE_TAG" \
+  || echo "  ⚠ ArgoCD patch failed — falling back to direct kubectl rollout"
 
-echo "✓ Values updated. ArgoCD will detect the change and roll out."
-echo ""
+# Also directly update the deployments as a fallback (ArgoCD self-heals to match)
+echo "▶ Updating agent deployments directly..."
+for agent in research-agent data-agent; do
+  kubectl set image deployment/"$agent" \
+    agent="$ECR_REPO/otel-agents/$agent:$IMAGE_TAG" \
+    -n agents 2>/dev/null || true
+done
+echo "✓ Agent deployments updated"
 
-# Commit and push the updated image tags so ArgoCD can sync
-echo "▶ Pushing updated image tags to git..."
-GIT_ROOT=$(cd "$ROOT_DIR" && git rev-parse --show-toplevel)
-cd "$GIT_ROOT"
-git add "$AGENTS_VALUES"
-git commit -m "chore: update agent image tags to $IMAGE_TAG" --quiet
-git push origin "$(git branch --show-current)" --quiet 2>&1 || echo "  ⚠ git push failed — push manually for ArgoCD to sync"
-echo "✓ Pushed to git. ArgoCD will sync within ~3 minutes."
+# Trigger ArgoCD sync to reconcile
+kubectl annotate application agents -n argocd \
+  argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
+
 echo ""
 echo "============================================================"
-echo " ✅ Done — images pushed with tag: $IMAGE_TAG"
-echo " ArgoCD will sync within ~3 minutes."
+echo " ✅ Done — images pushed to ECR with tag: $IMAGE_TAG"
+echo " Agent deployments updated. ArgoCD will reconcile shortly."
 echo "============================================================"

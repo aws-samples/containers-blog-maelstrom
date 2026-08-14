@@ -22,8 +22,8 @@ config:
     otlphttp/langfuse:
       endpoint: "http://langfuse-web.observability:3000/api/public/otel"
       headers:
-      Authorization: "Basic ${env:LANGFUSE_AUTH_TOKEN}"
-      x-langfuse-ingestion-version: "4"
+        Authorization: "Basic ${env:LANGFUSE_AUTH_TOKEN}"
+        x-langfuse-ingestion-version: "4"
 
   extensions:
     health_check:

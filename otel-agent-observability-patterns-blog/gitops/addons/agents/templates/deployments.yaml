@@ -30,7 +30,7 @@ spec:
       serviceAccountName: {{ .name }}-sa
       containers:
         - name: agent
-          image: {{ .image | default (printf "%s:latest" .name) }}
+          image: {{ if $.Values.ecrRepo }}{{ $.Values.ecrRepo }}/otel-agents/{{ .name }}:{{ $.Values.imageTag }}{{ else }}{{ .name }}:{{ $.Values.imageTag }}{{ end }}
           ports:
             - containerPort: {{ .port }}
           env:
