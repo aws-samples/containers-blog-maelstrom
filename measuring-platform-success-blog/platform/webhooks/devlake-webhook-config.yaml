@@ -1,0 +1,35 @@
+# DevLake webhook credentials shared by the issue + pull-request WorkflowTemplates.
+#
+# Both templates mount these via envFrom:
+#   - devlake-webhook-secret  -> DEVLAKE_TOKEN   (the API key DevLake issued for
+#                                the Incoming Webhook connection; sent as a
+#                                Bearer token)
+#   - devlake-webhook-id      -> DEVLAKE_HOOK_ID (the connection id) and
+#                                DEVLAKE_BP_ID   (the blueprint id, used by
+#                                scripts/70-calculate-metrics.sh)
+#
+# NOTE: you normally do NOT apply this file. scripts/52-setup-devlake-project.sh
+# creates the DevLake webhook connection and writes both objects into the `argo`
+# namespace (where the triggered Workflows run) with the REAL id + api key. This
+# file is only a reference / manual fallback showing their shape — if you apply
+# it, replace the placeholder values yourself.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: devlake-webhook-secret
+  namespace: argo
+type: Opaque
+stringData:
+  # Leave as-is only if your DevLake webhook connection has no API key set.
+  DEVLAKE_TOKEN: "REPLACE_WITH_DEVLAKE_WEBHOOK_APIKEY"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devlake-webhook-id
+  namespace: argo
+data:
+  # Connection id from the DevLake webhook URL (…/connections/<ID>/…).
+  DEVLAKE_HOOK_ID: "1"
+  # Blueprint id for the project (used by scripts/70-calculate-metrics.sh).
+  DEVLAKE_BP_ID: "1"

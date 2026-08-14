@@ -1,0 +1,123 @@
+# Helm values for Apache DevLake (chart: devlake/devlake).
+#
+# DevLake ingests data from Gitea (and, via its webhook/incoming plugin, from
+# our Argo Rollouts deployments) and computes the four DORA metrics. Grafana
+# ships with the chart and renders the official DORA dashboards. MySQL is the
+# metadata + warehouse store.
+#
+# Install:
+#   helm repo add devlake https://apache.github.io/devlake-helm-chart
+#   helm install devlake devlake/devlake -n devlake -f platform/devlake/values.yaml
+
+# Pin the DevLake app version. `imageTag` is the global tag the lake and
+# config-ui images inherit; the Grafana dashboard image carries its own tag
+# (set under grafana.image.tag below), so both must be kept in sync.
+# beta15 shipped a broken, non-idempotent migration (sonarqube_issue_code_blocks:
+# DROP of a non-existent index -> Error 1091 -> panic) that wedges the lake at
+# HTTP 428 forever. Bisecting down to the latest working beta; the change we need
+# landed in beta6, so anything >= beta6 that migrates cleanly is fair game.
+# NOTE: tags are v-prefixed (apache/devlake:v1.0.3-beta14, not 1.0.3-beta14).
+imageTag: v1.0.3-beta14
+
+# --- MySQL: the DevLake data warehouse -------------------------------------
+mysql:
+  enabled: true          # run the bundled MySQL rather than an external DB
+  storage:
+    size: 10Gi
+  rootPassword: admin     # demo only — change for anything real
+  username: merico
+  password: merico
+  database: lake
+  # MySQL is the critical path for first-boot migrations. Left with no requests
+  # it stays pinned to the small, memory+IO-thrashing c6a.large (node PSI full
+  # ~76%), so every migration DDL the lake issues stalls and startup appears to
+  # hang. Give it a real request so EKS Auto Mode places it on a roomy node
+  # (it can co-locate on the same larger node as the lake) with headroom for the
+  # InnoDB buffer pool + page cache.
+  resources:
+    requests:
+      cpu: "1"
+      memory: 4Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+# --- Grafana: DORA dashboards ----------------------------------------------
+grafana:
+  enabled: true
+  # Default login is admin / admin. The DORA dashboards are provisioned by the
+  # chart automatically.
+  # The dashboard image is separate from the lake/config-ui images and does not
+  # inherit the global imageTag, so pin it explicitly to the same app version.
+  image:
+    tag: v1.0.3-beta14
+  # Grafana was being OOM-killed (exit 137) — with no limit set, that's the NODE
+  # running out of memory and the kernel picking Grafana. A request gives it
+  # guaranteed headroom (and lets Auto Mode place it on the roomy node), and the
+  # widened probes stop the liveness check from killing it while /api/health is
+  # briefly slow on a loaded node.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  livenessProbe:
+    initialDelaySeconds: 120
+    timeoutSeconds: 10
+    failureThreshold: 10
+  readinessProbe:
+    initialDelaySeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 15
+
+# --- DevLake core services --------------------------------------------------
+lake:
+  enabled: true
+  # DevLake normally gates schema migrations behind an interactive confirmation
+  # (GET /proceed-db-migration) and returns HTTP 428 until it's called + done.
+  # FORCE_MIGRATION makes it auto-apply migrations on boot without the gate — so
+  # a fresh install comes up non-interactively, and a broken migration fails
+  # LOUDLY at startup instead of silently wedging the API at 428.
+  # (Merged onto the chart's default envs.)
+  envs:
+    FORCE_MIGRATION: "true"
+  # ENCODE_KEY used to encrypt stored connection credentials at rest. The chart
+  # requires a non-empty value or the lake pod won't start and `helm install`
+  # fails. This is a demo placeholder — generate a real 128-char key for
+  # anything beyond this showcase:
+  #   openssl rand -base64 2000 | tr -dc 'A-Z' | head -c 128
+  encryptionSecret:
+    secret: testencryptionkey
+  # First boot loads all plugins + runs DB migrations before the lake binds
+  # :8080. The chart's default liveness window (initialDelay 30s + 5 failures x
+  # 5s ~= 55s) is far too short for that, so the probe kills the pod mid-startup
+  # and it CrashLoopBackOffs. Give startup a full 10-minute window: liveness
+  # doesn't probe until 600s, so the pod can't be killed before then. Helm
+  # deep-merges these onto the chart defaults, so the /ping httpGet is preserved.
+  livenessProbe:
+    initialDelaySeconds: 600
+    failureThreshold: 10
+  readinessProbe:
+    initialDelaySeconds: 60
+    failureThreshold: 30
+  # The lake mmaps ~40 large plugin .so files (from a 2.35GB image) at startup.
+  # On the default c6a.large (~3Gi allocatable, shared by ~27 pods) there isn't
+  # enough RAM to keep those pages cached, so the kernel thrashes reclaiming and
+  # re-reading them from EBS (node memory PSI full ~74%), which is why each
+  # plugin loads slower than the last and startup never finishes. The fix is a
+  # bigger node: a memory request larger than a c6a.large can hold forces EKS
+  # Auto Mode to provision a larger instance and schedule the lake there with
+  # real page-cache headroom (which also relieves the original node).
+  resources:
+    requests:
+      cpu: "2"
+      memory: 8Gi
+    limits:
+      cpu: "2"
+      memory: 8Gi
+config-ui:
+  enabled: true          # the web UI where you configure connections/blueprints
+
+service:
+  type: ClusterIP

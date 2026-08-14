@@ -1,0 +1,86 @@
+# Argo Rollouts Notifications configuration.
+#
+# The Argo Rollouts controller ships with a built-in notifications engine (the
+# same one Argo CD uses). This ConfigMap teaches it to POST a deployment record
+# to DevLake's Incoming Webhook automatically on two rollout state changes:
+#
+#   rollout becomes Healthy ......... -> result=SUCCESS  (Deployment Frequency,
+#                                        Lead Time via the commit-sha annotation)
+#   rollout Degraded / aborted ...... -> result=FAILURE  (Change Failure Rate;
+#                                        FAILURE->next SUCCESS = Time to Restore)
+#
+# No manual curl needed — shipping a change or aborting a rollout records the
+# deployment on its own.
+#
+# The webhook URL is read from the companion Secret (notifications-secret.yaml)
+# so you can change it without editing this file.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argo-rollouts-notification-configmap
+  namespace: argo-rollouts
+data:
+  # --- Where to send notifications --------------------------------------
+  service.webhook.devlake: |
+    url: $devlake-webhook-url
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  # --- When to fire -----------------------------------------------------
+  # oncePer ensures exactly one notification per new ReplicaSet (pod hash),
+  # i.e. once per deployed version, instead of on every reconcile.
+  trigger.on-deploy-success: |
+    - when: rollout.status.phase == 'Healthy'
+      oncePer: rollout.status.currentPodHash
+      send: [devlake-deploy-success]
+  trigger.on-deploy-failure: |
+    - when: rollout.status.phase == 'Degraded' or rollout.status.abort == true
+      oncePer: rollout.status.currentPodHash
+      send: [devlake-deploy-failure]
+
+  # --- What to send (DevLake webhook payloads) --------------------------
+  # commitSha is pulled from the dora.dev/commit-sha annotation that ship.sh
+  # stamps onto the Rollout, so DevLake can compute Lead Time for Changes.
+  template.devlake-deploy-success: |
+    webhook:
+      devlake:
+        method: POST
+        body: |
+          {
+            "result": "SUCCESS",
+            "environment": "PRODUCTION",
+            "id": "dora-demo-{{.rollout.status.currentPodHash}}-success",
+            "startedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}",
+            "finishedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}",
+            "deploymentCommits": [
+              {
+                "repoUrl": "http://gitea-http.gitea.svc.cluster.local:3000/gitea_admin/dora-demo.git",
+                "refName": "main",
+                "commitSha": "{{index .rollout.metadata.annotations "dora.dev/commit-sha"}}",
+                "startedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}",
+                "finishedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}"
+              }
+            ]
+          }
+  template.devlake-deploy-failure: |
+    webhook:
+      devlake:
+        method: POST
+        body: |
+          {
+            "result": "FAILURE",
+            "environment": "PRODUCTION",
+            "id": "dora-demo-{{.rollout.status.currentPodHash}}-failure",
+            "startedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}",
+            "finishedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}",
+            "deploymentCommits": [
+              {
+                "repoUrl": "http://gitea-http.gitea.svc.cluster.local:3000/gitea_admin/dora-demo.git",
+                "refName": "main",
+                "commitSha": "{{index .rollout.metadata.annotations "dora.dev/commit-sha"}}",
+                "startedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}",
+                "finishedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}"
+              }
+            ]
+          }

@@ -1,0 +1,11 @@
+# An instance of the DoraDemoApp kind defined by dora-demo-rgd.yaml.
+# Create this in the dora-demo namespace after applying the RGD.
+apiVersion: kro.run/v1alpha1
+kind: DoraDemoApp
+metadata:
+  name: dora-demo
+  namespace: dora-demo
+spec:
+  name: dora-demo
+  image: argoproj/rollouts-demo:blue
+  replicas: 4

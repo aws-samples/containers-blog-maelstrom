@@ -1,0 +1,143 @@
+# Argo WorkflowTemplates that transform Gitea webhook payloads into DevLake
+# Incoming Webhook records, feeding the DORA metrics that come from Git activity:
+#
+#   issues        -> DevLake "issues" endpoint  -> Change Failure Rate /
+#                    Time to Restore Service (issues typed INCIDENT)
+#   pull_requests -> DevLake "pull_requests" endpoint -> PR / code-review metrics
+#
+# These are adapted from the reference GitLab templates, but the jq transforms
+# target GITEA's payload shape (top-level `issue` / `pull_request` objects,
+# RFC3339 timestamps, a boolean `merged`), NOT GitLab's `object_attributes`.
+#
+# Each template takes a single `body` parameter (the raw Gitea webhook JSON,
+# passed in by the Sensor) and POSTs to DevLake using the shared
+# devlake-webhook-secret / devlake-webhook-id credentials.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: dora-incident-workflow
+  namespace: argo
+  labels:
+    app.kubernetes.io/component: dora-webhooks
+    workflow.dora/type: issues
+spec:
+  entrypoint: process-incident
+  arguments:
+    parameters:
+      - name: body
+      - name: url
+        value: devlake-config-ui.devlake.svc.cluster.local:4000
+  templates:
+    - name: process-incident
+      inputs:
+        parameters:
+          - name: body
+          - name: url
+      script:
+        image: alpine
+        command: [sh]
+        envFrom:
+          - secretRef:
+              name: devlake-webhook-secret
+          - configMapRef:
+              name: devlake-webhook-id
+        source: |
+          apk add --no-cache jq curl
+          webhook_url="{{inputs.parameters.url}}"/api/rest/plugins/webhook/connections/$DEVLAKE_HOOK_ID/issues
+          echo '{{inputs.parameters.body}}'
+          # Gitea issue payload: { action, issue: { id, number, title, body,
+          # state ("open"|"closed"), html_url, user, created_at, updated_at,
+          # closed_at }, repository: { name } }
+          PAYLOAD=$(echo '{{inputs.parameters.body}}' | jq '
+          {
+            issueKey: (.repository.name + "-" + (.issue.number | tostring)),
+            title: .issue.title,
+            description: .issue.body,
+            url: .issue.html_url,
+            type: "INCIDENT",
+            status: (if .issue.state == "open" then "TODO" else "DONE" end),
+            originalStatus: .issue.state,
+            createdDate: .issue.created_at,
+            updatedDate: .issue.updated_at,
+            resolutionDate: (if .issue.state == "closed" then .issue.closed_at else null end),
+            priority: "",
+            severity: "",
+            creatorId: (.issue.user.id | tostring),
+            creatorName: (.issue.user.full_name // .issue.user.login),
+            assigneeId: (.issue.assignee.id // "" | tostring),
+            assigneeName: (.issue.assignee.login // "")
+          }')
+          echo "====Transformed Payload===="
+          echo "$PAYLOAD" | jq '.'
+          curl -X POST -H "Authorization: Bearer $DEVLAKE_TOKEN" -H "Content-Type: application/json" -d "$PAYLOAD" $webhook_url
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: dora-pull-request-workflow
+  namespace: argo
+  labels:
+    app.kubernetes.io/component: dora-webhooks
+    workflow.dora/type: pull_requests
+spec:
+  entrypoint: process-pull-request
+  arguments:
+    parameters:
+      - name: body
+      - name: url
+        value: devlake-config-ui.devlake.svc.cluster.local:4000
+  templates:
+    - name: process-pull-request
+      inputs:
+        parameters:
+          - name: body
+          - name: url
+      script:
+        image: alpine
+        command: [sh]
+        envFrom:
+          - secretRef:
+              name: devlake-webhook-secret
+          - configMapRef:
+              name: devlake-webhook-id
+        source: |
+          apk add --no-cache jq curl
+          webhook_url="{{inputs.parameters.url}}"/api/rest/plugins/webhook/connections/$DEVLAKE_HOOK_ID/pull_requests
+          echo '{{inputs.parameters.body}}'
+          # Gitea pull_request payload: { action, number, pull_request: { id,
+          # number, title, body, state ("open"|"closed"), merged (bool),
+          # merged_at, merge_commit_sha, html_url, user, created_at, updated_at,
+          # closed_at, base: {ref}, head: {ref} }, repository: { name, id } }
+          PAYLOAD=$(echo '{{inputs.parameters.body}}' | jq '
+          {
+            id: (.repository.name + "-" + (.pull_request.number | tostring)),
+            pullRequestKey: (.pull_request.number | tostring),
+            displayTitle: .pull_request.title,
+            description: .pull_request.body,
+            status: (if .pull_request.merged == true then "MERGED"
+                     elif .pull_request.state == "open" then "OPEN"
+                     else "CLOSED" end),
+            createdDate: .pull_request.created_at,
+            updatedDate: .pull_request.updated_at,
+            closedDate: (if .pull_request.state == "closed" and (.pull_request.merged != true) then .pull_request.closed_at else null end),
+            mergedDate: (if .pull_request.merged == true then .pull_request.merged_at else null end),
+            mergeCommitSha: (if .pull_request.merged == true then .pull_request.merge_commit_sha else null end),
+            isDraft: (.pull_request.draft // false),
+            type: "PR",
+            url: .pull_request.html_url,
+            authorId: (.pull_request.user.id | tostring),
+            authorName: (.pull_request.user.full_name // .pull_request.user.login),
+            reviewers: [],
+            comments: 0,
+            commits: 0,
+            additions: (.pull_request.additions // 0),
+            deletions: (.pull_request.deletions // 0),
+            changedFiles: (.pull_request.changed_files // 0),
+            baseRef: .pull_request.base.ref,
+            headRef: .pull_request.head.ref,
+            repoId: (.repository.id | tostring),
+            headRepoId: (.repository.id | tostring)
+          }')
+          echo "====Transformed Payload===="
+          echo "$PAYLOAD" | jq '.'
+          curl -X POST -H "Authorization: Bearer $DEVLAKE_TOKEN" -H "Content-Type: application/json" -d "$PAYLOAD" $webhook_url

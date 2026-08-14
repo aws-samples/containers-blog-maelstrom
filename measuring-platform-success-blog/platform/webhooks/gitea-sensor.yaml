@@ -1,0 +1,90 @@
+# Argo Events Sensor — routes Gitea webhooks to the DORA WorkflowTemplates.
+#
+# It listens on the gitea-webhook EventSource dependency and uses the
+# X-Gitea-Event HTTP header to decide which template to submit:
+#
+#   X-Gitea-Event: issues        -> dora-incident-workflow
+#   X-Gitea-Event: pull_request  -> dora-pull-request-workflow
+#
+# The whole Gitea JSON body is passed straight through to the template's `body`
+# parameter (dataKey: body), and each template does the Gitea->DevLake jq
+# transform. Header values arrive as single-element arrays, hence the `.0`.
+#
+# The Sensor submits Workflows into the `argo` namespace, so its ServiceAccount
+# needs create permission on workflows there (see gitea-sensor-rbac.yaml).
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: gitea-dora
+  namespace: argo-events
+spec:
+  template:
+    serviceAccountName: operate-workflow-sa
+  dependencies:
+    - name: gitea-dep
+      eventSourceName: gitea-webhook
+      eventName: gitea
+  triggers:
+    # --- Issues -> incident workflow -----------------------------------------
+    - template:
+        name: issues-trigger
+        conditions: gitea-dep
+        argoWorkflow:
+          operation: submit
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: dora-incident-
+                namespace: argo
+              spec:
+                workflowTemplateRef:
+                  name: dora-incident-workflow
+                arguments:
+                  parameters:
+                    - name: body
+                      value: PLACEHOLDER  # overwritten by the parameter below
+          parameters:
+            - src:
+                dependencyName: gitea-dep
+                dataKey: body
+              dest: spec.arguments.parameters.0.value
+      # Only fire for issue events.
+      filters:
+        data:
+          - path: header.X-Gitea-Event.0
+            type: string
+            value:
+              - issues
+    # --- Pull requests -> PR workflow ----------------------------------------
+    - template:
+        name: pull-request-trigger
+        conditions: gitea-dep
+        argoWorkflow:
+          operation: submit
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: dora-pull-request-
+                namespace: argo
+              spec:
+                workflowTemplateRef:
+                  name: dora-pull-request-workflow
+                arguments:
+                  parameters:
+                    - name: body
+                      value: PLACEHOLDER  # overwritten by the parameter below
+          parameters:
+            - src:
+                dependencyName: gitea-dep
+                dataKey: body
+              dest: spec.arguments.parameters.0.value
+      filters:
+        data:
+          - path: header.X-Gitea-Event.0
+            type: string
+            value:
+              - pull_request

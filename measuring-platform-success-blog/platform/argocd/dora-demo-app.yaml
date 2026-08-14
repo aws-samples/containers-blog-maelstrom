@@ -1,0 +1,28 @@
+# Optional: manage the demo app via GitOps instead of `kubectl apply`.
+#
+# Point `repoURL` at your fork/clone of this repo (or the Gitea repo you push
+# the app/ manifests to). Every image bump you commit then becomes a synced
+# ArgoCD deployment — which is a nice way to make Lead Time for Changes fall
+# naturally out of "commit -> ArgoCD sync -> Rollout promote".
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dora-demo
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/<your-org>/measuring-success-blog.git
+    targetRevision: main
+    path: app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dora-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
