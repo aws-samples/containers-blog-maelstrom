@@ -45,7 +45,7 @@ resource "helm_release" "argocd" {
   name             = "argocd"
   repository       = "https://argoproj.github.io/argo-helm"
   chart            = "argo-cd"
-  version          = "7.3.0"
+  version          = "10.3.3"
   namespace        = "argocd"
   create_namespace = true
   timeout          = 600
@@ -61,9 +61,16 @@ resource "helm_release" "argocd" {
     value = "true"
   }
 
+  # Pin Redis to a patched, open-source image. Avoid 7.4.0 <= v < 8.0.0
+  # (non-OSS license range) and older alpine bases carrying openssl/zlib/musl CVEs.
+  set {
+    name  = "redis.image.repository"
+    value = "public.ecr.aws/docker/library/redis"
+  }
+
   set {
     name  = "redis.image.tag"
-    value = "7.4.6-alpine"
+    value = "8.6.4-alpine"
   }
 }
 
