@@ -53,22 +53,31 @@ done
 
 # Patch ArgoCD Application to use the new image tag via Helm parameter overrides.
 # This avoids requiring git push access — ArgoCD picks up the override immediately.
+# A merge patch replaces the parameters array wholesale, so we must include the
+# existing clusterName/region params too. We read those from the live app and
+# build the patch with Python to avoid shell quote-escaping issues with jsonpath
+# filters (which silently blank the values when run under some shells).
 echo "▶ Patching ArgoCD agents application with new image tag..."
 
-kubectl patch application platform-root -n argocd --type merge -p "
-spec:
-  source:
-    helm:
-      parameters:
-        - name: clusterName
-          value: \"$(kubectl get application platform-root -n argocd -o jsonpath='{.spec.source.helm.parameters[?(@.name==\"clusterName\")].value}')\"
-        - name: region
-          value: \"$(kubectl get application platform-root -n argocd -o jsonpath='{.spec.source.helm.parameters[?(@.name==\"region\")].value}')\"
-        - name: agents.imageTag
-          value: \"$IMAGE_TAG\"
-        - name: agents.ecrRepo
-          value: \"$ECR_REPO\"
-" 2>/dev/null && echo "✓ ArgoCD application patched with imageTag=$IMAGE_TAG" \
+APP_JSON=$(kubectl get application platform-root -n argocd -o json)
+PATCH=$(printf '%s' "$APP_JSON" | python3 -c "
+import sys, json
+app = json.load(sys.stdin)
+existing = {p['name']: p.get('value', '')
+            for p in app['spec']['source']['helm'].get('parameters', [])}
+cluster = existing.get('clusterName') or '$EKS_CLUSTER_NAME'
+region  = existing.get('region') or '$AWS_REGION'
+patch = {'spec': {'source': {'helm': {'parameters': [
+    {'name': 'clusterName',     'value': cluster},
+    {'name': 'region',          'value': region},
+    {'name': 'agents.imageTag', 'value': '$IMAGE_TAG'},
+    {'name': 'agents.ecrRepo',  'value': '$ECR_REPO'},
+]}}}}
+print(json.dumps(patch))
+")
+
+kubectl patch application platform-root -n argocd --type merge -p "$PATCH" \
+  && echo "✓ ArgoCD application patched with imageTag=$IMAGE_TAG" \
   || echo "  ⚠ ArgoCD patch failed — falling back to direct kubectl rollout"
 
 # Also directly update the deployments as a fallback (ArgoCD self-heals to match)

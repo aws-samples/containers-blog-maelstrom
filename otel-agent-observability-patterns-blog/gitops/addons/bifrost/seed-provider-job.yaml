@@ -83,12 +83,27 @@ spec:
 
               # 4. Ensure the governance plugin is NOT enabled.
               # On Bifrost v1.6.x the governance plugin enforces a virtual key on
-              # every inference call even with is_vk_mandatory=false, which breaks
-              # the agents (HTTP 401 virtual_key_required). Virtual keys are already
-              # disabled globally via config.enforceAuthOnInference=false in the
-              # Bifrost Helm values, so the plugin is unnecessary here. Delete it if
-              # a previous run (or persisted PVC state) left it enabled.
+              # every inference call, which breaks the agents. Delete it if a
+              # previous run (or persisted PVC state) left it enabled.
               curl -s -X DELETE "$BIFROST_HOST/api/plugins/governance" > /dev/null 2>&1 || true
-              echo "Governance plugin disabled (VK enforcement off)."
+              echo "Governance plugin disabled."
+
+              # 5. Disable virtual-key enforcement on inference.
+              # This is the real control. Bifrost persists client_config to its PVC
+              # and boots with enforce_auth_on_inference=true, ignoring the Helm
+              # chart's config.enforceAuthOnInference value. Without this the agents
+              # fail every call with HTTP 401 virtual_key_required (survives pod
+              # restarts because the PVC keeps the flag true).
+              # Read the current config, flip the flag, and PUT it back. The API
+              # accepts the full config object. Pure curl+sed — this container
+              # (curlimages/curl) has no python or jq.
+              CFG=$(curl -sf "$BIFROST_HOST/api/config")
+              if [ -n "$CFG" ]; then
+                printf '%s' "$CFG" \
+                  | sed 's/"enforce_auth_on_inference":[[:space:]]*true/"enforce_auth_on_inference":false/' \
+                  | curl -s -X PUT "$BIFROST_HOST/api/config" \
+                      -H "Content-Type: application/json" -d @- > /dev/null 2>&1 || true
+                echo "Virtual-key enforcement disabled (enforce_auth_on_inference=false)."
+              fi
 
               echo "Bifrost seeding complete."
