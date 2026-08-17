@@ -2,6 +2,13 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Apply OS security patches from the base image's distro (Debian).
+# The python:3.12-slim base can ship packages (e.g. util-linux) with known
+# CVEs; upgrading at build time pulls the patched versions.
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY image-build/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
