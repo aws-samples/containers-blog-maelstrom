@@ -33,3 +33,7 @@ build.log
 
 # Secrets (never commit real credentials)
 # config.env is committed as a template with defaults only
+
+# Blog draft and architecture diagram — published separately, not part of this repo
+blog-observability-agents-eks-v2.md
+images/architecture.drawio
