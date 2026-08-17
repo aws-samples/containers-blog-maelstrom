@@ -99,11 +99,14 @@ spec:
               value: "0.0.0.0"
           resources:
             requests:
-              cpu: "1"
-              memory: 2Gi
+              cpu: 500m
+              memory: 1500Mi
             limits:
-              cpu: "4"
-              memory: 6Gi
+              # Keep the memory limit within a single node's capacity (nodes are
+              # ~4Gi). A limit larger than the node is meaningless and a limit
+              # equal to it risks node-level memory pressure.
+              cpu: "2"
+              memory: 3Gi
           # Langfuse's /api/public/health pings Postgres, ClickHouse and Redis and
           # can take several seconds. The default probe timeout is 1s, which caused
           # the container to be repeatedly killed ("context deadline exceeded") even
