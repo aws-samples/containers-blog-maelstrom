@@ -91,11 +91,14 @@ def invoke(request: InvokeRequest):
     try:
         result = agent(request.query)
 
-        usage = getattr(result, "usage", None)
+        # Strands AgentResult exposes token usage under
+        # result.metrics.accumulated_usage (a Usage dict), not result.usage.
+        metrics = getattr(result, "metrics", None)
+        usage = getattr(metrics, "accumulated_usage", None) if metrics else None
         return InvokeResponse(
             response=str(result),
-            tokens_input=usage.input_tokens if usage else 0,
-            tokens_output=usage.output_tokens if usage else 0,
+            tokens_input=usage.get("inputTokens", 0) if usage else 0,
+            tokens_output=usage.get("outputTokens", 0) if usage else 0,
         )
     except Exception as e:
         logger.error("Agent invocation failed: %s", e)
