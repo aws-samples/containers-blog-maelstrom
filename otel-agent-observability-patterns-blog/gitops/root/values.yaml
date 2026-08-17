@@ -9,7 +9,10 @@ namespaces:
 # Pattern 1 (Decentralized): direct to Langfuse OTLP endpoint
 # Pattern 2 (Centralized):   to the OTEL Collector (otel-collector.observability:4317)
 bifrost:
-  otelTarget: "http://langfuse-web.observability:3000/api/public/otel"
+  # Bifrost uses collector_url verbatim (it does NOT append the OTLP signal
+  # path), so the Langfuse OTLP traces path /v1/traces must be included here.
+  # Without it Bifrost's span exports hit /api/public/otel and get HTTP 404.
+  otelTarget: "http://langfuse-web.observability:3000/api/public/otel/v1/traces"
   otelProtocol: "http"
 
 agents:

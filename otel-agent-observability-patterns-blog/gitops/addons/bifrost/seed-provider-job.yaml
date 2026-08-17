@@ -26,11 +26,13 @@ spec:
               value: "http://bifrost.agents:8080"
             - name: AWS_REGION
               value: "us-west-2"
-            # OTEL target — matches gitops/root/values.yaml bifrost.otelTarget
-            # Pattern 1: http://langfuse-web.observability:3000/api/public/otel
-            # Pattern 2: otel-collector-opentelemetry-collector.observability:4317
+            # OTEL target — matches gitops/root/values.yaml bifrost.otelTarget.
+            # Bifrost uses this URL verbatim (no OTLP signal-path appending), so
+            # the Langfuse traces path /v1/traces MUST be included or exports 404.
+            # Pattern 1: http://langfuse-web.observability:3000/api/public/otel/v1/traces
+            # Pattern 2: otel-collector-opentelemetry-collector.observability:4317 (gRPC, no path)
             - name: OTEL_TARGET
-              value: "http://langfuse-web.observability:3000/api/public/otel"
+              value: "http://langfuse-web.observability:3000/api/public/otel/v1/traces"
             - name: OTEL_PROTOCOL
               value: "http"
           command:
@@ -62,6 +64,11 @@ spec:
                 AUTH_HEADER=$(echo -n "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" | base64)
               fi
 
+              # Delete any pre-existing otel plugin first (the Bifrost Helm chart
+              # may create one at install with a stale collector_url). POST alone
+              # returns 409 if it exists, silently keeping the wrong URL. Deleting
+              # first makes this seed config authoritative.
+              curl -s -X DELETE "$BIFROST_HOST/api/plugins/otel" > /dev/null 2>&1 || true
               curl -sf -X POST "$BIFROST_HOST/api/plugins" \
                 -H "Content-Type: application/json" \
                 -d "{

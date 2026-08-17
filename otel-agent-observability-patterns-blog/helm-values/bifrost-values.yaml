@@ -26,7 +26,9 @@ plugins:
     config:
       service_name: "bifrost"
       # Default: direct to Langfuse (Pattern 1). Overridden to Collector for Pattern 2.
-      collector_url: "http://langfuse-web.observability:3000/api/public/otel"
+      # Bifrost uses this URL verbatim (no OTLP signal-path appending), so the
+      # Langfuse traces path /v1/traces is required — otherwise exports 404.
+      collector_url: "http://langfuse-web.observability:3000/api/public/otel/v1/traces"
       trace_type: "genai_extension"
       protocol: "http"
       insecure: true
