@@ -99,10 +99,10 @@ spec:
               value: "0.0.0.0"
           resources:
             requests:
-              cpu: 500m
-              memory: 1Gi
+              cpu: "1"
+              memory: 2Gi
             limits:
-              cpu: "2"
+              cpu: "4"
               memory: 6Gi
           # Langfuse's /api/public/health pings Postgres, ClickHouse and Redis and
           # can take several seconds. The default probe timeout is 1s, which caused
