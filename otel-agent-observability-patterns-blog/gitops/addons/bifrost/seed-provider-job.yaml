@@ -81,10 +81,14 @@ spec:
                 }"
               echo ""
 
-              # 4. Disable VK requirement via governance plugin
-              curl -sf -X POST "$BIFROST_HOST/api/plugins" \
-                -H "Content-Type: application/json" \
-                -d '{"name":"governance","enabled":true,"version":1,"config":{"is_vk_mandatory":false}}'
-              echo ""
+              # 4. Ensure the governance plugin is NOT enabled.
+              # On Bifrost v1.6.x the governance plugin enforces a virtual key on
+              # every inference call even with is_vk_mandatory=false, which breaks
+              # the agents (HTTP 401 virtual_key_required). Virtual keys are already
+              # disabled globally via config.enforceAuthOnInference=false in the
+              # Bifrost Helm values, so the plugin is unnecessary here. Delete it if
+              # a previous run (or persisted PVC state) left it enabled.
+              curl -s -X DELETE "$BIFROST_HOST/api/plugins/governance" > /dev/null 2>&1 || true
+              echo "Governance plugin disabled (VK enforcement off)."
 
               echo "Bifrost seeding complete."
