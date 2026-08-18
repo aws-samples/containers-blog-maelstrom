@@ -245,11 +245,20 @@ open in a browser.)
 
 ```text
 Starting port-forwards...
-  Gitea                        -> http://localhost:3000  (gitea_admin / gitea_admin_pass)
-  DevLake config-ui            -> http://localhost:4000
-  Grafana (DORA dashboards)    -> http://localhost:3001  (admin / admin)
-  DevLake lake API             -> http://localhost:8080  (used by setup scripts)
+  Gitea                          -> http://localhost:3000  (gitea_admin / gitea_admin_pass)
+  DevLake config-ui + Grafana    -> http://localhost:4000  (Grafana at /grafana)
+  DevLake lake API               -> http://localhost:8080  (used by setup scripts)
 ```
+
+> The DevLake config UI at `:4000` also serves Grafana under `/grafana`, so the
+> DORA dashboards live at **http://localhost:4000/grafana/**. Don't port-forward
+> Grafana on its own — it's pinned to serve at `/grafana` and redirects to
+> `localhost:3000`, which collides with the Gitea tunnel. Log in as `admin`; the
+> password is generated at install time — retrieve it with:
+>
+> ```bash
+> kubectl -n devlake get secret devlake-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
+> ```
 
 **1b. Seed Gitea with the demo repo.** DevLake computes *Lead Time for
 Changes* by joining deployment records to Git commits, so it needs a Git
@@ -318,7 +327,7 @@ controller at the same webhook connection. The poster is the controller
 `1`):
 
 ```bash
-export DEVLAKE_WEBHOOK_URL="http://devlake-config-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
+export DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
 ./scripts/60-configure-rollout-notifications.sh
 ```
 
@@ -351,9 +360,9 @@ demand with:
 ./scripts/70-calculate-metrics.sh
 ```
 
-and view them in the Grafana tunnel the helper opened in step 1a
-(http://localhost:3001, sign in as `admin` / `admin`, then open the DORA
-dashboard).
+and view them in Grafana via the config UI tunnel from step 1a
+(http://localhost:4000/grafana/, sign in as `admin` with the generated password
+from the `devlake-grafana` secret, then open the DORA dashboard).
 
 ![Grafana DORA dashboard on first open, before any deploys](images/grafana-dora-overview.png)
 *Figure 6 — Grafana DORA dashboard before you generate any data — every panel
@@ -403,13 +412,21 @@ Ready:   1
 Available: 1
 ```
 
-Repeat a few times with different tags to build a trend:
+Repeat a few times with different tags to build a trend. `ship.sh` only *starts*
+the rollout — the canary takes ~30s+ to reach a pause — so the loop waits until
+the rollout is actually `Paused` before promoting, then uses `promote --full` to
+drive it all the way to `Healthy` (a bare `promote` fired too early would skip
+the timed pause and then stall at the indefinite manual gate):
 
 ```bash
 for tag in blue orange purple yellow; do
   ./scripts/ship.sh "$tag"
-  kubectl argo rollouts promote dora-demo -n dora-demo
-  kubectl argo rollouts status dora-demo -n dora-demo
+  # wait until the rollout reaches a pause, then promote through to Healthy
+  until [ "$(kubectl -n dora-demo get rollout dora-demo -o jsonpath='{.status.phase}')" = "Paused" ]; do
+    sleep 3
+  done
+  kubectl argo rollouts promote dora-demo -n dora-demo --full
+  kubectl argo rollouts status dora-demo -n dora-demo   # blocks until Healthy
 done
 ```
 

@@ -54,7 +54,7 @@ kubectl -n devlake port-forward svc/devlake-lake 8080:8080 &
 ./scripts/55-configure-gitea-webhooks.sh
 
 # Automatic deployment recording (use the connection id script 52 printed).
-export DEVLAKE_WEBHOOK_URL="http://devlake-config-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
+export DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
 ./scripts/60-configure-rollout-notifications.sh
 ```
 
@@ -74,11 +74,13 @@ kubectl -n devlake port-forward svc/devlake-lake 8080:8080 &   # if not already
 ./scripts/70-calculate-metrics.sh
 ```
 
-…and view them in Grafana:
+…and view them in Grafana (served by the config UI under /grafana):
 
 ```bash
-kubectl -n devlake port-forward svc/devlake-grafana 3001:3000 &
-# http://localhost:3001  (admin / admin) -> the DORA dashboard
+kubectl -n devlake port-forward svc/devlake-ui 4000:4000 &
+# http://localhost:4000/grafana/ -> the DORA dashboard
+# Login: user 'admin'; password is generated — fetch it with:
+#   kubectl -n devlake get secret devlake-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
 ```
 
 > **How a deploy is recorded:** `ship.sh` sets the Rollout's image and stamps the
@@ -108,10 +110,18 @@ kubectl argo rollouts promote dora-demo -n dora-demo
 When the rollout goes **Healthy**, a `SUCCESS` deployment is recorded. Repeat a
 few times with different tags to build a trend:
 
+`ship.sh` only starts the rollout (the canary takes ~30s+ to reach a pause), so
+wait until it's actually `Paused` before promoting, then `promote --full` drives
+it to `Healthy`. A bare `promote` fired immediately would skip the timed pause
+and then stall at the indefinite manual gate.
+
 ```bash
 for tag in blue green orange purple; do
   ./scripts/ship.sh "$tag"
-  kubectl argo rollouts promote dora-demo -n dora-demo
+  until [ "$(kubectl -n dora-demo get rollout dora-demo -o jsonpath='{.status.phase}')" = "Paused" ]; do
+    sleep 3
+  done
+  kubectl argo rollouts promote dora-demo -n dora-demo --full
   kubectl argo rollouts status dora-demo -n dora-demo   # blocks until Healthy
 done
 ```

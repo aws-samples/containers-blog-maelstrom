@@ -22,8 +22,7 @@ PID_FILE="${ROOT_DIR}/.port-forward.pids"
 # label | namespace | service | local:remote | browser URL
 TUNNELS=(
   "Gitea|gitea|gitea-http|3000:3000|http://localhost:3000  (gitea_admin / gitea_admin_pass)"
-  "DevLake config-ui|devlake|devlake-config-ui|4000:4000|http://localhost:4000"
-  "Grafana (DORA dashboards)|devlake|devlake-grafana|3001:3000|http://localhost:3001  (admin / admin)"
+  "DevLake config-ui + Grafana|devlake|devlake-ui|4000:4000|http://localhost:4000  (Grafana at /grafana; user admin, pw in secret devlake-grafana)"
   "DevLake lake API|devlake|devlake-lake|8080:8080|http://localhost:8080  (used by setup scripts)"
 )
 

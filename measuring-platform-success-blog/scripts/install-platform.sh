@@ -72,7 +72,7 @@ Next steps:
        ./scripts/52-setup-devlake-project.sh
        ./scripts/55-configure-gitea-webhooks.sh
 
-       export DEVLAKE_WEBHOOK_URL="http://devlake-config-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
+       export DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
        ./scripts/60-configure-rollout-notifications.sh
 
   4. Ship a version with ./scripts/ship.sh <tag> to start recording

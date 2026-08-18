@@ -183,7 +183,7 @@ kubectl apply -f app/rollout.yaml
 ./scripts/55-configure-gitea-webhooks.sh
 
 #    Automatic deployment recording (connection id printed by script 52):
-export DEVLAKE_WEBHOOK_URL="http://devlake-config-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
+export DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
 ./scripts/60-configure-rollout-notifications.sh
 
 # 4. Ship changes — deployments record themselves:
@@ -269,8 +269,12 @@ Default creds: `gitea_admin` / `gitea_admin_pass` (set in
 ```
 
 Exposes:
-- **config-ui** on `:4000` — where you set up connections/blueprints.
-- **Grafana** on `:3001` — the DORA dashboards (`admin` / `admin`).
+- **config-ui** on `:4000` — where you set up connections/blueprints. It also
+  proxies **Grafana** under `/grafana`, so the DORA dashboards are at
+  `http://localhost:4000/grafana/`. Don't port-forward Grafana directly — it's
+  pinned to serve at `/grafana` and redirects to `localhost:3000`, colliding
+  with Gitea. Log in as `admin`; the password is generated — fetch it with
+  `kubectl -n devlake get secret devlake-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo`.
 
 ### 5.7 Set up the DevLake project + webhooks + deployment recording
 
@@ -374,7 +378,7 @@ The poster is the **controller running inside the cluster**, so use the
 in-cluster config-ui DNS name, not `localhost`:
 
 ```bash
-export DEVLAKE_WEBHOOK_URL="http://devlake-config-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
+export DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
 ./scripts/60-configure-rollout-notifications.sh
 ```
 
@@ -515,7 +519,15 @@ kubectl argo rollouts promote dora-demo -n dora-demo
 If you didn't open the browser tunnels earlier, do it now:
 
 ```bash
-./scripts/port-forward.sh          # http://localhost:3001  Grafana (admin / admin)
+./scripts/port-forward.sh          # then open http://localhost:4000/grafana/
+```
+
+Grafana is served by the config UI under `/grafana`, so it rides the same
+`:4000` tunnel — open **http://localhost:4000/grafana/**. Log in as `admin`
+with the generated password:
+
+```bash
+kubectl -n devlake get secret devlake-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
 ```
 
 Open the **DORA** dashboard (provisioned by the DevLake chart). DevLake only

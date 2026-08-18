@@ -110,6 +110,7 @@ while :; do
 done
 
 echo ""
-echo "Metrics computed. View the DORA dashboards in Grafana:"
-echo "  kubectl -n devlake port-forward svc/devlake-grafana 3001:3000"
-echo "  open http://localhost:3001   (admin / admin)"
+echo "Metrics computed. View the DORA dashboards in Grafana (served by the config UI):"
+echo "  kubectl -n devlake port-forward svc/devlake-ui 4000:4000"
+echo "  open http://localhost:4000/grafana/   (user 'admin'; password from the secret:)"
+echo "  kubectl -n devlake get secret devlake-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo"

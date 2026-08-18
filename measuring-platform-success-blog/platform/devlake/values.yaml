@@ -45,12 +45,38 @@ mysql:
 # --- Grafana: DORA dashboards ----------------------------------------------
 grafana:
   enabled: true
-  # Default login is admin / admin. The DORA dashboards are provisioned by the
-  # chart automatically.
+  # Login is user "admin"; the password is generated into the devlake-grafana
+  # secret (kubectl -n devlake get secret devlake-grafana \
+  #   -o jsonpath='{.data.admin-password}' | base64 -d). The DORA dashboards are
+  # provisioned by the chart automatically.
   # The dashboard image is separate from the lake/config-ui images and does not
   # inherit the global imageTag, so pin it explicitly to the same app version.
   image:
     tag: v1.0.3-beta14
+  # Fix the MySQL datasource. The DevLake Grafana image bakes a datasource whose
+  # host is "mysql" (its docker-compose service name), but the Helm chart names
+  # the service "devlake-mysql" — so Grafana panels fail with
+  # "lookup mysql ...: server misbehaving". Provisioning a datasource with the
+  # SAME uid (devlake-mysql-api) overrides the baked one on startup and points it
+  # at the real service. (upstream grafana subchart honors grafana.datasources.)
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: mysql
+          uid: devlake-mysql-api
+          type: mysql
+          access: proxy
+          url: devlake-mysql:3306
+          user: merico
+          database: lake
+          isDefault: true
+          jsonData:
+            connMaxLifetime: 14400
+            maxIdleConns: 100
+            maxOpenConns: 100
+          secureJsonData:
+            password: merico
   # Grafana was being OOM-killed (exit 137) — with no limit set, that's the NODE
   # running out of memory and the kernel picking Grafana. A request gives it
   # guaranteed headroom (and lets Auto Mode place it on the roomy node), and the

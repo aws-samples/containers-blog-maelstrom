@@ -21,11 +21,18 @@ metadata:
   namespace: argo-rollouts
 data:
   # --- Where to send notifications --------------------------------------
+  # The DevLake Incoming Webhook requires an API key: without the
+  # "Authorization: Bearer <apiKey>" header it rejects every POST with
+  # HTTP 401 "token is missing" and no deployment is recorded. Both
+  # $devlake-webhook-url and $devlake-webhook-token come from the companion
+  # Secret (argo-rollouts-notification-secret), populated by script 60.
   service.webhook.devlake: |
     url: $devlake-webhook-url
     headers:
       - name: Content-Type
         value: application/json
+      - name: Authorization
+        value: Bearer $devlake-webhook-token
 
   # --- When to fire -----------------------------------------------------
   # oncePer ensures exactly one notification per new ReplicaSet (pod hash),
