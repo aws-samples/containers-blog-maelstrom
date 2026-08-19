@@ -26,7 +26,7 @@ spec:
     parameters:
       - name: body
       - name: url
-        value: devlake-config-ui.devlake.svc.cluster.local:4000
+        value: devlake-ui.devlake.svc.cluster.local:4000
   templates:
     - name: process-incident
       inputs:
@@ -85,7 +85,7 @@ spec:
     parameters:
       - name: body
       - name: url
-        value: devlake-config-ui.devlake.svc.cluster.local:4000
+        value: devlake-ui.devlake.svc.cluster.local:4000
   templates:
     - name: process-pull-request
       inputs:

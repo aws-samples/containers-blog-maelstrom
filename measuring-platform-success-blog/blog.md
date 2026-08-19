@@ -446,38 +446,37 @@ time:
      C13 (added expected output + Grafana screenshot placeholder). -->
 ### 3. Lead Time for Changes
 
-Lead Time for Changes measures the time from a commit landing in `main` to
-that change being deployed to production. The mechanic that makes this work
-is that every deployment record carries the commit SHA it shipped — `ship.sh`
-stamps it onto the Rollout as an annotation, and DevLake joins it against the
-commit it collected from Gitea. If the SHA isn't stamped, the record still
-counts toward Deployment Frequency but doesn't contribute to Lead Time.
+Lead Time for Changes measures how long it takes a change to go from a merged
+pull request to running in production. This one is **PR-based**, so it needs a
+merged PR to measure — and the mechanic that ties it together is the commit
+SHA. When you merge a PR, the Gitea webhook posts a pull-request record to
+DevLake carrying the PR's `createdDate`, `mergedDate`, and its **merge commit
+SHA**. When you then deploy, the deployment record carries the commit SHA it
+shipped. DevLake matches the deployment's SHA to the PR's merge commit SHA and
+computes lead time = *deploy finished − PR opened*. The critical step is
+therefore to **deploy the PR's merge commit**, not the branch tip — otherwise
+the deployment and the PR never link and the panel stays empty.
 
-Make a real commit in the `dora-demo` repo, then ship that specific commit:
+So the flow is: branch → commit → open a PR → merge it → ship that merge
+commit. Make sure the Gitea tunnel from step 1a is up (`http://localhost:3000`).
+
+`scripts/ship-pr.sh` runs the whole flow in one command:
 
 ```bash
-cd /tmp/dora-demo
-echo "// tweak $(date -u +%FT%TZ)" >> services.yaml
-git commit -am "adjust demo service"
-git push origin main
-SHA="$(git rev-parse HEAD)"
-cd -   # back to measuring-platform-success-blog
-
-./scripts/ship.sh green "$SHA"
-kubectl argo rollouts promote dora-demo -n dora-demo
+./scripts/ship-pr.sh green      # image tag is optional; defaults to green
 ```
 
-Expected output:
+Under the hood it:
 
-```text
-==> Shipping tag=green sha=8f3c2a1... to dora-demo
-rollout.argoproj.io/dora-demo image updated
-rollout.argoproj.io/dora-demo annotated  (dora.dev/commit-sha=8f3c2a1...)
-```
-
-If you're working *inside* the `/tmp/dora-demo` clone,
-`./scripts/ship.sh green` on its own auto-detects `HEAD` and stamps the SHA
-for you.
+1. **Branches, commits, and pushes** a change to your `dora-demo` clone.
+2. **Opens a pull request** (`main` ← the new branch) and **merges it** via the
+   Gitea API. Merging fires the Gitea webhook, which records the PR in DevLake
+   with its `createdDate`, `mergedDate`, and **merge commit SHA**.
+3. **Ships the PR's merge commit** — it reads the `merge_commit_sha` and calls
+   `ship.sh green <merge_sha>`, so the deployment's commit SHA equals the PR's
+   merge commit. That exact-SHA match is the link DevLake uses to compute lead
+   time; shipping the branch tip instead would never link.
+4. **Waits for the canary's manual pause, then promotes** to Healthy.
 
 Recompute and check Grafana:
 
@@ -486,56 +485,57 @@ Recompute and check Grafana:
 ```
 
 ![Lead Time for Changes panel](images/grafana-lead-time.png)
-*Figure 8 — Lead Time for Changes, median commit → deploy duration.*
+*Figure 8 — Lead Time for Changes, median PR-merge → deploy duration.*
 
-DevLake only counts a deployment toward Lead Time when it can find the
-matching commit in the Gitea data it collected. If Lead Time stays empty,
-re-run the blueprint (script 70) so DevLake picks up the latest Gitea
-commits, then check again.
+If Lead Time stays empty, the usual cause is a **SHA mismatch**: the deployment
+was shipped with the branch-tip SHA instead of the PR's `merge_commit_sha`, so
+DevLake can't link the deploy to the PR. Confirm the shipped SHA equals
+`merge_commit_sha` from step 3, then re-run `70-calculate-metrics.sh`.
 
 <!-- REWRITTEN — addresses C0.3 (narrated steps) and C14 (added expected output
      + Grafana screenshot placeholder). -->
 ### 4. Change Failure Rate
 
-Change Failure Rate captures the share of deployments that fail — the
-deployments that require a rollback, a hotfix, or otherwise degrade service.
-You'll drive it by shipping a "bad" version and aborting it at the canary
-gate, which is exactly the pattern the platform is designed to catch.
+Change Failure Rate is the share of deployments that led to a failure in
+production. The important thing to understand is **how DevLake decides a
+deployment "failed": by incidents, not by the rollout's outcome.** DevLake
+links incidents to deployments **by timestamp** — an incident whose creation
+time falls after a deployment (and before the next one) marks *that* deployment
+as a change failure. An *incident* is simply a Gitea **issue** (the webhook
+records each issue as an `INCIDENT`). So `CFR = deployments followed by an
+incident ÷ total deployments`, and aborting a rollout on its own doesn't move
+CFR — **opening an issue after the deploy is what does.**
 
-Ship a version and then abort at the manual pause instead of promoting:
+`scripts/ship-with-incident.sh` runs the whole pattern in one command (make
+sure the Gitea tunnel from step 1a is up):
 
 ```bash
-./scripts/ship.sh red
-kubectl argo rollouts get rollout dora-demo -n dora-demo --watch
-
-# In another terminal, once the canary is paused at 50%:
-kubectl argo rollouts abort dora-demo -n dora-demo
+./scripts/ship-with-incident.sh red      # image tag is optional; defaults to red
 ```
 
-Expected output from the abort:
+Under the hood it:
 
-```text
-rollout 'dora-demo' aborted
-```
+1. **Ships and promotes** a version to Healthy — recording the deployment.
+2. **Opens a Gitea issue** *after* the deploy. That fires the `issues` webhook,
+   which posts the issue to DevLake as an `INCIDENT` (`type=INCIDENT`,
+   `createdDate` = now). Because the incident's timestamp is later than the
+   deployment's finish time, DevLake attributes it to that deployment and marks
+   it a change failure.
 
-The rollout goes **Degraded/aborted** and the controller auto-posts a
-`FAILURE` deployment. Optionally, log the customer-facing incident too — open
-an issue in the `dora-demo` repo (Issues → New Issue in the Gitea UI). The
-Gitea webhook routes it through Argo Events to DevLake as an `INCIDENT`,
-which enriches the failure signal.
-
-Recompute the metrics:
+It prints the issue number — you'll close it in section 5 for Time to Restore.
+Recompute:
 
 ```bash
 ./scripts/70-calculate-metrics.sh
 ```
 
 ![Change Failure Rate panel](images/grafana-change-failure-rate.png)
-*Figure 9 — Change Failure Rate = FAILURE deployments ÷ total deployments.*
+*Figure 9 — Change Failure Rate = deployments followed by an incident ÷ total.*
 
-If you filed the incident issue *after* deployments were already collected,
-re-run `70-calculate-metrics.sh` so the incident maps to the right deployment
-by timestamp — otherwise the panel may not render.
+If CFR stays flat, the incident didn't link: either no `INCIDENT`-typed issue
+reached DevLake (check the `dora-incident-workflow` ran and posted), or the
+issue's timestamp is before the deploy you expected it to mark. The issue must
+be created **after** the deployment it represents.
 
 <!-- REWRITTEN — addresses C0.3 (narrated steps) and C15 (added expected output
      + Grafana screenshot placeholder). NOTE: the old "Quick reference" cheat
@@ -543,37 +543,43 @@ by timestamp — otherwise the panel may not render.
 ### 5. Time to Restore Service
 
 Time to Restore Service — sometimes called Failed Deployment Recovery Time or
-MTTR — measures how long it takes to recover after a failed deployment. This
-exercise picks up right where section 4 left off: with a `FAILURE` on record,
-you restore service by shipping the known-good version and promoting it.
+MTTR — measures how long it takes to recover from an incident. Just like CFR,
+this metric is **incident-driven**: DevLake measures it as the span from the
+incident's `createdDate` to its `resolutionDate` — i.e. from when you opened
+the Gitea issue to when you close it. So this exercise picks up right where
+section 4 left off: **resolve the incident you filed by closing that issue.**
+
+First restore service by shipping the known-good version (this is the real
+recovery, and records a healthy deployment):
 
 ```bash
 ./scripts/ship.sh green
-kubectl argo rollouts promote dora-demo -n dora-demo
-kubectl argo rollouts status dora-demo -n dora-demo   # waits for Healthy
+until [ "$(kubectl -n dora-demo get rollout dora-demo -o jsonpath='{.status.phase}')" = "Paused" ]; do sleep 3; done
+kubectl argo rollouts promote dora-demo -n dora-demo --full
 ```
 
-Expected output:
+Then close the incident issue from section 4 — this is what DevLake actually
+measures for Time to Restore. Use the issue number that
+`ship-with-incident.sh` printed (substitute it for `<N>`):
 
-```text
-rollout 'dora-demo' promoted
-Status: Healthy
+```bash
+GT="http://gitea_admin:gitea_admin_pass@localhost:3000/api/v1/repos/gitea_admin/dora-demo"
+curl -sS -X PATCH "$GT/issues/<N>" -H 'Content-Type: application/json' -d '{"state":"closed"}'
 ```
 
-The recovery records a `SUCCESS`. Time to Restore Service is the gap between
-that `SUCCESS` and the preceding `FAILURE` in `PRODUCTION`. If you opened an
-incident issue in section 4, close it in Gitea now — the webhook posts the
-resolution, and DevLake uses the issue's open→close span as an additional
-restore-time signal.
-
-Recompute the metrics one more time:
+Closing fires the `issues` webhook again, which updates the incident with its
+`resolutionDate` (the close time). Recompute:
 
 ```bash
 ./scripts/70-calculate-metrics.sh
 ```
 
 ![Time to Restore Service panel](images/grafana-time-to-restore.png)
-*Figure 10 — Time to Restore Service, median failure → recovery duration.*
+*Figure 10 — Time to Restore Service, median incident open → resolved duration.*
+
+If it stays empty, the incident was never closed (no `resolutionDate`), or the
+close event didn't reach DevLake — confirm the issue shows `closed` in Gitea
+and the `dora-incident-workflow` ran for the close event.
 
 Run the fail-then-restore cycle two or three times to build a trend the panel
 can plot.

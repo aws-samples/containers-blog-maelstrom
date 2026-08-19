@@ -23,13 +23,11 @@ metadata:
     # Subscribe this Rollout to the DevLake notification triggers defined in
     # platform/argo-rollouts/notifications-configmap.yaml. When the rollout
     # goes Healthy or Degraded/aborted, the controller POSTs a deployment
-    # record to DevLake automatically — no manual curl.
+    # record to DevLake automatically — no manual curl. (These subscriptions
+    # MUST live on the Rollout metadata, which is where the controller reads
+    # them.)
     notifications.argoproj.io/subscribe.on-deploy-success.devlake: ""
     notifications.argoproj.io/subscribe.on-deploy-failure.devlake: ""
-    # The commit SHA that this rollout is shipping. scripts/ship.sh stamps the
-    # real value on each deploy; DevLake reads it to compute Lead Time for
-    # Changes. Left as a placeholder for the very first apply.
-    dora.dev/commit-sha: "initial"
 spec:
   replicas: 4
   revisionHistoryLimit: 5
@@ -40,6 +38,15 @@ spec:
     metadata:
       labels:
         app: dora-demo
+      annotations:
+        # ship.sh overwrites both of these on every deploy. They live in the POD
+        # TEMPLATE (not the Rollout metadata) so each ship changes the
+        # pod-template hash — a real rollout fires and records exactly one
+        # deployment, even when reshipping the same image tag. commit-sha feeds
+        # Lead Time for Changes; deploy-id is a per-ship nonce that guarantees a
+        # new hash. Placeholders here are used for the very first apply.
+        dora.dev/commit-sha: "initial"
+        dora.dev/deploy-id: "initial"
     spec:
       containers:
         - name: dora-demo

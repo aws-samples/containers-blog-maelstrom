@@ -44,6 +44,15 @@ gitea:
       # ROOT_URL is important: DevLake and clone commands use it. When accessed
       # in-cluster the service DNS name is gitea-http.gitea.svc.cluster.local.
       OFFLINE_MODE: false
+    webhook:
+      # CRITICAL for this demo: Gitea refuses to deliver webhooks to private /
+      # local IPs by default, which blocks delivery to the in-cluster Argo Events
+      # endpoint (gitea-webhook-eventsource-svc, a ClusterIP in 10.x). Without
+      # this, issue + pull_request webhooks silently fail with "webhook can only
+      # call allowed HTTP servers", so Change Failure Rate, Time to Restore, and
+      # Lead Time for Changes never populate. "*" allows all hosts (demo-only;
+      # tighten to your cluster CIDR, e.g. "private,10.0.0.0/8", for real use).
+      ALLOWED_HOST_LIST: "*"
     service:
       DISABLE_REGISTRATION: false
 

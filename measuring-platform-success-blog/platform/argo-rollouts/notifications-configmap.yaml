@@ -47,8 +47,11 @@ data:
       send: [devlake-deploy-failure]
 
   # --- What to send (DevLake webhook payloads) --------------------------
-  # commitSha is pulled from the dora.dev/commit-sha annotation that ship.sh
-  # stamps onto the Rollout, so DevLake can compute Lead Time for Changes.
+  # commitSha is pulled from the dora.dev/commit-sha annotation on the POD
+  # TEMPLATE (spec.template.metadata.annotations) that ship.sh stamps on each
+  # deploy, so DevLake can compute Lead Time for Changes. It lives in the pod
+  # template (not the Rollout metadata) so every ship changes the pod-template
+  # hash and triggers exactly one rollout — see scripts/ship.sh.
   template.devlake-deploy-success: |
     webhook:
       devlake:
@@ -64,7 +67,9 @@ data:
               {
                 "repoUrl": "http://gitea-http.gitea.svc.cluster.local:3000/gitea_admin/dora-demo.git",
                 "refName": "main",
-                "commitSha": "{{index .rollout.metadata.annotations "dora.dev/commit-sha"}}",
+                "commitSha": "{{index .rollout.spec.template.metadata.annotations "dora.dev/commit-sha"}}",
+                "result": "SUCCESS",
+                "environment": "PRODUCTION",
                 "startedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}",
                 "finishedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}"
               }
@@ -85,7 +90,9 @@ data:
               {
                 "repoUrl": "http://gitea-http.gitea.svc.cluster.local:3000/gitea_admin/dora-demo.git",
                 "refName": "main",
-                "commitSha": "{{index .rollout.metadata.annotations "dora.dev/commit-sha"}}",
+                "commitSha": "{{index .rollout.spec.template.metadata.annotations "dora.dev/commit-sha"}}",
+                "result": "FAILURE",
+                "environment": "PRODUCTION",
                 "startedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}",
                 "finishedDate": "{{ now | date "2006-01-02T15:04:05-07:00" }}"
               }

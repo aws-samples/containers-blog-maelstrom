@@ -20,15 +20,35 @@ metadata:
 spec:
   template:
     serviceAccountName: operate-workflow-sa
+  # Two dependencies, each filtered by the X-Gitea-Event header, so an issue
+  # event only satisfies gitea-issues and a pull_request event only satisfies
+  # gitea-pr. (Data/header filters are honored at the DEPENDENCY level; putting
+  # them under a trigger is silently ignored, which made both triggers fire for
+  # every event and fed PR payloads into the incident workflow.)
   dependencies:
-    - name: gitea-dep
+    - name: gitea-issues
       eventSourceName: gitea-webhook
       eventName: gitea
+      filters:
+        data:
+          - path: header.X-Gitea-Event.0
+            type: string
+            value:
+              - issues
+    - name: gitea-pr
+      eventSourceName: gitea-webhook
+      eventName: gitea
+      filters:
+        data:
+          - path: header.X-Gitea-Event.0
+            type: string
+            value:
+              - pull_request
   triggers:
     # --- Issues -> incident workflow -----------------------------------------
     - template:
         name: issues-trigger
-        conditions: gitea-dep
+        conditions: gitea-issues
         argoWorkflow:
           operation: submit
           source:
@@ -47,20 +67,13 @@ spec:
                       value: PLACEHOLDER  # overwritten by the parameter below
           parameters:
             - src:
-                dependencyName: gitea-dep
+                dependencyName: gitea-issues
                 dataKey: body
               dest: spec.arguments.parameters.0.value
-      # Only fire for issue events.
-      filters:
-        data:
-          - path: header.X-Gitea-Event.0
-            type: string
-            value:
-              - issues
     # --- Pull requests -> PR workflow ----------------------------------------
     - template:
         name: pull-request-trigger
-        conditions: gitea-dep
+        conditions: gitea-pr
         argoWorkflow:
           operation: submit
           source:
@@ -79,12 +92,6 @@ spec:
                       value: PLACEHOLDER  # overwritten by the parameter below
           parameters:
             - src:
-                dependencyName: gitea-dep
+                dependencyName: gitea-pr
                 dataKey: body
               dest: spec.arguments.parameters.0.value
-      filters:
-        data:
-          - path: header.X-Gitea-Event.0
-            type: string
-            value:
-              - pull_request
