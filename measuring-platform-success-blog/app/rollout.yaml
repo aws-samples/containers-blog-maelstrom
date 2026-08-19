@@ -1,0 +1,79 @@
+# The demo application, deployed as an Argo Rollout instead of a Deployment.
+#
+# This is a canary rollout: new versions get 20% -> 50% -> 100% of traffic with
+# pauses in between, giving us a realistic window to either promote (a healthy
+# deploy) or abort (a failed deploy that must be restored). Each of those
+# actions maps to a DORA metric:
+#
+#   promote a new image ......... Deployment Frequency  (a deployment happened)
+#   time from commit -> promote . Lead Time for Changes
+#   abort / roll back ........... Change Failure Rate   (this deploy failed)
+#   abort -> next good promote .. Time to Restore Service
+#
+# The image tag is what you bump to trigger a new rollout. See
+# app/README-app.md and README.md section 8 for the demo script.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: dora-demo
+  namespace: dora-demo
+  labels:
+    app: dora-demo
+  annotations:
+    # Subscribe this Rollout to the DevLake notification triggers defined in
+    # platform/argo-rollouts/notifications-configmap.yaml. When the rollout
+    # goes Healthy or Degraded/aborted, the controller POSTs a deployment
+    # record to DevLake automatically — no manual curl. (These subscriptions
+    # MUST live on the Rollout metadata, which is where the controller reads
+    # them.)
+    notifications.argoproj.io/subscribe.on-deploy-success.devlake: ""
+    notifications.argoproj.io/subscribe.on-deploy-failure.devlake: ""
+spec:
+  replicas: 4
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: dora-demo
+  template:
+    metadata:
+      labels:
+        app: dora-demo
+      annotations:
+        # ship.sh overwrites both of these on every deploy. They live in the POD
+        # TEMPLATE (not the Rollout metadata) so each ship changes the
+        # pod-template hash — a real rollout fires and records exactly one
+        # deployment, even when reshipping the same image tag. commit-sha feeds
+        # Lead Time for Changes; deploy-id is a per-ship nonce that guarantees a
+        # new hash. Placeholders here are used for the very first apply.
+        dora.dev/commit-sha: "initial"
+        dora.dev/deploy-id: "initial"
+    spec:
+      containers:
+        - name: dora-demo
+          # Public demo image with a settable, visible color/version via env.
+          image: argoproj/rollouts-demo:blue
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /color
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+  strategy:
+    canary:
+      canaryService: dora-demo-canary
+      stableService: dora-demo-stable
+      steps:
+        - setWeight: 20
+        - pause: { duration: 30s }
+        - setWeight: 50
+        - pause: {}            # manual gate — promote or abort here
+        - setWeight: 100

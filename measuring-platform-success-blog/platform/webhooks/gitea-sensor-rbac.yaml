@@ -1,0 +1,36 @@
+# RBAC for the gitea-dora Sensor.
+#
+# The Sensor pod runs in `argo-events` as the `operate-workflow-sa`
+# ServiceAccount but submits Workflows into the `argo` namespace, so it needs a
+# RoleBinding granting workflow create/list/get in `argo` to that cross-namespace
+# ServiceAccount.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: operate-workflow-sa
+  namespace: argo-events
+---
+# Role in the argo namespace: manage Workflows there.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: operate-workflow-role
+  namespace: argo
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflows", "workflowtemplates"]
+    verbs: ["create", "get", "list", "watch", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: operate-workflow-rb
+  namespace: argo
+subjects:
+  - kind: ServiceAccount
+    name: operate-workflow-sa
+    namespace: argo-events
+roleRef:
+  kind: Role
+  name: operate-workflow-role
+  apiGroup: rbac.authorization.k8s.io

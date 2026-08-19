@@ -1,0 +1,38 @@
+# eksctl cluster configuration for the DORA / DevLake showcase.
+#
+# Uses EKS Auto Mode, which lets AWS manage the data plane — compute, block
+# storage, and load balancing — so we don't hand-roll node groups or the EBS
+# CSI addon. Auto Mode also ships with the EKS Pod Identity Agent preinstalled,
+# so workloads get scoped IAM via Pod Identity associations (no OIDC/IRSA).
+#
+# Usage:
+#   eksctl create cluster -f cluster/cluster.yaml
+#
+# Adjust `region` and `version` to taste before applying.
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: dora-showcase
+  region: us-west-2
+  version: "1.36"
+  tags:
+    project: dora-showcase
+    owner: platform-engineering
+
+# Enable EKS Auto Mode. eksctl creates the Cluster IAM Role and a Node IAM Role
+# for Auto Mode-launched nodes, and turns on managed compute/storage/networking.
+# The general-purpose + system node pools comfortably hold ArgoCD, kro, Argo
+# Workflows/Events, Gitea, and DevLake (MySQL + Grafana) plus the demo app.
+autoModeConfig:
+  enabled: true
+  nodePools: ["general-purpose", "system"]
+
+# Auto Mode manages vpc-cni, coredns, kube-proxy, and block storage itself, so
+# disable the self-managed default addons that the non-Auto-Mode path installs.
+addonsConfig:
+  disableDefaultAddons: true
+
+cloudWatch:
+  clusterLogging:
+    enableTypes: ["api", "audit", "authenticator", "controllerManager", "scheduler"]

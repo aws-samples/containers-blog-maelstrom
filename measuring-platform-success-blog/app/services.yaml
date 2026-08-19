@@ -1,0 +1,34 @@
+# Two Services the canary strategy needs: one pinned to the stable ReplicaSet
+# and one to the canary ReplicaSet. Argo Rollouts manages their selectors —
+# you don't edit these during a rollout.
+apiVersion: v1
+kind: Service
+metadata:
+  name: dora-demo-stable
+  namespace: dora-demo
+  labels:
+    app: dora-demo
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app: dora-demo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dora-demo-canary
+  namespace: dora-demo
+  labels:
+    app: dora-demo
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app: dora-demo

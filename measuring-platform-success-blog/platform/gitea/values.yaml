@@ -1,0 +1,65 @@
+# Helm values for Gitea (chart: gitea/gitea).
+#
+# Gitea is our self-hosted Git server. DevLake connects to it to collect the
+# commit / PR / deployment data that powers Lead Time for Changes and Change
+# Failure Rate. We keep it small: a single replica with the built-in SQLite
+# backend so there's no extra database to run.
+#
+# Install:
+#   helm repo add gitea-charts https://dl.gitea.com/charts/
+#   helm install gitea gitea-charts/gitea -n gitea -f platform/gitea/values.yaml
+
+replicaCount: 1
+
+# Use SQLite so we don't need a separate Postgres/MySQL just for Gitea.
+postgresql-ha:
+  enabled: false
+postgresql:
+  enabled: false
+redis-cluster:
+  enabled: false
+redis:
+  enabled: false
+
+persistence:
+  enabled: true
+  size: 10Gi
+
+gitea:
+  admin:
+    # Change these before any non-throwaway use. The demo README assumes them.
+    username: gitea_admin
+    password: gitea_admin_pass
+    email: admin@example.com
+  config:
+    database:
+      DB_TYPE: sqlite3
+    session:
+      PROVIDER: memory
+    cache:
+      ADAPTER: memory
+    queue:
+      TYPE: level
+    server:
+      # ROOT_URL is important: DevLake and clone commands use it. When accessed
+      # in-cluster the service DNS name is gitea-http.gitea.svc.cluster.local.
+      OFFLINE_MODE: false
+    webhook:
+      # CRITICAL for this demo: Gitea refuses to deliver webhooks to private /
+      # local IPs by default, which blocks delivery to the in-cluster Argo Events
+      # endpoint (gitea-webhook-eventsource-svc, a ClusterIP in 10.x). Without
+      # this, issue + pull_request webhooks silently fail with "webhook can only
+      # call allowed HTTP servers", so Change Failure Rate, Time to Restore, and
+      # Lead Time for Changes never populate. "*" allows all hosts (demo-only;
+      # tighten to your cluster CIDR, e.g. "private,10.0.0.0/8", for real use).
+      ALLOWED_HOST_LIST: "*"
+    service:
+      DISABLE_REGISTRATION: false
+
+service:
+  http:
+    type: ClusterIP
+    port: 3000
+  ssh:
+    type: ClusterIP
+    port: 22

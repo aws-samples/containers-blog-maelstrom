@@ -1,0 +1,24 @@
+# Argo Events webhook EventSource — the HTTP endpoint Gitea posts webhooks to.
+#
+# Gitea sends every configured event (issues, pull_request, …) to a single URL;
+# the Sensor (gitea-sensor.yaml) fans them out by inspecting the X-Gitea-Event
+# header. One endpoint keeps the Gitea webhook config simple.
+#
+# The EventSource controller creates a Service named after this resource
+# (`gitea-webhook-eventsource-svc`) on the `port` below. Point Gitea at:
+#   http://gitea-webhook-eventsource-svc.argo-events.svc.cluster.local:12000/gitea
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: gitea-webhook
+  namespace: argo-events
+spec:
+  service:
+    ports:
+      - port: 12000
+        targetPort: 12000
+  webhook:
+    gitea:
+      port: "12000"
+      endpoint: /gitea
+      method: POST

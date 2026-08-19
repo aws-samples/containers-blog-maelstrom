@@ -1,0 +1,79 @@
+# Optional kro ResourceGraphDefinition (RGD).
+#
+# This packages the demo app (namespace + two Services + the Rollout) behind a
+# single custom resource kind, `DoraDemoApp`. It demonstrates the "kro
+# capabilities" of the cluster: you create one high-level object and kro fans
+# it out into the underlying Kubernetes/Argo resources.
+#
+# Apply this RGD once (kubectl apply -f), then create instances with
+# platform/kro/dora-demo-instance.yaml.
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: dora-demo-app
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: DoraDemoApp
+    spec:
+      name: string | default="dora-demo"
+      image: string | default="argoproj/rollouts-demo:blue"
+      replicas: integer | default=4
+  resources:
+    - id: stableService
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${schema.spec.name}-stable
+        spec:
+          type: ClusterIP
+          ports:
+            - port: 80
+              targetPort: 8080
+          selector:
+            app: ${schema.spec.name}
+    - id: canaryService
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${schema.spec.name}-canary
+        spec:
+          type: ClusterIP
+          ports:
+            - port: 80
+              targetPort: 8080
+          selector:
+            app: ${schema.spec.name}
+    - id: rollout
+      template:
+        apiVersion: argoproj.io/v1alpha1
+        kind: Rollout
+        metadata:
+          name: ${schema.spec.name}
+        spec:
+          replicas: ${schema.spec.replicas}
+          selector:
+            matchLabels:
+              app: ${schema.spec.name}
+          template:
+            metadata:
+              labels:
+                app: ${schema.spec.name}
+            spec:
+              containers:
+                - name: app
+                  image: ${schema.spec.image}
+                  ports:
+                    - containerPort: 8080
+          strategy:
+            canary:
+              canaryService: ${schema.spec.name}-canary
+              stableService: ${schema.spec.name}-stable
+              steps:
+                - setWeight: 20
+                - pause: { duration: 30s }
+                - setWeight: 50
+                - pause: {}
+                - setWeight: 100
