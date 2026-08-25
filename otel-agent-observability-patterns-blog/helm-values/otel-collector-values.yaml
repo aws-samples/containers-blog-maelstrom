@@ -1,0 +1,38 @@
+# OTEL Collector Helm values — Pattern 2 (Centralized) only
+# Receives OTLP from agents and Bifrost, forwards traces to Langfuse.
+# No AMP, no Prometheus scrape — single pipeline to Langfuse.
+mode: deployment
+replicaCount: 1
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+
+  processors:
+    batch:
+      timeout: 5s
+      send_batch_size: 256
+
+  exporters:
+    otlphttp/langfuse:
+      endpoint: "http://langfuse-web.observability:3000/api/public/otel"
+      headers:
+        Authorization: "Basic ${env:LANGFUSE_AUTH_TOKEN}"
+        x-langfuse-ingestion-version: "4"
+
+  extensions:
+    health_check:
+      endpoint: "0.0.0.0:13133"
+
+  service:
+    extensions: [health_check]
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [otlphttp/langfuse]

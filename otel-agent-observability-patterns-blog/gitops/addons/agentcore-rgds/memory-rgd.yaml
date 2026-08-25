@@ -1,0 +1,30 @@
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: agentcore-memory
+spec:
+  schema:
+    apiVersion: kro.run/v1alpha1
+    kind: AgentCoreMemory
+    spec:
+      name:
+        type: string
+      namespace:
+        type: string
+  resources:
+    - id: memory
+      apiVersion: bedrockagentcorecontrol.services.k8s.aws/v1alpha1
+      kind: Memory
+      metadata:
+        name: ${schema.spec.name}
+        namespace: ${schema.spec.namespace}
+      spec:
+        name: ${schema.spec.name}
+    - id: secret
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "${schema.spec.name}-memory-outputs"
+        namespace: ${schema.spec.namespace}
+      stringData:
+        id: ${memory.status.id}

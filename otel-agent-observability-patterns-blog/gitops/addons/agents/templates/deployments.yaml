@@ -1,0 +1,100 @@
+{{- range .Values.agents }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .name }}-sa
+  namespace: agents
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: agents
+  labels:
+    app: {{ .name }}
+    app.kubernetes.io/component: agent
+    observability-pattern: {{ .pattern | default "decentralized" }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+        app.kubernetes.io/component: agent
+        observability-pattern: {{ .pattern | default "decentralized" }}
+    spec:
+      serviceAccountName: {{ .name }}-sa
+      containers:
+        - name: agent
+          image: {{ if $.Values.ecrRepo }}{{ $.Values.ecrRepo }}/otel-agents/{{ .name }}:{{ $.Values.imageTag }}{{ else }}{{ .name }}:{{ $.Values.imageTag }}{{ end }}
+          ports:
+            - containerPort: {{ .port }}
+          env:
+            - name: AGENT_NAME
+              value: {{ .name }}
+            - name: OTEL_SERVICE_NAME
+              value: {{ .name }}
+            {{- if eq (.pattern | default "decentralized") "decentralized" }}
+            # --- Pattern 1 (Decentralized): agent sends OTLP directly to Langfuse ---
+            - name: LANGFUSE_BASE_URL
+              value: "http://langfuse-web.observability:3000"
+            - name: LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-api-keys
+                  key: LANGFUSE_PUBLIC_KEY
+            - name: LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-api-keys
+                  key: LANGFUSE_SECRET_KEY
+            {{- else }}
+            # --- Pattern 2 (Centralized): agent sends OTLP to OTEL Collector ---
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector-opentelemetry-collector.observability:4318"
+            {{- end }}
+            # --- Bifrost (LLM gateway for both patterns) ---
+            - name: BIFROST_ENDPOINT
+              value: "http://bifrost.agents:8080"
+            - name: BIFROST_MODEL_ALIAS
+              value: "bedrock/us.anthropic.claude-sonnet-5"
+            - name: AWS_REGION
+              value: {{ $.Values.region }}
+            {{- if .capabilities.memory }}
+            - name: AGENTCORE_MEMORY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}-memory-outputs
+                  key: id
+            {{- end }}
+            {{- if .capabilities.codeInterpreter }}
+            - name: AGENTCORE_CODE_INTERPRETER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}-code-interpreter-outputs
+                  key: id
+            {{- end }}
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: agents
+spec:
+  selector:
+    app: {{ .name }}
+  ports:
+    - port: 8080
+      targetPort: {{ .port }}
+{{- end }}

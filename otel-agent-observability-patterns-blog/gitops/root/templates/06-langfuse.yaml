@@ -1,0 +1,25 @@
+# Langfuse v3 — deployed as raw manifests from gitops/addons/langfuse/
+# Using direct manifests instead of the community Helm chart because the chart
+# has a broken S3 secret reference that prevents OTLP ingestion from working.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: langfuse
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.gitops.repoURL }}
+    targetRevision: {{ .Values.gitops.targetRevision }}
+    path: {{ .Values.gitops.basePath }}/gitops/addons/langfuse
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.observability }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

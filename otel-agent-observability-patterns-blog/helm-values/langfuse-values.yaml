@@ -1,0 +1,32 @@
+# Langfuse Helm values — single observability backend for both patterns
+replicaCount: 1
+
+ingress:
+  enabled: false
+
+postgresql:
+  enabled: true
+  auth:
+    password: "langfuse-demo-pw"
+
+redis:
+  enabled: true
+  auth:
+    password: "langfuse-redis-pw"
+
+clickhouse:
+  enabled: true
+  auth:
+    password: "langfuse-ch-pw"
+
+langfuse:
+  salt:
+    value: ""  # Generated at install time by setup-infra.sh
+  nextauth:
+    secret:
+      value: ""  # Generated at install time by setup-infra.sh
+    url: "http://langfuse.observability:3000"
+
+environment:
+  # Enable OTLP ingestion so agents and Bifrost can send traces via OTLP
+  LANGFUSE_ENABLE_OTEL_INGESTION: "true"

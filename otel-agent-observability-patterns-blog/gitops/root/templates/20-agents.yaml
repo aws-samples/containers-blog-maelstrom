@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agents
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.gitops.repoURL }}
+    targetRevision: {{ .Values.gitops.targetRevision }}
+    path: {{ .Values.gitops.basePath }}/gitops/addons/agents
+    helm:
+      parameters:
+        - name: clusterName
+          value: "{{ .Values.clusterName }}"
+        - name: region
+          value: "{{ .Values.region }}"
+        - name: imageTag
+          value: "{{ .Values.agents.imageTag }}"
+        - name: ecrRepo
+          value: "{{ .Values.agents.ecrRepo }}"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.agents }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

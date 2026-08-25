@@ -1,0 +1,4 @@
+apiVersion: v2
+name: otel-agents
+version: 1.0.0
+description: Agent Deployments with OTEL instrumentation

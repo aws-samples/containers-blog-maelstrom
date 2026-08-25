@@ -1,0 +1,41 @@
+# Bifrost LLM Gateway Helm values
+# Bifrost is the LLM gateway for ALL agent calls in both patterns.
+# The OTEL plugin configuration differs by pattern:
+#   Pattern 1 (Decentralized): Bifrost sends spans directly to Langfuse OTLP
+#   Pattern 2 (Centralized):   Bifrost sends spans to the OTEL Collector
+#
+# The OTEL plugin target is set via the ArgoCD Application values
+# (gitops/root/templates/07-bifrost.yaml) using the BIFROST_OTEL_TARGET env var.
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 8080
+
+serviceAccount:
+  create: true
+  name: bifrost
+
+# OTEL plugin — exports LLM call spans with trace correlation.
+# Bifrost reads inbound W3C traceparent headers and creates child spans,
+# producing a unified trace tree: Agent reasoning → Bifrost LLM call → Bedrock.
+plugins:
+  otel:
+    enabled: true
+    version: 1
+    config:
+      service_name: "bifrost"
+      # Default: direct to Langfuse (Pattern 1). Overridden to Collector for Pattern 2.
+      # Bifrost uses this URL verbatim (no OTLP signal-path appending), so the
+      # Langfuse traces path /v1/traces is required — otherwise exports 404.
+      collector_url: "http://langfuse-web.observability:3000/api/public/otel/v1/traces"
+      trace_type: "genai_extension"
+      protocol: "http"
+      insecure: true
+
+env:
+  - name: AWS_REGION
+    value: "us-west-2"
+
+config:
+  enforceAuthOnInference: false

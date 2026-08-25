@@ -1,0 +1,64 @@
+# OTEL Collector — Pattern 2 (Centralized)
+# Receives OTLP from data-agent and Bifrost, forwards all traces to Langfuse.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-collector
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    chart: opentelemetry-collector
+    repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+    targetRevision: "0.90.*"
+    helm:
+      releaseName: otel-collector
+      valuesObject:
+        mode: deployment
+        replicaCount: 1
+        image:
+          repository: otel/opentelemetry-collector-contrib
+          tag: "0.104.0"
+        extraEnvs:
+          - name: LANGFUSE_AUTH_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: langfuse-api-keys
+                key: LANGFUSE_AUTH_TOKEN
+        config:
+          receivers:
+            otlp:
+              protocols:
+                grpc: { endpoint: "0.0.0.0:4317" }
+                http: { endpoint: "0.0.0.0:4318" }
+          processors:
+            batch:
+              timeout: 5s
+              send_batch_size: 256
+          exporters:
+            otlphttp/langfuse:
+              endpoint: "http://langfuse-web.{{ .Values.namespaces.observability }}:3000/api/public/otel"
+              headers:
+                Authorization: "Basic ${env:LANGFUSE_AUTH_TOKEN}"
+                x-langfuse-ingestion-version: "4"
+          extensions:
+            health_check:
+              endpoint: "0.0.0.0:13133"
+          service:
+            extensions: [health_check]
+            pipelines:
+              traces:
+                receivers: [otlp]
+                processors: [batch]
+                exporters: [otlphttp/langfuse]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.observability }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

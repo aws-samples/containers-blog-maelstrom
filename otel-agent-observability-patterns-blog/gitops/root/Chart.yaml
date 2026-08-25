@@ -1,0 +1,4 @@
+apiVersion: v2
+name: otel-observability-root
+version: 2.0.0
+description: ArgoCD app-of-apps — Bifrost + Langfuse observability patterns

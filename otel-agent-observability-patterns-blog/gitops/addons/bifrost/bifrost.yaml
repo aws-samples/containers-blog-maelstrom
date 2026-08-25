@@ -1,0 +1,3 @@
+# This file is kept for reference. Bifrost is now deployed via the
+# official Helm chart through the ArgoCD Application in
+# gitops/root/templates/07-bifrost.yaml

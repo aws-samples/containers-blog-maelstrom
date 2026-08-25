@@ -1,0 +1,24 @@
+{{- range .Values.agents }}
+{{- if .capabilities.memory }}
+---
+apiVersion: kro.run/v1alpha1
+kind: AgentCoreMemory
+metadata:
+  name: {{ .name }}
+  namespace: agents
+spec:
+  name: {{ .name | replace "-" "_" }}_memory
+  namespace: agents
+{{- end }}
+{{- if .capabilities.codeInterpreter }}
+---
+apiVersion: kro.run/v1alpha1
+kind: AgentCoreCodeInterpreter
+metadata:
+  name: {{ .name }}
+  namespace: agents
+spec:
+  name: {{ .name | replace "-" "_" }}_code_interpreter
+  namespace: agents
+{{- end }}
+{{- end }}

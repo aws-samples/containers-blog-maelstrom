@@ -1,0 +1,13 @@
+strands-agents[openai,otel]~=1.0
+strands-agents-tools>=0.1.0
+# Pin OTLP exporter to version compatible with Langfuse v3.x OTLP ingestion.
+# v1.44+ uses protobuf encoding that Langfuse cannot parse (returns HTTP 500).
+opentelemetry-api==1.30.0
+opentelemetry-sdk==1.30.0
+opentelemetry-exporter-otlp-proto-http==1.30.0
+opentelemetry-proto==1.30.0
+opentelemetry-instrumentation-httpx>=0.46b0
+httpx>=0.27.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.2
+pydantic~=2.0
