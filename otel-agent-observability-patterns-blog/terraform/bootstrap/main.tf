@@ -68,9 +68,12 @@ resource "helm_release" "argocd" {
     value = "public.ecr.aws/docker/library/redis"
   }
 
+  # 8.6.6-alpine rebuilds on alpine-minirootfs-3.23.5, which ships
+  # openssl 3.5.8-r0 — fixing CVE-2026-14456, CVE-2026-14457, CVE-2026-18798
+  # (High) present in the openssl 3.5.7-r0 base of the earlier 8.6.4-alpine build.
   set {
     name  = "redis.image.tag"
-    value = "8.6.4-alpine"
+    value = "8.6.6-alpine"
   }
 }
 
