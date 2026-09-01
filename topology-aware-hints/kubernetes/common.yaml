@@ -278,6 +278,6 @@ spec:
     \     http:\n        endpoint: 0.0.0.0:4318\n        \nexporters:\n  awsxray:\n\nextensions:\n
     \ awsproxy:\n\nservice:\n  extensions: [awsproxy]\n  pipelines:\n    traces:\n
     \     receivers: [otlp]\n      processors: []\n      exporters: [awsxray]"
-  image: public.ecr.aws/aws-observability/aws-otel-collector:v0.21.0
+  image: public.ecr.aws/aws-observability/aws-otel-collector:v0.41.1
   mode: deployment
   serviceAccount: opentelemetry-collector

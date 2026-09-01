@@ -20,21 +20,27 @@ terraform {
 provider "aws" {}
 
 provider "kubernetes" {
-  host                   = module.eks_blueprints.eks_cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks_blueprints.eks_cluster_certificate_authority_data)
-  token                  = data.aws_eks_cluster_auth.this.token
+  host                   = module.eks_blueprints.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks_blueprints.cluster_certificate_authority_data)
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    # This requires the awscli to be installed locally where Terraform is executed
+    args = ["eks", "get-token", "--cluster-name", module.eks_blueprints.cluster_name]
+  }
 }
 
 provider "helm" {
   kubernetes {
-    host                   = module.eks_blueprints.eks_cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks_blueprints.eks_cluster_certificate_authority_data)
-    token                  = data.aws_eks_cluster_auth.this.token
+    host                   = module.eks_blueprints.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks_blueprints.cluster_certificate_authority_data)
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "aws"
+      # This requires the awscli to be installed locally where Terraform is executed
+      args = ["eks", "get-token", "--cluster-name", module.eks_blueprints.cluster_name]
+    }
   }
-}
-
-data "aws_eks_cluster_auth" "this" {
-  name = module.eks_blueprints.eks_cluster_id
 }
 
 data "aws_availability_zones" "available" {
@@ -61,17 +67,19 @@ locals {
 #---------------------------------------------------------------
 
 module "eks_blueprints" {
-  source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.27.0"
+  source = "terraform-aws-modules/eks/aws"
+  version = "~> 19.13"
 
   cluster_name    = local.cluster_name
-  cluster_version = "1.24"
+  cluster_version = var.cluster_version
 
   vpc_id             = module.vpc.vpc_id
-  private_subnet_ids = module.vpc.private_subnets
+  subnet_ids = module.vpc.private_subnets
 
   cluster_endpoint_private_access = true
+  cluster_endpoint_public_access  = true
 
-  managed_node_groups = {
+  eks_managed_node_groups = {
     mg_5a = {
       node_group_name = "managed-ondemand-a"
       instance_types  = ["m5.xlarge"]
@@ -120,23 +128,37 @@ module "eks_blueprints" {
 }
 
 module "eks_blueprints_kubernetes_addons" {
-  source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.27.0/modules/kubernetes-addons"
+  source = "aws-ia/eks-blueprints-addons/aws"
+  version = "~> 1.0"
 
-  eks_cluster_id       = module.eks_blueprints.eks_cluster_id
-  eks_cluster_endpoint = module.eks_blueprints.eks_cluster_endpoint
-  eks_oidc_provider    = module.eks_blueprints.oidc_provider
-  eks_cluster_version  = module.eks_blueprints.eks_cluster_version
+  cluster_name         = module.eks_blueprints.cluster_name
+  cluster_endpoint     = module.eks_blueprints.cluster_endpoint
+  cluster_version      = module.eks_blueprints.cluster_version
+  oidc_provider_arn    = module.eks_blueprints.oidc_provider_arn
 
   # EKS Managed Add-ons
-  enable_amazon_eks_vpc_cni            = true
-  enable_amazon_eks_coredns            = true
-  enable_amazon_eks_kube_proxy         = true
-  enable_amazon_eks_aws_ebs_csi_driver = true
+  eks_addons = {
+    aws-ebs-csi-driver = {
+      most_recent = true
+    }
+    coredns = {
+      most_recent = true
+    }
+    vpc-cni = {
+      most_recent = true
+    }
+    kube-proxy = {
+      most_recent = true
+    }
+    adot = {
+      most_recent = true
+    }
+  }
 
   # Add-ons
   enable_aws_load_balancer_controller = true
   enable_metrics_server               = true
-  enable_amazon_eks_adot              = true
+  enable_cert_manager                 = true
 
   tags = local.tags
 
@@ -151,7 +173,7 @@ module "eks_blueprints_kubernetes_addons" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 3.0"
+  version = "~> 5.0"
 
   name = local.name
   cidr = local.vpc_cidr
@@ -188,5 +210,5 @@ module "vpc" {
 
 output "configure_kubectl" {
   description = "Configure kubectl: make sure you're logged in with the correct AWS profile and run the following command to update your kubeconfig"
-  value       = module.eks_blueprints.configure_kubectl
+  value       = "aws eks update-kubeconfig --name ${module.eks_blueprints.cluster_name}"
 }
