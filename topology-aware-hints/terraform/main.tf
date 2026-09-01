@@ -61,7 +61,7 @@ locals {
 #---------------------------------------------------------------
 
 module "eks_blueprints" {
-  source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.27.0"
+  source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.32.1"
 
   cluster_name    = local.cluster_name
   cluster_version = "1.24"
@@ -120,7 +120,7 @@ module "eks_blueprints" {
 }
 
 module "eks_blueprints_kubernetes_addons" {
-  source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.27.0/modules/kubernetes-addons"
+  source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.32.1/modules/kubernetes-addons"
 
   eks_cluster_id       = module.eks_blueprints.eks_cluster_id
   eks_cluster_endpoint = module.eks_blueprints.eks_cluster_endpoint
@@ -151,7 +151,7 @@ module "eks_blueprints_kubernetes_addons" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 3.0"
+  version = "~> 4.0"
 
   name = local.name
   cidr = local.vpc_cidr
