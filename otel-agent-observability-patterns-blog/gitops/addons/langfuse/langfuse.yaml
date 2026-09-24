@@ -395,10 +395,20 @@ spec:
       labels:
         app: langfuse-minio
     spec:
+      # Bitnami MinIO runs as non-root uid 1001; fsGroup lets it write the PVC.
+      securityContext:
+        fsGroup: 1001
       containers:
         - name: minio
-          image: minio/minio:latest
-          args: ["server", "/data", "--console-address", ":9001"]
+          # MinIO removed its community images from Docker Hub (Sept 2026) and
+          # stopped publishing pre-built community binaries, so
+          # docker.io/minio/minio:latest no longer resolves (ImagePullBackOff:
+          # "repository does not exist"). quay.io/minio/* now requires auth.
+          # Use Bitnami's archived (free) image, which is still anonymously
+          # pullable from Docker Hub. Its entrypoint is env-driven (no `server`
+          # args), data lives under /bitnami/minio/data, and MINIO_DEFAULT_BUCKETS
+          # creates the langfuse bucket on first boot (replacing the mc init job).
+          image: bitnamilegacy/minio:2025.4.22
           env:
             - name: MINIO_ROOT_USER
               valueFrom:
@@ -410,12 +420,14 @@ spec:
                 secretKeyRef:
                   name: langfuse-secrets
                   key: MINIO_ROOT_PASSWORD
+            - name: MINIO_DEFAULT_BUCKETS
+              value: "langfuse"
           ports:
             - containerPort: 9000
             - containerPort: 9001
           volumeMounts:
             - name: minio-data
-              mountPath: /data
+              mountPath: /bitnami/minio/data
           resources:
             requests:
               cpu: 100m
@@ -444,39 +456,6 @@ spec:
     - name: console
       port: 9001
       targetPort: 9001
----
-# ─── MinIO bucket init job ────────────────────────────────────────────────
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: langfuse-minio-init
-  namespace: observability
-  annotations:
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-spec:
-  backoffLimit: 5
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: mc
-          image: minio/mc:latest
-          env:
-            - name: MINIO_ROOT_USER
-              valueFrom:
-                secretKeyRef:
-                  name: langfuse-secrets
-                  key: MINIO_ROOT_USER
-            - name: MINIO_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: langfuse-secrets
-                  key: MINIO_ROOT_PASSWORD
-          command:
-            - sh
-            - -c
-            - |
-              mc alias set local http://langfuse-minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-              mc mb --ignore-existing local/langfuse
-              echo "Bucket langfuse ready"
+# NOTE: The former MinIO bucket-init Job (minio/mc) is gone. The Bitnami MinIO
+# image creates the `langfuse` bucket on first boot via MINIO_DEFAULT_BUCKETS,
+# so no separate mc client image or PostSync hook is needed.
