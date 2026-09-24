@@ -148,23 +148,28 @@ spec:
             httpGet:
               path: /api/public/health
               port: 3000
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20
             periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 40
+            timeoutSeconds: 20
+            failureThreshold: 60
+          # Liveness must be lenient: /api/public/health does deep dependency
+          # checks (Postgres + ClickHouse + Redis) that can spike over 10s under
+          # load. A tight liveness probe was repeatedly killing a HEALTHY pod
+          # ("context deadline exceeded"), which flapped the OTLP endpoint and
+          # dropped trace ingestion. Only restart on sustained failure (~10 min).
           livenessProbe:
             httpGet:
               path: /api/public/health
               port: 3000
             periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 6
+            timeoutSeconds: 20
+            failureThreshold: 20
           readinessProbe:
             httpGet:
               path: /api/public/health
               port: 3000
             periodSeconds: 15
-            timeoutSeconds: 10
+            timeoutSeconds: 20
             failureThreshold: 6
 ---
 apiVersion: v1
