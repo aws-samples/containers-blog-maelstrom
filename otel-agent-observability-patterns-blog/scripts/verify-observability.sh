@@ -26,9 +26,9 @@ echo "▶ OTEL Collector (Pattern 2 — Centralized):"
 kubectl get pods -n observability -l app.kubernetes.io/name=opentelemetry-collector --no-headers 2>/dev/null || echo "  NOT FOUND (Pattern 2 not deployed)"
 echo ""
 
-# Bifrost (LLM Gateway)
+# Bifrost (LLM Gateway — shared platform service in the observability namespace)
 echo "▶ Bifrost (LLM Gateway — both patterns):"
-kubectl get pods -n agents -l app.kubernetes.io/name=bifrost --no-headers 2>/dev/null || echo "  NOT FOUND"
+kubectl get pods -n observability -l app.kubernetes.io/name=bifrost --no-headers 2>/dev/null || echo "  NOT FOUND"
 echo ""
 
 # Agents
@@ -74,5 +74,5 @@ echo ""
 echo " If traces are missing:"
 echo "   1. Check Langfuse credentials: kubectl get secret langfuse-api-keys -n observability -o yaml"
 echo "   2. Check agent logs: kubectl logs -n agents deployment/research-agent"
-echo "   3. Check Bifrost OTEL plugin: kubectl logs -n agents deployment/bifrost | grep otel"
+echo "   3. Check Bifrost OTEL plugin: kubectl logs -n observability deployment/bifrost | grep otel"
 echo ""

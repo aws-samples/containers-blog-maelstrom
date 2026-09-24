@@ -6,7 +6,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: bifrost-seed-provider
-  namespace: agents
+  namespace: observability
   annotations:
     argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
@@ -23,7 +23,7 @@ spec:
                 name: langfuse-api-keys
           env:
             - name: BIFROST_HOST
-              value: "http://bifrost.agents:8080"
+              value: "http://bifrost.observability:8080"
             - name: AWS_REGION
               value: "us-west-2"
             # OTEL target — matches gitops/root/values.yaml bifrost.otelTarget.

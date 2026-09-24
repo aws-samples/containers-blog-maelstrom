@@ -8,8 +8,3 @@ variable "region" {
   type        = string
   default     = "us-west-2"
 }
-
-variable "kro_role_arn" {
-  description = "ARN of the kro EKS Capability IAM role (from terraform/cluster output)"
-  type        = string
-}

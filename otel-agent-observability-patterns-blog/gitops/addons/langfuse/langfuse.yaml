@@ -22,34 +22,63 @@ data:
   LANGFUSE_S3_EVENT_UPLOAD_REGION: "us-east-1"
   LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: "http://langfuse-minio:9000"
   LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
-  # OTEL ingestion + headless init
+  # OTEL ingestion + headless init (non-secret metadata only)
   LANGFUSE_ENABLE_OTEL_INGESTION: "true"
   LANGFUSE_INIT_ORG_ID: "seed-org-agent-obs"
   LANGFUSE_INIT_ORG_NAME: "Agent Observability"
   LANGFUSE_INIT_PROJECT_ID: "seed-project-agent-obs"
   LANGFUSE_INIT_PROJECT_NAME: "agent-observability"
-  LANGFUSE_INIT_PROJECT_PUBLIC_KEY: "pk-lf-agent-obs-seed"
-  LANGFUSE_INIT_PROJECT_SECRET_KEY: "sk-lf-agent-obs-seed"
   LANGFUSE_INIT_USER_EMAIL: "admin@agent-observability.local"
   LANGFUSE_INIT_USER_NAME: "Admin"
-  LANGFUSE_INIT_USER_PASSWORD: "AgentObs2026!"
+  # NOTE: All credentials are intentionally NOT stored here. They are
+  # generated at deploy time by scripts/setup-infra.sh and injected into
+  # the Secrets below (langfuse-secrets, langfuse-init-keys, langfuse-api-keys).
+  # ArgoCD ignores the `data` field of these Secrets (see the langfuse
+  # Application's ignoreDifferences) so self-heal never reverts them to
+  # placeholders. The secret-holding env vars that used to live in this
+  # ConfigMap (LANGFUSE_INIT_PROJECT_PUBLIC_KEY/SECRET_KEY,
+  # LANGFUSE_INIT_USER_PASSWORD) now come from the langfuse-init-keys Secret.
 ---
-# ─── Secret (credentials) ─────────────────────────────────────────────────
+# ─── Secrets (credentials) ────────────────────────────────────────────────
+# These Secrets are created with PLACEHOLDER values here so ArgoCD can create
+# the objects and pods can mount them. Real random values are written by
+# scripts/setup-infra.sh at deploy time. ArgoCD's ignoreDifferences on Secret
+# `data` prevents self-heal from overwriting the generated values.
 apiVersion: v1
 kind: Secret
 metadata:
   name: langfuse-secrets
   namespace: observability
+  annotations:
+    # Marks these as bootstrap placeholders — setup-infra.sh replaces them.
+    agent-obs/credentials: "generated-at-deploy-time"
 type: Opaque
 stringData:
-  DATABASE_URL: "postgresql://langfuse:langfuse-demo-pw@langfuse-postgres:5432/langfuse"
-  POSTGRES_PASSWORD: "langfuse-demo-pw"
-  NEXTAUTH_SECRET: "otel-agent-obs-nextauth-secret-2026"
-  SALT: "otel-agent-obs-salt-2026"
-  CLICKHOUSE_PASSWORD: "clickhouse-demo-pw"
-  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: "minio"
-  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: "miniosecret"
-  MINIO_ROOT_PASSWORD: "miniosecret"
+  DATABASE_URL: "postgresql://langfuse:PLACEHOLDER@langfuse-postgres:5432/langfuse"
+  POSTGRES_PASSWORD: "PLACEHOLDER"
+  NEXTAUTH_SECRET: "PLACEHOLDER"
+  SALT: "PLACEHOLDER"
+  CLICKHOUSE_PASSWORD: "PLACEHOLDER"
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: "PLACEHOLDER"
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: "PLACEHOLDER"
+  MINIO_ROOT_USER: "PLACEHOLDER"
+  MINIO_ROOT_PASSWORD: "PLACEHOLDER"
+---
+# ─── Langfuse headless-init project keys (seed the auto-created project) ──
+# Consumed by the langfuse-web pod as LANGFUSE_INIT_PROJECT_PUBLIC_KEY /
+# _SECRET_KEY. Generated at deploy time; must match langfuse-api-keys.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: langfuse-init-keys
+  namespace: observability
+  annotations:
+    agent-obs/credentials: "generated-at-deploy-time"
+type: Opaque
+stringData:
+  LANGFUSE_INIT_PROJECT_PUBLIC_KEY: "PLACEHOLDER"
+  LANGFUSE_INIT_PROJECT_SECRET_KEY: "PLACEHOLDER"
+  LANGFUSE_INIT_USER_PASSWORD: "PLACEHOLDER"
 ---
 # ─── Langfuse API keys secret (consumed by agents + OTEL Collector) ───────
 apiVersion: v1
@@ -57,11 +86,13 @@ kind: Secret
 metadata:
   name: langfuse-api-keys
   namespace: observability
+  annotations:
+    agent-obs/credentials: "generated-at-deploy-time"
 type: Opaque
 stringData:
-  LANGFUSE_PUBLIC_KEY: "pk-lf-agent-obs-seed"
-  LANGFUSE_SECRET_KEY: "sk-lf-agent-obs-seed"
-  LANGFUSE_AUTH_TOKEN: "cGstbGYtYWdlbnQtb2JzLXNlZWQ6c2stbGYtYWdlbnQtb2JzLXNlZWQ="
+  LANGFUSE_PUBLIC_KEY: "PLACEHOLDER"
+  LANGFUSE_SECRET_KEY: "PLACEHOLDER"
+  LANGFUSE_AUTH_TOKEN: "PLACEHOLDER"
 ---
 # ─── Langfuse Web Deployment ──────────────────────────────────────────────
 apiVersion: apps/v1
@@ -94,6 +125,8 @@ spec:
                 name: langfuse-config
             - secretRef:
                 name: langfuse-secrets
+            - secretRef:
+                name: langfuse-init-keys
           env:
             - name: HOSTNAME
               value: "0.0.0.0"
@@ -207,7 +240,10 @@ spec:
             - name: POSTGRES_USER
               value: langfuse
             - name: POSTGRES_PASSWORD
-              value: "langfuse-demo-pw"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secrets
+                  key: POSTGRES_PASSWORD
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
           volumeMounts:
@@ -267,7 +303,10 @@ spec:
             - name: CLICKHOUSE_USER
               value: default
             - name: CLICKHOUSE_PASSWORD
-              value: "clickhouse-demo-pw"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secrets
+                  key: CLICKHOUSE_PASSWORD
           volumeMounts:
             - name: clickhouse-data
               mountPath: /var/lib/clickhouse
@@ -362,9 +401,15 @@ spec:
           args: ["server", "/data", "--console-address", ":9001"]
           env:
             - name: MINIO_ROOT_USER
-              value: "minio"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secrets
+                  key: MINIO_ROOT_USER
             - name: MINIO_ROOT_PASSWORD
-              value: "miniosecret"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secrets
+                  key: MINIO_ROOT_PASSWORD
           ports:
             - containerPort: 9000
             - containerPort: 9001
@@ -417,10 +462,21 @@ spec:
       containers:
         - name: mc
           image: minio/mc:latest
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secrets
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secrets
+                  key: MINIO_ROOT_PASSWORD
           command:
             - sh
             - -c
             - |
-              mc alias set local http://langfuse-minio:9000 minio miniosecret
+              mc alias set local http://langfuse-minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
               mc mb --ignore-existing local/langfuse
               echo "Bucket langfuse ready"

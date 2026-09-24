@@ -177,14 +177,14 @@ Langfuse is the authoritative observability surface. Both patterns produce the s
 LANGFUSE_BASE_URL=http://langfuse.observability:3000
 LANGFUSE_PUBLIC_KEY=<from langfuse-api-keys secret>
 LANGFUSE_SECRET_KEY=<from langfuse-api-keys secret>
-BIFROST_ENDPOINT=http://bifrost.agents:8080
+BIFROST_ENDPOINT=http://bifrost.observability:8080
 OTEL_PATTERN=decentralized
 ```
 
 ### Pattern 2 — Centralized (agent pod)
 ```
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.observability:4317
-BIFROST_ENDPOINT=http://bifrost.agents:8080
+BIFROST_ENDPOINT=http://bifrost.observability:8080
 OTEL_PATTERN=centralized
 ```
 

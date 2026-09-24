@@ -34,8 +34,8 @@ vi config.env
 ├── config.env              # Central configuration (edit before running)
 ├── Dockerfile              # Multi-agent container build
 ├── terraform/
-│   ├── cluster/            # EKS Auto Mode, VPC, IAM (Bedrock + Pod Identity)
-│   └── bootstrap/          # ArgoCD, kro, gp3 StorageClass
+│   ├── cluster/            # EKS Auto Mode, VPC, IAM (Bifrost Bedrock + Pod Identity)
+│   └── bootstrap/          # ArgoCD, gp3 StorageClass
 ├── agents/                 # Agent source code
 │   ├── shared/             # Pattern-aware OTEL bootstrap module
 │   ├── research_agent/     # Financial research agent (FastAPI + tools)
@@ -44,9 +44,8 @@ vi config.env
 │   ├── root/               # Root Helm chart (deploys all children)
 │   └── addons/             # Individual components
 │       ├── agents/         # Agent Helm chart (Deployments + Services)
-│       ├── agentcore-rgds/ # kro ResourceGraphDefinitions
 │       ├── bifrost/        # LLM gateway (seed job + Helm values)
-│       └── langfuse/       # Langfuse credentials Secret
+│       └── langfuse/       # Langfuse stack + credentials Secrets
 ├── helm-values/            # Reference Helm values (documentation)
 ├── image-build/            # requirements.txt for container builds
 └── scripts/                # Setup, teardown, verification, Langfuse key gen
@@ -58,7 +57,6 @@ vi config.env
 |-----------|-------------|
 | EKS Auto Mode (v1.35) | Cluster with Pod Identity, auto-scaling compute |
 | ArgoCD | GitOps delivery of all workloads |
-| kro | Kube Resource Orchestrator for AgentCore CRs |
 | Bifrost | LLM gateway — routes all agent calls to Bedrock, emits correlated OTEL spans |
 | Langfuse | Single observability backend — traces, cost, token usage, prompt analytics |
 | OTEL Collector | Pattern 2 only — aggregates telemetry before forwarding to Langfuse |
@@ -75,6 +73,5 @@ Switch between patterns by changing environment variables on the agent pods — 
 ## References
 
 - [Blog Post](https://aws.amazon.com/blogs/containers/...)
-- [Multi-Agent FSI Blog (ACK + kro reference)](https://aws.amazon.com/blogs/industries/multi-agent-systems-for-financial-services-on-amazon-eks-and-agentcore/)
 - [Langfuse OTEL Integration](https://langfuse.com/docs/integrations/opentelemetry)
 - [Bifrost LLM Gateway](https://github.com/maximhq/bifrost)

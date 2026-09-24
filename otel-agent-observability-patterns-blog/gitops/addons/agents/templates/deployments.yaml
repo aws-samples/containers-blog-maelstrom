@@ -57,27 +57,15 @@ spec:
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://otel-collector-opentelemetry-collector.observability:4318"
             {{- end }}
-            # --- Bifrost (LLM gateway for both patterns) ---
+            # --- Bifrost (shared LLM gateway for both patterns) ---
+            # Bifrost runs in the observability namespace (shared platform),
+            # not agents. Agents reach it cross-namespace via its FQDN.
             - name: BIFROST_ENDPOINT
-              value: "http://bifrost.agents:8080"
+              value: "http://bifrost.observability:8080"
             - name: BIFROST_MODEL_ALIAS
               value: "bedrock/us.anthropic.claude-sonnet-5"
             - name: AWS_REGION
               value: {{ $.Values.region }}
-            {{- if .capabilities.memory }}
-            - name: AGENTCORE_MEMORY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .name }}-memory-outputs
-                  key: id
-            {{- end }}
-            {{- if .capabilities.codeInterpreter }}
-            - name: AGENTCORE_CODE_INTERPRETER_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .name }}-code-interpreter-outputs
-                  key: id
-            {{- end }}
           resources:
             requests:
               memory: "512Mi"

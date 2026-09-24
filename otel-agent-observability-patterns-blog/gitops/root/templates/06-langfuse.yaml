@@ -17,6 +17,34 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.observability }}
+  # Credentials in these Secrets are generated at deploy time by
+  # scripts/setup-infra.sh (the manifests carry only PLACEHOLDER values).
+  # Ignore their data so ArgoCD self-heal does not revert the real values.
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: langfuse-secrets
+      namespace: {{ .Values.namespaces.observability }}
+      jsonPointers:
+        - /data
+    - group: ""
+      kind: Secret
+      name: langfuse-init-keys
+      namespace: {{ .Values.namespaces.observability }}
+      jsonPointers:
+        - /data
+    - group: ""
+      kind: Secret
+      name: langfuse-api-keys
+      namespace: {{ .Values.namespaces.observability }}
+      jsonPointers:
+        - /data
+    - group: ""
+      kind: Secret
+      name: langfuse-api-keys
+      namespace: {{ .Values.namespaces.agents }}
+      jsonPointers:
+        - /data
   syncPolicy:
     automated:
       prune: true

@@ -13,16 +13,8 @@ agents:
     module: research_agent
     port: 8080
     pattern: decentralized
-    capabilities:
-      memory: false
-      browser: false
-      codeInterpreter: false
 
   - name: data-agent
     module: data_agent
     port: 8080
     pattern: centralized
-    capabilities:
-      memory: false
-      browser: false
-      codeInterpreter: false

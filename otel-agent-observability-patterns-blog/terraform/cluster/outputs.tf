@@ -14,10 +14,6 @@ output "region" {
   value = var.region
 }
 
-output "kro_role_arn" {
-  value = aws_iam_role.kro_capability.arn
-}
-
 output "eks_version" {
   value = var.eks_version
 }
