@@ -49,7 +49,7 @@ resource "helm_release" "argocd" {
   namespace        = "argocd"
   create_namespace = true
   timeout          = 600
-  wait             = false  # Auto Mode nodes may take time to provision
+  wait             = false # Auto Mode nodes may take time to provision
 
   set {
     name  = "server.service.type"
@@ -75,18 +75,6 @@ resource "helm_release" "argocd" {
     name  = "redis.image.tag"
     value = "8.6.6-alpine"
   }
-}
-
-# Install kro (Kube Resource Orchestrator)
-resource "helm_release" "kro" {
-  name             = "kro"
-  repository       = "oci://public.ecr.aws/kro"
-  chart            = "kro"
-  version          = "0.1.0"
-  namespace        = "kro"
-  create_namespace = true
-  timeout          = 600
-  wait             = false
 }
 
 # Default gp3 StorageClass — EKS Auto Mode only creates gp2 (not default).

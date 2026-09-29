@@ -22,7 +22,7 @@ ENV AGENT_MODULE=${AGENT_MODULE}
 ENV PYTHONPATH=/app
 
 # Defaults — overridden by K8s deployment env vars at runtime
-ENV BIFROST_ENDPOINT=http://bifrost.agents:8080
+ENV BIFROST_ENDPOINT=http://bifrost.observability:8080
 ENV BIFROST_MODEL_ALIAS=bedrock/us.anthropic.claude-sonnet-5
 
 EXPOSE 8080

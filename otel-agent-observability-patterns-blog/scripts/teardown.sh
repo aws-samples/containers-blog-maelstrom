@@ -4,8 +4,8 @@ set -euo pipefail
 #####################################################################
 # teardown.sh
 # Destroys all infrastructure created by setup-infra.sh.
-# Waits for ACK resources to finish AWS-side deletes before
-# destroying Terraform state.
+# Deletes workloads, then destroys the bootstrap and cluster
+# Terraform state.
 #####################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,26 +22,19 @@ echo " Cluster: $CLUSTER_NAME | Region: $REGION"
 echo "============================================================"
 echo ""
 
-# Delete agent workloads first (triggers ACK resource cleanup)
-echo "▶ Deleting agent workloads..."
+# Delete workloads first so ArgoCD-managed resources drain cleanly
+echo "▶ Deleting workloads..."
 kubectl delete namespace agents --ignore-not-found --timeout=60s 2>/dev/null || true
 kubectl delete namespace observability --ignore-not-found --timeout=60s 2>/dev/null || true
-
-# Wait for ACK resources to finish AWS-side deletes
-echo "▶ Waiting for ACK resources to finalize (~2 min)..."
-sleep 30
-kubectl get memories,browsers,codeinterpreters.bedrockagentcorecontrol.services.k8s.aws \
-  --all-namespaces 2>/dev/null | tail -n +2 || true
-echo "  ACK resources cleared ✓"
+echo "  Workloads deleted ✓"
 echo ""
 
-# Destroy bootstrap (ArgoCD + RBAC)
+# Destroy bootstrap (ArgoCD)
 echo "▶ Destroying bootstrap layer..."
 cd "$ROOT_DIR/terraform/bootstrap"
 terraform destroy -auto-approve \
   -var="cluster_name=$CLUSTER_NAME" \
-  -var="region=$REGION" \
-  -var="kro_role_arn=" 2>/dev/null || true
+  -var="region=$REGION" 2>/dev/null || true
 echo "  Bootstrap destroyed ✓"
 echo ""
 

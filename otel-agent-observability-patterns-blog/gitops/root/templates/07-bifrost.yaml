@@ -1,6 +1,12 @@
-# Bifrost LLM Gateway — shared by both patterns.
+# Bifrost LLM Gateway — shared platform service used by both patterns.
 # Routes all agent LLM calls to Bedrock. OTEL plugin creates child spans
 # correlated with agent traces via W3C traceparent.
+#
+# Bifrost is infrastructure, not an agent: it is a shared gateway that holds
+# the only Bedrock credentials in the system. It therefore lives in the
+# observability (shared platform) namespace alongside Langfuse and the OTEL
+# Collector, not in the agents namespace. Agents reach it at
+# http://bifrost.observability:8080.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -42,7 +48,7 @@ spec:
             enabled: false
   destination:
     server: https://kubernetes.default.svc
-    namespace: {{ .Values.namespaces.agents }}
+    namespace: {{ .Values.namespaces.observability }}
   syncPolicy:
     automated:
       prune: true

@@ -63,16 +63,18 @@ APP_JSON=$(kubectl get application platform-root -n argocd -o json)
 PATCH=$(printf '%s' "$APP_JSON" | python3 -c "
 import sys, json
 app = json.load(sys.stdin)
-existing = {p['name']: p.get('value', '')
-            for p in app['spec']['source']['helm'].get('parameters', [])}
-cluster = existing.get('clusterName') or '$EKS_CLUSTER_NAME'
-region  = existing.get('region') or '$AWS_REGION'
-patch = {'spec': {'source': {'helm': {'parameters': [
-    {'name': 'clusterName',     'value': cluster},
-    {'name': 'region',          'value': region},
-    {'name': 'agents.imageTag', 'value': '$IMAGE_TAG'},
-    {'name': 'agents.ecrRepo',  'value': '$ECR_REPO'},
-]}}}}
+# Preserve ALL existing params (clusterName, region, gitops.repoURL,
+# gitops.targetRevision, ...) and only override the agent-specific ones.
+# A merge patch replaces the parameters array wholesale, so dropping any
+# existing param would reset child apps (e.g. back to the default branch).
+params = {p['name']: p.get('value', '')
+          for p in app['spec']['source']['helm'].get('parameters', [])}
+params.setdefault('clusterName', '$EKS_CLUSTER_NAME')
+params.setdefault('region', '$AWS_REGION')
+params['agents.imageTag'] = '$IMAGE_TAG'
+params['agents.ecrRepo']  = '$ECR_REPO'
+patch = {'spec': {'source': {'helm': {'parameters':
+    [{'name': k, 'value': v} for k, v in params.items()]}}}}
 print(json.dumps(patch))
 ")
 

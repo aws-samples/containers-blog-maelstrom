@@ -22,46 +22,39 @@ data:
   LANGFUSE_S3_EVENT_UPLOAD_REGION: "us-east-1"
   LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: "http://langfuse-minio:9000"
   LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
-  # OTEL ingestion + headless init
+  # OTEL ingestion + headless init (non-secret metadata only)
   LANGFUSE_ENABLE_OTEL_INGESTION: "true"
   LANGFUSE_INIT_ORG_ID: "seed-org-agent-obs"
   LANGFUSE_INIT_ORG_NAME: "Agent Observability"
   LANGFUSE_INIT_PROJECT_ID: "seed-project-agent-obs"
   LANGFUSE_INIT_PROJECT_NAME: "agent-observability"
-  LANGFUSE_INIT_PROJECT_PUBLIC_KEY: "pk-lf-agent-obs-seed"
-  LANGFUSE_INIT_PROJECT_SECRET_KEY: "sk-lf-agent-obs-seed"
   LANGFUSE_INIT_USER_EMAIL: "admin@agent-observability.local"
   LANGFUSE_INIT_USER_NAME: "Admin"
-  LANGFUSE_INIT_USER_PASSWORD: "AgentObs2026!"
----
-# ─── Secret (credentials) ─────────────────────────────────────────────────
-apiVersion: v1
-kind: Secret
-metadata:
-  name: langfuse-secrets
-  namespace: observability
-type: Opaque
-stringData:
-  DATABASE_URL: "postgresql://langfuse:langfuse-demo-pw@langfuse-postgres:5432/langfuse"
-  POSTGRES_PASSWORD: "langfuse-demo-pw"
-  NEXTAUTH_SECRET: "otel-agent-obs-nextauth-secret-2026"
-  SALT: "otel-agent-obs-salt-2026"
-  CLICKHOUSE_PASSWORD: "clickhouse-demo-pw"
-  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: "minio"
-  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: "miniosecret"
-  MINIO_ROOT_PASSWORD: "miniosecret"
----
-# ─── Langfuse API keys secret (consumed by agents + OTEL Collector) ───────
-apiVersion: v1
-kind: Secret
-metadata:
-  name: langfuse-api-keys
-  namespace: observability
-type: Opaque
-stringData:
-  LANGFUSE_PUBLIC_KEY: "pk-lf-agent-obs-seed"
-  LANGFUSE_SECRET_KEY: "sk-lf-agent-obs-seed"
-  LANGFUSE_AUTH_TOKEN: "cGstbGYtYWdlbnQtb2JzLXNlZWQ6c2stbGYtYWdlbnQtb2JzLXNlZWQ="
+  # NOTE: All credentials are intentionally NOT stored here. They are
+  # generated at deploy time by scripts/setup-infra.sh and injected into
+  # the Secrets below (langfuse-secrets, langfuse-init-keys, langfuse-api-keys).
+  # ArgoCD ignores the `data` field of these Secrets (see the langfuse
+  # Application's ignoreDifferences) so self-heal never reverts them to
+  # placeholders. The secret-holding env vars that used to live in this
+  # ConfigMap (LANGFUSE_INIT_PROJECT_PUBLIC_KEY/SECRET_KEY,
+  # LANGFUSE_INIT_USER_PASSWORD) now come from the langfuse-init-keys Secret.
+# ─── Credentials Secrets are intentionally NOT defined in git ─────────────
+# The following Secrets are created out-of-band by scripts/setup-infra.sh with
+# randomly generated values BEFORE the ArgoCD root app syncs:
+#   • langfuse-secrets    (DATABASE_URL, POSTGRES_PASSWORD, NEXTAUTH_SECRET,
+#                          SALT, CLICKHOUSE_PASSWORD, MINIO_ROOT_USER/PASSWORD,
+#                          LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID/SECRET_ACCESS_KEY)
+#   • langfuse-init-keys  (LANGFUSE_INIT_PROJECT_PUBLIC_KEY/SECRET_KEY,
+#                          LANGFUSE_INIT_USER_PASSWORD)
+#   • langfuse-api-keys   (LANGFUSE_PUBLIC_KEY/SECRET_KEY/AUTH_TOKEN) in both the
+#                          observability and agents namespaces
+#
+# They are deliberately absent from the GitOps source so ArgoCD does NOT manage
+# their data. `ignoreDifferences` is not sufficient: with automated self-heal
+# ArgoCD still re-applies the manifest's desired state on every sync, which
+# reverts generated values back to placeholders. Leaving the Secrets out of git
+# entirely is the only reliable way to keep the generated credentials (and no
+# secret values are committed to the repo).
 ---
 # ─── Langfuse Web Deployment ──────────────────────────────────────────────
 apiVersion: apps/v1
@@ -94,12 +87,20 @@ spec:
                 name: langfuse-config
             - secretRef:
                 name: langfuse-secrets
+            - secretRef:
+                name: langfuse-init-keys
           env:
             - name: HOSTNAME
               value: "0.0.0.0"
           resources:
+            # Langfuse v3's Next.js boot is CPU-heavy. With only a 500m request
+            # the scheduler packed it onto a small c6a.large (2 vCPU) node with
+            # many other pods, starving it at startup: MCP feature registration
+            # took minutes and the HTTP server never bound before the probes
+            # gave up. Request a full CPU so EKS Auto Mode provisions adequate
+            # capacity and the pod isn't throttled during boot.
             requests:
-              cpu: 500m
+              cpu: "1"
               memory: 1500Mi
             limits:
               # Keep the memory limit within a single node's capacity (nodes are
@@ -115,23 +116,28 @@ spec:
             httpGet:
               path: /api/public/health
               port: 3000
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20
             periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 40
+            timeoutSeconds: 20
+            failureThreshold: 60
+          # Liveness must be lenient: /api/public/health does deep dependency
+          # checks (Postgres + ClickHouse + Redis) that can spike over 10s under
+          # load. A tight liveness probe was repeatedly killing a HEALTHY pod
+          # ("context deadline exceeded"), which flapped the OTLP endpoint and
+          # dropped trace ingestion. Only restart on sustained failure (~10 min).
           livenessProbe:
             httpGet:
               path: /api/public/health
               port: 3000
             periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 6
+            timeoutSeconds: 20
+            failureThreshold: 20
           readinessProbe:
             httpGet:
               path: /api/public/health
               port: 3000
             periodSeconds: 15
-            timeoutSeconds: 10
+            timeoutSeconds: 20
             failureThreshold: 6
 ---
 apiVersion: v1
@@ -207,7 +213,10 @@ spec:
             - name: POSTGRES_USER
               value: langfuse
             - name: POSTGRES_PASSWORD
-              value: "langfuse-demo-pw"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secrets
+                  key: POSTGRES_PASSWORD
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
           volumeMounts:
@@ -267,7 +276,10 @@ spec:
             - name: CLICKHOUSE_USER
               value: default
             - name: CLICKHOUSE_PASSWORD
-              value: "clickhouse-demo-pw"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secrets
+                  key: CLICKHOUSE_PASSWORD
           volumeMounts:
             - name: clickhouse-data
               mountPath: /var/lib/clickhouse
@@ -356,21 +368,39 @@ spec:
       labels:
         app: langfuse-minio
     spec:
+      # Bitnami MinIO runs as non-root uid 1001; fsGroup lets it write the PVC.
+      securityContext:
+        fsGroup: 1001
       containers:
         - name: minio
-          image: minio/minio:latest
-          args: ["server", "/data", "--console-address", ":9001"]
+          # MinIO removed its community images from Docker Hub (Sept 2026) and
+          # stopped publishing pre-built community binaries, so
+          # docker.io/minio/minio:latest no longer resolves (ImagePullBackOff:
+          # "repository does not exist"). quay.io/minio/* now requires auth.
+          # Use Bitnami's archived (free) image, which is still anonymously
+          # pullable from Docker Hub. Its entrypoint is env-driven (no `server`
+          # args), data lives under /bitnami/minio/data, and MINIO_DEFAULT_BUCKETS
+          # creates the langfuse bucket on first boot (replacing the mc init job).
+          image: bitnamilegacy/minio:2025.4.22
           env:
             - name: MINIO_ROOT_USER
-              value: "minio"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secrets
+                  key: MINIO_ROOT_USER
             - name: MINIO_ROOT_PASSWORD
-              value: "miniosecret"
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse-secrets
+                  key: MINIO_ROOT_PASSWORD
+            - name: MINIO_DEFAULT_BUCKETS
+              value: "langfuse"
           ports:
             - containerPort: 9000
             - containerPort: 9001
           volumeMounts:
             - name: minio-data
-              mountPath: /data
+              mountPath: /bitnami/minio/data
           resources:
             requests:
               cpu: 100m
@@ -399,28 +429,6 @@ spec:
     - name: console
       port: 9001
       targetPort: 9001
----
-# ─── MinIO bucket init job ────────────────────────────────────────────────
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: langfuse-minio-init
-  namespace: observability
-  annotations:
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-spec:
-  backoffLimit: 5
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: mc
-          image: minio/mc:latest
-          command:
-            - sh
-            - -c
-            - |
-              mc alias set local http://langfuse-minio:9000 minio miniosecret
-              mc mb --ignore-existing local/langfuse
-              echo "Bucket langfuse ready"
+# NOTE: The former MinIO bucket-init Job (minio/mc) is gone. The Bitnami MinIO
+# image creates the `langfuse` bucket on first boot via MINIO_DEFAULT_BUCKETS,
+# so no separate mc client image or PostSync hook is needed.

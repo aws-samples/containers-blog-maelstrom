@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 # Bifrost routes to Bedrock, handles model fallback (Sonnet → Haiku on
 # throttle), and emits correlated OTEL spans to Langfuse.
 # ---------------------------------------------------------------------------
-BIFROST_ENDPOINT = os.getenv("BIFROST_ENDPOINT", "http://bifrost.agents:8080")
+BIFROST_ENDPOINT = os.getenv("BIFROST_ENDPOINT", "http://bifrost.observability:8080")
 MODEL_ALIAS = os.getenv("BIFROST_MODEL_ALIAS", "bedrock/us.anthropic.claude-sonnet-5")
 
 model = OpenAIModel(

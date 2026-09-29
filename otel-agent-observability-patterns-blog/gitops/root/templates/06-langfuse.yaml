@@ -17,6 +17,12 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.observability }}
+  # The Langfuse credential Secrets (langfuse-secrets, langfuse-init-keys,
+  # langfuse-api-keys) are intentionally NOT part of this GitOps source. They
+  # are generated with random values by scripts/setup-infra.sh before sync.
+  # Keeping them out of git is what prevents ArgoCD self-heal from reverting the
+  # generated credentials (ignoreDifferences alone does not stop self-heal from
+  # re-applying the manifest's desired state).
   syncPolicy:
     automated:
       prune: true
