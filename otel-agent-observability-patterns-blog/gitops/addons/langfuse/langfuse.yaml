@@ -38,61 +38,23 @@ data:
   # placeholders. The secret-holding env vars that used to live in this
   # ConfigMap (LANGFUSE_INIT_PROJECT_PUBLIC_KEY/SECRET_KEY,
   # LANGFUSE_INIT_USER_PASSWORD) now come from the langfuse-init-keys Secret.
----
-# ─── Secrets (credentials) ────────────────────────────────────────────────
-# These Secrets are created with PLACEHOLDER values here so ArgoCD can create
-# the objects and pods can mount them. Real random values are written by
-# scripts/setup-infra.sh at deploy time. ArgoCD's ignoreDifferences on Secret
-# `data` prevents self-heal from overwriting the generated values.
-apiVersion: v1
-kind: Secret
-metadata:
-  name: langfuse-secrets
-  namespace: observability
-  annotations:
-    # Marks these as bootstrap placeholders — setup-infra.sh replaces them.
-    agent-obs/credentials: "generated-at-deploy-time"
-type: Opaque
-stringData:
-  DATABASE_URL: "postgresql://langfuse:PLACEHOLDER@langfuse-postgres:5432/langfuse"
-  POSTGRES_PASSWORD: "PLACEHOLDER"
-  NEXTAUTH_SECRET: "PLACEHOLDER"
-  SALT: "PLACEHOLDER"
-  CLICKHOUSE_PASSWORD: "PLACEHOLDER"
-  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: "PLACEHOLDER"
-  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: "PLACEHOLDER"
-  MINIO_ROOT_USER: "PLACEHOLDER"
-  MINIO_ROOT_PASSWORD: "PLACEHOLDER"
----
-# ─── Langfuse headless-init project keys (seed the auto-created project) ──
-# Consumed by the langfuse-web pod as LANGFUSE_INIT_PROJECT_PUBLIC_KEY /
-# _SECRET_KEY. Generated at deploy time; must match langfuse-api-keys.
-apiVersion: v1
-kind: Secret
-metadata:
-  name: langfuse-init-keys
-  namespace: observability
-  annotations:
-    agent-obs/credentials: "generated-at-deploy-time"
-type: Opaque
-stringData:
-  LANGFUSE_INIT_PROJECT_PUBLIC_KEY: "PLACEHOLDER"
-  LANGFUSE_INIT_PROJECT_SECRET_KEY: "PLACEHOLDER"
-  LANGFUSE_INIT_USER_PASSWORD: "PLACEHOLDER"
----
-# ─── Langfuse API keys secret (consumed by agents + OTEL Collector) ───────
-apiVersion: v1
-kind: Secret
-metadata:
-  name: langfuse-api-keys
-  namespace: observability
-  annotations:
-    agent-obs/credentials: "generated-at-deploy-time"
-type: Opaque
-stringData:
-  LANGFUSE_PUBLIC_KEY: "PLACEHOLDER"
-  LANGFUSE_SECRET_KEY: "PLACEHOLDER"
-  LANGFUSE_AUTH_TOKEN: "PLACEHOLDER"
+# ─── Credentials Secrets are intentionally NOT defined in git ─────────────
+# The following Secrets are created out-of-band by scripts/setup-infra.sh with
+# randomly generated values BEFORE the ArgoCD root app syncs:
+#   • langfuse-secrets    (DATABASE_URL, POSTGRES_PASSWORD, NEXTAUTH_SECRET,
+#                          SALT, CLICKHOUSE_PASSWORD, MINIO_ROOT_USER/PASSWORD,
+#                          LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID/SECRET_ACCESS_KEY)
+#   • langfuse-init-keys  (LANGFUSE_INIT_PROJECT_PUBLIC_KEY/SECRET_KEY,
+#                          LANGFUSE_INIT_USER_PASSWORD)
+#   • langfuse-api-keys   (LANGFUSE_PUBLIC_KEY/SECRET_KEY/AUTH_TOKEN) in both the
+#                          observability and agents namespaces
+#
+# They are deliberately absent from the GitOps source so ArgoCD does NOT manage
+# their data. `ignoreDifferences` is not sufficient: with automated self-heal
+# ArgoCD still re-applies the manifest's desired state on every sync, which
+# reverts generated values back to placeholders. Leaving the Secrets out of git
+# entirely is the only reliable way to keep the generated credentials (and no
+# secret values are committed to the repo).
 ---
 # ─── Langfuse Web Deployment ──────────────────────────────────────────────
 apiVersion: apps/v1

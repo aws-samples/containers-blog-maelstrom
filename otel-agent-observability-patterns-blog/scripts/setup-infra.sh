@@ -100,12 +100,12 @@ echo ""
 # ---------------------------------------------------------------
 # Step 4: Generate credentials (BEFORE ArgoCD syncs Langfuse)
 #
-# No secret values are committed to git — the manifests carry only
-# PLACEHOLDER values, and ArgoCD's ignoreDifferences on Secret `data`
-# keeps self-heal from reverting what we write here. We create the
-# namespaces and Secrets now, before the root Application syncs, so
-# Langfuse's headless init seeds its project with the real keys on
-# first boot (no placeholder race).
+# No secret values are committed to git. The credential Secrets are NOT part
+# of the ArgoCD source at all (they were removed from the langfuse manifests),
+# so ArgoCD never manages or reverts them. We create the namespaces and the
+# Secrets here, before the root Application syncs, so the Langfuse pods find
+# them on first boot and headless init seeds the project with the real keys
+# (no placeholder race, and self-heal cannot overwrite them).
 #
 # The Langfuse project keys are generated once and used consistently in
 # three places so ingestion works immediately:

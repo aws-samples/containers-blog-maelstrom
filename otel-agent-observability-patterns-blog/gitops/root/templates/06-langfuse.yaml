@@ -17,34 +17,12 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.observability }}
-  # Credentials in these Secrets are generated at deploy time by
-  # scripts/setup-infra.sh (the manifests carry only PLACEHOLDER values).
-  # Ignore their data so ArgoCD self-heal does not revert the real values.
-  ignoreDifferences:
-    - group: ""
-      kind: Secret
-      name: langfuse-secrets
-      namespace: {{ .Values.namespaces.observability }}
-      jsonPointers:
-        - /data
-    - group: ""
-      kind: Secret
-      name: langfuse-init-keys
-      namespace: {{ .Values.namespaces.observability }}
-      jsonPointers:
-        - /data
-    - group: ""
-      kind: Secret
-      name: langfuse-api-keys
-      namespace: {{ .Values.namespaces.observability }}
-      jsonPointers:
-        - /data
-    - group: ""
-      kind: Secret
-      name: langfuse-api-keys
-      namespace: {{ .Values.namespaces.agents }}
-      jsonPointers:
-        - /data
+  # The Langfuse credential Secrets (langfuse-secrets, langfuse-init-keys,
+  # langfuse-api-keys) are intentionally NOT part of this GitOps source. They
+  # are generated with random values by scripts/setup-infra.sh before sync.
+  # Keeping them out of git is what prevents ArgoCD self-heal from reverting the
+  # generated credentials (ignoreDifferences alone does not stop self-heal from
+  # re-applying the manifest's desired state).
   syncPolicy:
     automated:
       prune: true
