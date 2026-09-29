@@ -93,8 +93,14 @@ spec:
             - name: HOSTNAME
               value: "0.0.0.0"
           resources:
+            # Langfuse v3's Next.js boot is CPU-heavy. With only a 500m request
+            # the scheduler packed it onto a small c6a.large (2 vCPU) node with
+            # many other pods, starving it at startup: MCP feature registration
+            # took minutes and the HTTP server never bound before the probes
+            # gave up. Request a full CPU so EKS Auto Mode provisions adequate
+            # capacity and the pod isn't throttled during boot.
             requests:
-              cpu: 500m
+              cpu: "1"
               memory: 1500Mi
             limits:
               # Keep the memory limit within a single node's capacity (nodes are
