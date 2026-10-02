@@ -8,7 +8,6 @@
 #
 # Stages, in order:
 #   00-create-cluster.sh                 # EKS cluster + gp3 default StorageClass  (~15-20 min)
-#   10-install-argocd.sh                 # Argo CD + kro                            (~2 min)
 #   20-install-argo-workflows-events.sh  # Argo Workflows + Argo Events             (~2 min)
 #   30-install-gitea.sh                  # Self-hosted Gitea (Git server)           (~1 min)
 #   40-install-argo-rollouts.sh          # Argo Rollouts controller                 (~1 min)
@@ -25,7 +24,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 STAGES=(
   "00-create-cluster.sh|EKS cluster (EKS Auto Mode)|~15-20 min"
-  "10-install-argocd.sh|Argo CD + kro|~2 min"
   "20-install-argo-workflows-events.sh|Argo Workflows + Argo Events|~2 min"
   "30-install-gitea.sh|Gitea (self-hosted Git)|~1 min"
   "40-install-argo-rollouts.sh|Argo Rollouts controller|~1 min"

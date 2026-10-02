@@ -1,7 +1,7 @@
 # Measuring the Four DORA Metrics on EKS: A Hands-On Walkthrough
 
-This guide stands up a full platform-engineering stack on Amazon EKS — Argo CD,
-kro, Argo Workflows/Events, Gitea, Argo Rollouts, and Apache DevLake — and then
+This guide stands up a full platform-engineering stack on Amazon EKS — Argo
+Workflows/Events, Gitea, Argo Rollouts, and Apache DevLake — and then
 walks through **generating and verifying each of the four DORA metrics** on the
 running cluster. Deployments record themselves automatically through Argo
 Rollouts notifications, and Gitea issues/PRs flow into DevLake through Argo
@@ -21,7 +21,6 @@ roles.
 ```bash
 # 1. Create the EKS cluster (EKS Auto Mode, ~15-20 min) and install the platform.
 ./scripts/00-create-cluster.sh
-./scripts/10-install-argocd.sh                 # Argo CD + kro
 ./scripts/20-install-argo-workflows-events.sh  # Argo Workflows + Argo Events
 ./scripts/30-install-gitea.sh                  # self-hosted Git server
 ./scripts/40-install-argo-rollouts.sh

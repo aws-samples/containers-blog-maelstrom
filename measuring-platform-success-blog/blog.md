@@ -211,8 +211,8 @@ and deploy the demo application. From this point on the platform records every
 deployment automatically.
 
 **1a. Create the cluster and install everything on the platform.** The
-`scripts/install-platform.sh` wrapper runs six scripts (cluster,
-Argo CD + kro, Argo Workflows + Argo Events, Gitea, Argo Rollouts, DevLake +
+`scripts/install-platform.sh` wrapper runs five scripts (cluster,
+Argo Workflows + Argo Events, Gitea, Argo Rollouts, DevLake +
 MySQL + Grafana) in order, prints a banner and duration per stage, and echoes
 the next-steps prompt at the end. The whole thing takes about 25 minutes.
 
@@ -542,12 +542,11 @@ be created **after** the deployment it represents.
      sheet that followed this section was removed per C16. -->
 ### 5. Time to Restore Service
 
-Time to Restore Service — sometimes called Failed Deployment Recovery Time or
-MTTR — measures how long it takes to recover from an incident. Just like CFR,
-this metric is **incident-driven**: DevLake measures it as the span from the
-incident's `createdDate` to its `resolutionDate` — i.e. from when you opened
-the Gitea issue to when you close it. So this exercise picks up right where
-section 4 left off: **resolve the incident you filed by closing that issue.**
+Using the same incident-to-deployment link as CFR, DevLake measures recovery
+time from the linked deployment's finish to the incident's resolution date.
+It's a proxy: closing the incident stands in for recovery. So this exercise
+picks up where section 4 left off: **resolve the incident you filed by closing
+that issue.**
 
 First restore service by shipping the known-good version (this is the real
 recovery, and records a healthy deployment):
@@ -575,7 +574,7 @@ Closing fires the `issues` webhook again, which updates the incident with its
 ```
 
 ![Time to Restore Service panel](images/grafana-time-to-restore.png)
-*Figure 10 — Time to Restore Service, median incident open → resolved duration.*
+*Figure 10 — Failed Deployment Recovery Time, median deployment → incident resolved duration.*
 
 If it stays empty, the incident was never closed (no `resolutionDate`), or the
 close event didn't reach DevLake — confirm the issue shows `closed` in Gitea
@@ -598,25 +597,33 @@ kubectl delete -f app/rollout.yaml   --ignore-not-found
 kubectl delete -f app/services.yaml  --ignore-not-found
 kubectl delete -f app/namespace.yaml --ignore-not-found
 
-# 2. (Optional) Uninstall the Helm releases. Deleting the cluster in step 3
+# 2. (Optional) Uninstall the Helm releases. Deleting the cluster in step 4
 #    removes these anyway, but running these first speeds cluster deletion.
 helm -n devlake        uninstall devlake         || true
 helm -n gitea          uninstall gitea           || true
 helm -n argo-rollouts  uninstall argo-rollouts   || true
 helm -n argo           uninstall argo-workflows  || true
 helm -n argo-events    uninstall argo-events     || true
-helm -n argocd         uninstall argo-cd         || true
 
-# 3. Delete the EKS cluster (this also deletes Auto Mode compute, node IAM
+# 3. Delete the PVCs while the cluster's EBS driver can still delete their
+#    volumes. (Deleting the cluster first leaves them behind as "available".)
+kubectl delete pvc --all -n devlake --wait
+kubectl delete pvc --all -n gitea   --wait
+
+# 4. Delete the EKS cluster (this also deletes Auto Mode compute, node IAM
 #    roles, and the VPC eksctl created).
 eksctl delete cluster -f cluster/cluster.yaml --wait
+
+# 5. Sweep any EBS volumes that still leaked (lists them and asks first).
+./scripts/99-cleanup-orphaned-volumes.sh
 ```
 
 After `eksctl` reports success, verify in the AWS console that:
 
 - The CloudFormation stacks `eksctl-<cluster>-cluster` and any `nodegroup`
   stacks are **deleted** (not `DELETE_FAILED`).
-- No orphan EBS volumes remain in the Region (tag filter `kubernetes.io/cluster/<cluster>`).
+- No orphan EBS volumes remain in the Region (step 5 should report none;
+  tag filter `kubernetes.io/cluster/<cluster>`).
 - The `dora-demo` Elastic Load Balancer is gone.
 - No leftover Elastic IPs are attached to the deleted VPC.
 
