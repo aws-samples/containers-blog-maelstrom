@@ -248,6 +248,11 @@ kubectl wait --for=condition=available deployment -l app.kubernetes.io/name=lang
 # for — so cost stays $0 until we define it. We match on the exact alias and
 # use the per-token prices from config.env. Idempotent: a 400 "already exists"
 # is treated as success. Runs in-cluster (no port-forward) via a curl pod.
+#
+# The pod waits for Langfuse's HTTP API to actually respond before POSTing
+# (langfuse-web can take several minutes to serve traffic, and the host-side
+# `kubectl wait` above can time out while it is still booting). Without this
+# in-pod health poll the POST fired too early and failed with curl code 000.
 # ---------------------------------------------------------------
 echo "  Registering Langfuse model price for '$BIFROST_MODEL_ALIAS'..."
 LF_PK=$(kubectl get secret langfuse-api-keys -n observability -o jsonpath='{.data.LANGFUSE_PUBLIC_KEY}' | base64 -d)
@@ -255,8 +260,8 @@ LF_SK=$(kubectl get secret langfuse-api-keys -n observability -o jsonpath='{.dat
 kubectl delete pod langfuse-model-price -n observability --ignore-not-found >/dev/null 2>&1
 # The alias + prices are passed as env vars; the regex matchPattern and the
 # JSON payload are built INSIDE the pod shell (one quoting layer) so backslash
-# escaping is unambiguous. ALIAS metachars (., /) are regex-escaped there, and
-# the backslashes are emitted JSON-safe. Idempotent: "already exists" = success.
+# escaping is unambiguous. '.' is regex-escaped there, JSON-safe. The pod polls
+# /api/public/health until ready, then POSTs with retry/backoff.
 cat <<EOP | kubectl apply -f - >/dev/null 2>&1
 apiVersion: v1
 kind: Pod
@@ -278,22 +283,35 @@ spec:
         - sh
         - -c
         - |
-          # Build the matchPattern by escaping '.' in the alias — the only regex
-          # metacharacter that appears in Bedrock/Bifrost model ids. In the JSON
-          # string the backslash must be doubled, so each '.' becomes '\\.'
-          # (JSON "\\." decodes to the regex "\."). BusyBox-sed safe.
+          BASE="http://langfuse-web:3000"
+          # 1. Wait for Langfuse to actually serve HTTP (up to ~10 min).
+          i=0
+          until curl -sf -o /dev/null "\$BASE/api/public/health"; do
+            i=\$((i+1))
+            if [ \$i -ge 120 ]; then echo "failed: langfuse health never ready"; exit 0; fi
+            sleep 5
+          done
+          # 2. Build the matchPattern by escaping '.' in the alias — the only
+          # regex metachar in Bedrock/Bifrost model ids. In JSON the backslash
+          # must be doubled, so each '.' becomes '\\.' (JSON "\\." -> regex "\.").
           PATTERN=\$(printf '%s' "\$ALIAS" | sed 's/\./\\\\\\\\./g')
           PAYLOAD="{\"modelName\":\"\$ALIAS\",\"matchPattern\":\"(?i)^\${PATTERN}\$\",\"unit\":\"TOKENS\",\"inputPrice\":\$IN_PRICE,\"outputPrice\":\$OUT_PRICE}"
           echo "PAYLOAD=\$PAYLOAD"
-          CODE=\$(curl -s -o /tmp/out -w "%{http_code}" -u "\$LF_PK:\$LF_SK" \
-            -X POST "http://langfuse-web:3000/api/public/models" \
-            -H "Content-Type: application/json" -d "\$PAYLOAD")
-          BODY=\$(cat /tmp/out)
-          if echo "\$CODE" | grep -q "^2"; then echo "created"; \
-          elif echo "\$BODY" | grep -qi "already exists"; then echo "exists"; \
-          else echo "failed code=\$CODE body=\$BODY"; fi
+          # 3. POST with retry/backoff; treat 2xx as created, "already exists" as success.
+          j=0
+          while [ \$j -lt 10 ]; do
+            CODE=\$(curl -s -o /tmp/out -w "%{http_code}" -u "\$LF_PK:\$LF_SK" \
+              -X POST "\$BASE/api/public/models" \
+              -H "Content-Type: application/json" -d "\$PAYLOAD")
+            BODY=\$(cat /tmp/out)
+            if echo "\$CODE" | grep -q "^2"; then echo "created"; exit 0; fi
+            if echo "\$BODY" | grep -qi "already exists"; then echo "exists"; exit 0; fi
+            j=\$((j+1)); sleep 5
+          done
+          echo "failed code=\$CODE body=\$BODY"
 EOP
-kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/langfuse-model-price -n observability --timeout=90s >/dev/null 2>&1 || true
+# The pod self-waits for Langfuse (up to ~10 min), so give it a generous window.
+kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/langfuse-model-price -n observability --timeout=720s >/dev/null 2>&1 || true
 MP_RESULT=$(kubectl logs langfuse-model-price -n observability 2>/dev/null | tail -1)
 case "$MP_RESULT" in
   created) echo "  ✓ Model price registered (input=$MODEL_INPUT_PRICE_PER_TOKEN output=$MODEL_OUTPUT_PRICE_PER_TOKEN per token)" ;;
