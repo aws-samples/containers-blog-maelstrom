@@ -24,9 +24,13 @@ from pydantic import BaseModel
 
 from agents.shared.otel_bootstrap import init_telemetry
 
+# Agent name — used as the OTel service name AND the Strands agent name so the
+# root span in Langfuse shows "research-agent" (not the default "Strands Agents").
+AGENT_NAME = os.getenv("AGENT_NAME", "research-agent")
+
 # Bootstrap telemetry before importing Strands so the TracerProvider is
 # registered before the SDK creates any spans.
-init_telemetry(service_name=os.getenv("OTEL_SERVICE_NAME", "research-agent"))
+init_telemetry(service_name=os.getenv("OTEL_SERVICE_NAME", AGENT_NAME))
 
 from strands import Agent                                 # noqa: E402
 from strands.models.openai import OpenAIModel            # noqa: E402
@@ -53,6 +57,8 @@ model = OpenAIModel(
 )
 
 agent = Agent(
+    # name sets the root span name in Langfuse (default is "Strands Agents").
+    name=AGENT_NAME,
     model=model,
     system_prompt=(
         "You are a financial research agent specialising in market analysis. "
@@ -60,6 +66,13 @@ agent = Agent(
         "tool to condense long findings into actionable insights."
     ),
     tools=[web_search, summarize],
+    # trace_attributes land on the agent's trace span, so you can filter and
+    # roll up cost per agent in Langfuse (group by agent.name / langfuse tags).
+    trace_attributes={
+        "agent.name": AGENT_NAME,
+        "agent.pattern": "decentralized",
+        "langfuse.tags": ["agent:" + AGENT_NAME, "pattern:decentralized"],
+    },
 )
 
 # ---------------------------------------------------------------------------
