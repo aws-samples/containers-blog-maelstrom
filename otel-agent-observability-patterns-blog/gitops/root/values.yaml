@@ -18,6 +18,9 @@ bifrost:
 agents:
   imageTag: "latest"
   ecrRepo: ""
+  # Model alias agents send to Bifrost / Langfuse records. Overridden by
+  # setup-infra.sh from config.env (BIFROST_MODEL_ALIAS).
+  modelAlias: "bedrock/us.anthropic.claude-sonnet-5"
 
 gitops:
   repoURL: https://github.com/aws-samples/containers-blog-maelstrom.git

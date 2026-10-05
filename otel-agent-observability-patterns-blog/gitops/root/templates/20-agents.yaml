@@ -21,6 +21,8 @@ spec:
           value: "{{ .Values.agents.imageTag }}"
         - name: ecrRepo
           value: "{{ .Values.agents.ecrRepo }}"
+        - name: modelAlias
+          value: "{{ .Values.agents.modelAlias }}"
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.namespaces.agents }}
