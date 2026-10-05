@@ -93,21 +93,20 @@ spec:
             - name: HOSTNAME
               value: "0.0.0.0"
           resources:
-            # Langfuse v3's Next.js boot is CPU-heavy. With only a 500m request
-            # the scheduler packed it onto a small c6a.large (2 vCPU) node with
-            # many other pods, starving it at startup: MCP feature registration
-            # took minutes and the HTTP server never bound before the probes
-            # gave up. Request a full CPU so EKS Auto Mode provisions adequate
-            # capacity and the pod isn't throttled during boot.
+            # Langfuse v3's Next.js boot is CPU- and memory-heavy. On a shared
+            # c6a.large (2 vCPU / ~3Gi allocatable) it was starved at startup:
+            # MCP feature registration stalled and the HTTP server never bound
+            # before the probes gave up, needing a manual pod restart. Request
+            # 2 vCPU / 2Gi (limit 2 vCPU / 4Gi) — these exceed a c6a.large's
+            # allocatable, so EKS Auto Mode provisions a larger node (e.g.
+            # c6a.xlarge) where langfuse-web runs with real, dedicated headroom
+            # and boots cleanly on the first try.
             requests:
-              cpu: "1"
-              memory: 1500Mi
-            limits:
-              # Keep the memory limit within a single node's capacity (nodes are
-              # ~4Gi). A limit larger than the node is meaningless and a limit
-              # equal to it risks node-level memory pressure.
               cpu: "2"
-              memory: 3Gi
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
           # Langfuse's /api/public/health pings Postgres, ClickHouse and Redis and
           # can take several seconds. The default probe timeout is 1s, which caused
           # the container to be repeatedly killed ("context deadline exceeded") even
