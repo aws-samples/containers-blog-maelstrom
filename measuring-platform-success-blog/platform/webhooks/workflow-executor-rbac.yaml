@@ -1,0 +1,31 @@
+# RBAC for the pods that run the DORA Workflows.
+#
+# The issue + pull-request WorkflowTemplates don't set a serviceAccountName, so
+# their pods run as the `default` ServiceAccount in `argo`. Argo's emissary
+# executor reports each step's outputs by creating/patching
+# WorkflowTaskResult objects, and the plain install.yaml doesn't grant that
+# (quick-start-minimal.yaml does, via the same `executor` Role below). Without
+# it, every Workflow fails with "workflowtaskresults.argoproj.io is forbidden".
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: executor
+  namespace: argo
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflowtaskresults"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: executor-default
+  namespace: argo
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: argo
+roleRef:
+  kind: Role
+  name: executor
+  apiGroup: rbac.authorization.k8s.io

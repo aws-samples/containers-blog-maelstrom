@@ -62,6 +62,9 @@ kubectl apply -f "${WEBHOOK_DIR}/dora-workflowtemplates.yaml"
 echo "==> Applying Sensor RBAC (lets the Sensor submit Workflows into argo)..."
 kubectl apply -f "${WEBHOOK_DIR}/gitea-sensor-rbac.yaml"
 
+echo "==> Applying Workflow executor RBAC (lets Workflow pods report step results)..."
+kubectl apply -f "${WEBHOOK_DIR}/workflow-executor-rbac.yaml"
+
 echo "==> Applying the Gitea EventSource + Sensor..."
 kubectl apply -f "${WEBHOOK_DIR}/gitea-eventsource.yaml"
 kubectl apply -f "${WEBHOOK_DIR}/gitea-sensor.yaml"

@@ -24,20 +24,23 @@
 #                      kubectl -n devlake port-forward svc/devlake-lake 8080:8080
 #   DEVLAKE_BP_ID    blueprint id to trigger (default: read from the ConfigMap)
 #   WORKFLOW_NS      namespace holding the ConfigMap (default: argo)
-#   FULL_SYNC        "true" to re-collect everything (default: false)
+#   FULL_SYNC        "true" to re-collect everything (default: true)
 #   POLL_TIMEOUT     seconds to wait for the pipeline (default: 900)
 #
 set -euo pipefail
 
 DEVLAKE_API="${DEVLAKE_API:-http://localhost:8080}"
 WORKFLOW_NS="${WORKFLOW_NS:-argo}"
-FULL_SYNC="${FULL_SYNC:-false}"
+FULL_SYNC="${FULL_SYNC:-true}"
 POLL_TIMEOUT="${POLL_TIMEOUT:-900}"
 
 # shellcheck source=lib/pf.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/pf.sh"
 
-command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
+command -v jq >/dev/null || {
+  echo "jq is required" >&2
+  exit 1
+}
 
 # Resolve the blueprint id: explicit env var wins, else read the ConfigMap that
 # script 52 populated.
@@ -84,28 +87,28 @@ interval=10
 while :; do
   status=$(curl -sS "${DEVLAKE_API}/pipelines/${pipeline_id}" | jq -r '.status // "UNKNOWN"')
   case "${status}" in
-    TASK_COMPLETED)
-      echo "    Pipeline completed successfully."
-      break
-      ;;
-    TASK_FAILED)
-      echo "    Pipeline FAILED. Inspect it in the DevLake UI (Advanced -> Pipelines)." >&2
+  TASK_COMPLETED)
+    echo "    Pipeline completed successfully."
+    break
+    ;;
+  TASK_FAILED)
+    echo "    Pipeline FAILED. Inspect it in the DevLake UI (Advanced -> Pipelines)." >&2
+    exit 1
+    ;;
+  TASK_PARTIAL)
+    echo "    Pipeline finished with partial success (some tasks failed)."
+    break
+    ;;
+  *)
+    if ((elapsed >= POLL_TIMEOUT)); then
+      echo "    Timed out after ${POLL_TIMEOUT}s (last status: ${status})." >&2
+      echo "    It may still finish — check the DevLake UI." >&2
       exit 1
-      ;;
-    TASK_PARTIAL)
-      echo "    Pipeline finished with partial success (some tasks failed)."
-      break
-      ;;
-    *)
-      if (( elapsed >= POLL_TIMEOUT )); then
-        echo "    Timed out after ${POLL_TIMEOUT}s (last status: ${status})." >&2
-        echo "    It may still finish — check the DevLake UI." >&2
-        exit 1
-      fi
-      echo "    status=${status} (${elapsed}s elapsed)..."
-      sleep "${interval}"
-      elapsed=$(( elapsed + interval ))
-      ;;
+    fi
+    echo "    status=${status} (${elapsed}s elapsed)..."
+    sleep "${interval}"
+    elapsed=$((elapsed + interval))
+    ;;
   esac
 done
 

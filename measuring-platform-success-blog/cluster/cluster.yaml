@@ -22,8 +22,8 @@ metadata:
 
 # Enable EKS Auto Mode. eksctl creates the Cluster IAM Role and a Node IAM Role
 # for Auto Mode-launched nodes, and turns on managed compute/storage/networking.
-# The general-purpose + system node pools comfortably hold ArgoCD, kro, Argo
-# Workflows/Events, Gitea, and DevLake (MySQL + Grafana) plus the demo app.
+# The general-purpose + system node pools comfortably hold Argo Workflows/Events,
+# Gitea, and DevLake (MySQL + Grafana) plus the demo app.
 autoModeConfig:
   enabled: true
   nodePools: ["general-purpose", "system"]

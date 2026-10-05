@@ -1,0 +1,21 @@
+# Argo Events EventBus — the message bus between EventSources and Sensors.
+#
+# JetStream, not the NATS Streaming (STAN) bus in Argo Events'
+# examples/eventbus/native.yaml. With STAN, the Sensor controller rejects any
+# Sensor that references the same EventSourceName + EventName from more than
+# one dependency ("... is referenced for more than one dependency in this
+# Sensor object"). gitea-sensor.yaml does exactly that — gitea-issues and
+# gitea-pr both listen on gitea-webhook/gitea and split by header filter — so
+# it needs JetStream, which has no such restriction. (STAN is also EOL
+# upstream.)
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: default
+  namespace: argo-events
+spec:
+  jetstream:
+    # Must be one of the versions listed in the argo-events-controller-config
+    # ConfigMap for this Argo Events release.
+    version: "2.10.29"
+    replicas: 3

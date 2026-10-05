@@ -10,8 +10,7 @@ real application that deploys via **Argo Rollouts**.
 
 By the end you will have:
 
-- An **EKS cluster** created with `eksctl`, with **Argo CD** and **kro**
-  installed (self-hosted) on top.
+- An **EKS cluster** created with `eksctl` (EKS Auto Mode).
 - **Argo Workflows** and **Argo Events** installed.
 - **Gitea** as a self-hosted Git server (the source of commit/PR data).
 - **Apache DevLake** with **Grafana** and **MySQL** enabled (the DORA engine).
@@ -54,7 +53,7 @@ By the end you will have:
                    │ (git server)│                    │  lake + MySQL  │     │
                    └──────┬──────┘                    │  + config-ui   │     │
                           │                           └───────┬────────┘     │
-                          │ ArgoCD sync (GitOps)              │ render        │
+                          │ kubectl / ship.sh                 │ render        │
                           ▼                                   ▼               │
                    ┌─────────────┐  auto notification  ┌───────────────┐     │
                    │Argo Rollouts│──── webhook ───────▶│    Grafana     │     │
@@ -63,7 +62,7 @@ By the end you will have:
                    └─────────────┘         │           └───────────────┘     │
                           │                └──▶ DevLake webhook (deployments) │
                           ▲                                                   │
-        Argo CD ── kro ── Argo Workflows ── Argo Events (platform capabilities)│
+              Argo Workflows ── Argo Events (Gitea issue/PR events -> DevLake) │
                           └──────────────────────────────────────────────────┘
 ```
 
@@ -114,7 +113,6 @@ aws sts get-caller-identity
 ├── scripts/
 │   ├── install-platform.sh        # ONE-SHOT wrapper: runs 00-50 in order with timing
 │   ├── 00-create-cluster.sh       # eksctl create cluster
-│   ├── 10-install-argocd.sh       # Argo CD + kro
 │   ├── 20-install-argo-workflows-events.sh
 │   ├── 30-install-gitea.sh
 │   ├── 40-install-argo-rollouts.sh
@@ -126,19 +124,19 @@ aws sts get-caller-identity
 │   ├── port-forward.sh            # start/stop all browser-facing tunnels at once
 │   ├── lib/pf.sh                  # sourced helper: scripts auto-manage their own tunnel
 │   ├── ship.sh                    # THE deploy command (stamps sha + sets image)
+│   ├── 99-cleanup-orphaned-volumes.sh # post-teardown sweep of leaked EBS volumes
 │   └── record-deployment.sh       # manual fallback: post a deploy event by hand
 ├── platform/
-│   ├── argocd/dora-demo-app.yaml  # optional GitOps Application for the demo
+│   ├── argo-events/eventbus.yaml  # JetStream EventBus (Sensors need it)
 │   ├── argo-rollouts/notifications-configmap.yaml # triggers + webhook payloads
 │   ├── argo-rollouts/notifications-secret.yaml    # DevLake webhook URL
 │   ├── webhooks/gitea-eventsource.yaml   # Argo Events endpoint Gitea posts to
 │   ├── webhooks/gitea-sensor.yaml        # routes issues/PRs by X-Gitea-Event
 │   ├── webhooks/gitea-sensor-rbac.yaml   # lets the Sensor submit Workflows
+│   ├── webhooks/workflow-executor-rbac.yaml # lets Workflow pods report results
 │   ├── webhooks/dora-workflowtemplates.yaml # Gitea->DevLake jq transforms
 │   ├── webhooks/devlake-webhook-config.yaml # reference/fallback for the creds
                                               # (script 52 creates the real ones)
-│   ├── kro/dora-demo-rgd.yaml     # optional kro ResourceGraphDefinition
-│   ├── kro/dora-demo-instance.yaml
 │   ├── gitea/values.yaml          # Gitea Helm values
 │   └── devlake/values.yaml        # DevLake Helm values (mysql + grafana on)
 ├── app/
@@ -199,7 +197,7 @@ Then jump to the [DORA walkthrough](#10-the-dora-walkthrough--drive-every-metric
 
 ## 5. Step-by-step install
 
-**TL;DR:** `./scripts/install-platform.sh` runs 5.1 → 5.6 in order with a
+**TL;DR:** `./scripts/install-platform.sh` runs 5.1 → 5.5 in order with a
 per-stage banner and timing. Read on if you'd rather drive each step yourself.
 
 Run the scripts in order. Each one prints the port-forward command and
@@ -217,37 +215,13 @@ and networking, and the EKS Pod Identity Agent is preinstalled for granting
 workloads scoped IAM. The script also creates a gp3 default StorageClass (Auto
 Mode ships none) so MySQL/Grafana PVCs can bind. Takes ~15–20 minutes.
 
-### 5.2 Install Argo CD + kro
-
-```bash
-./scripts/10-install-argocd.sh
-```
-
-Installs Argo CD into the `argocd` namespace and the kro controller into `kro`.
-At the end it prints the auto-generated Argo CD `admin` password.
-
-**Log in to Argo CD:**
-
-```bash
-# Grab the initial admin password (also printed by the script):
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath="{.data.password}" | base64 -d && echo
-
-# Port-forward the server, then open https://localhost:8080
-kubectl -n argocd port-forward svc/argocd-server 8080:443
-# Username: admin   Password: (the value above)
-```
-
-> Rotate or delete `argocd-initial-admin-secret` after first login for anything
-> beyond a throwaway demo.
-
-### 5.3 Install Argo Workflows + Argo Events
+### 5.2 Install Argo Workflows + Argo Events
 
 ```bash
 ./scripts/20-install-argo-workflows-events.sh
 ```
 
-### 5.4 Install Gitea
+### 5.3 Install Gitea
 
 ```bash
 ./scripts/30-install-gitea.sh
@@ -256,13 +230,13 @@ kubectl -n argocd port-forward svc/argocd-server 8080:443
 Default creds: `gitea_admin` / `gitea_admin_pass` (set in
 `platform/gitea/values.yaml` — change them for anything real).
 
-### 5.5 Install Argo Rollouts
+### 5.4 Install Argo Rollouts
 
 ```bash
 ./scripts/40-install-argo-rollouts.sh
 ```
 
-### 5.6 Install DevLake (MySQL + Grafana)
+### 5.5 Install DevLake (MySQL + Grafana)
 
 ```bash
 ./scripts/50-install-devlake.sh
@@ -276,7 +250,7 @@ Exposes:
   with Gitea. Log in as `admin`; the password is generated — fetch it with
   `kubectl -n devlake get secret devlake-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo`.
 
-### 5.7 Set up the DevLake project + webhooks + deployment recording
+### 5.6 Set up the DevLake project + webhooks + deployment recording
 
 These depend on data flowing into a DevLake project, so they come after you've
 seeded Gitea (section 6). In order:
@@ -410,12 +384,7 @@ kubectl argo rollouts get rollout dora-demo -n dora-demo --watch
 The app uses a **canary** strategy (20% → 50% → 100%) with a **manual pause**
 at 50% — that pause is your promote/abort decision point. The Rollout is also
 annotated to **subscribe to the DevLake notification triggers**, so once
-section 5.7 is done, deployments record themselves.
-
-> **Optional — GitOps & kro:** instead of `kubectl apply` you can let Argo CD
-> manage the app (`platform/argocd/dora-demo-app.yaml`, after editing
-> `repoURL`), or package it as a single `DoraDemoApp` resource with kro
-> (`platform/kro/dora-demo-rgd.yaml` + `dora-demo-instance.yaml`).
+section 5.6 is done, deployments record themselves.
 
 ---
 
@@ -561,15 +530,24 @@ finish. Then the dashboard shows:
 ## 12. Teardown
 
 ```bash
-# App + platform (optional; deleting the cluster removes all of it anyway)
+# App first, so its load balancer is released:
 kubectl delete -f app/ --ignore-not-found
+
+# PVCs next, while the cluster's EBS driver can still delete their volumes
+# (deleting the cluster first leaves them behind as "available"):
+kubectl delete pvc --all -n devlake --wait
+kubectl delete pvc --all -n gitea   --wait
 
 # The big one — deletes the EKS cluster (incl. Auto Mode compute) and VPC:
 eksctl delete cluster -f cluster/cluster.yaml --wait
+
+# Safety net: sweep any leaked EBS volumes tagged for this cluster
+# (only unattached ones; lists them and asks before deleting):
+./scripts/99-cleanup-orphaned-volumes.sh
 ```
 
-> Double-check in the AWS console that the CloudFormation stacks, EBS volumes,
-> and any leftover load balancers are gone to avoid surprise charges.
+> Double-check in the AWS console that the CloudFormation stacks and any
+> leftover load balancers are gone to avoid surprise charges.
 
 ---
 

@@ -49,4 +49,4 @@ echo "==> Cluster nodes:"
 kubectl get nodes -o wide
 
 echo ""
-echo "Cluster is ready. Next: ./scripts/10-install-argocd.sh"
+echo "Cluster is ready. Next: ./scripts/20-install-argo-workflows-events.sh"
