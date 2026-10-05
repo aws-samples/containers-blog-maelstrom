@@ -203,6 +203,9 @@ spec:
           value: "$GIT_REPO_URL"
         - name: gitops.targetRevision
           value: "$GIT_TARGET_REVISION"
+        # Model alias agents send to Bifrost / Langfuse records (from config.env).
+        - name: agents.modelAlias
+          value: "$BIFROST_MODEL_ALIAS"
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
@@ -237,6 +240,67 @@ echo ""
 echo "  Waiting for Langfuse..."
 kubectl wait --for=condition=available deployment -l app.kubernetes.io/name=langfuse \
   -n observability --timeout=600s 2>/dev/null || echo "  (langfuse still syncing)"
+
+# ---------------------------------------------------------------
+# Register a Langfuse model price so cost is computed for Bifrost-routed calls.
+# Bifrost reports the model as BIFROST_MODEL_ALIAS (e.g.
+# bedrock/us.anthropic.claude-sonnet-5), which Langfuse has no built-in price
+# for — so cost stays $0 until we define it. We match on the exact alias and
+# use the per-token prices from config.env. Idempotent: a 400 "already exists"
+# is treated as success. Runs in-cluster (no port-forward) via a curl pod.
+# ---------------------------------------------------------------
+echo "  Registering Langfuse model price for '$BIFROST_MODEL_ALIAS'..."
+LF_PK=$(kubectl get secret langfuse-api-keys -n observability -o jsonpath='{.data.LANGFUSE_PUBLIC_KEY}' | base64 -d)
+LF_SK=$(kubectl get secret langfuse-api-keys -n observability -o jsonpath='{.data.LANGFUSE_SECRET_KEY}' | base64 -d)
+kubectl delete pod langfuse-model-price -n observability --ignore-not-found >/dev/null 2>&1
+# The alias + prices are passed as env vars; the regex matchPattern and the
+# JSON payload are built INSIDE the pod shell (one quoting layer) so backslash
+# escaping is unambiguous. ALIAS metachars (., /) are regex-escaped there, and
+# the backslashes are emitted JSON-safe. Idempotent: "already exists" = success.
+cat <<EOP | kubectl apply -f - >/dev/null 2>&1
+apiVersion: v1
+kind: Pod
+metadata:
+  name: langfuse-model-price
+  namespace: observability
+spec:
+  restartPolicy: Never
+  containers:
+    - name: curl
+      image: curlimages/curl:8.5.0
+      env:
+        - { name: LF_PK,    value: "$LF_PK" }
+        - { name: LF_SK,    value: "$LF_SK" }
+        - { name: ALIAS,    value: "$BIFROST_MODEL_ALIAS" }
+        - { name: IN_PRICE, value: "$MODEL_INPUT_PRICE_PER_TOKEN" }
+        - { name: OUT_PRICE, value: "$MODEL_OUTPUT_PRICE_PER_TOKEN" }
+      command:
+        - sh
+        - -c
+        - |
+          # Build the matchPattern by escaping '.' in the alias — the only regex
+          # metacharacter that appears in Bedrock/Bifrost model ids. In the JSON
+          # string the backslash must be doubled, so each '.' becomes '\\.'
+          # (JSON "\\." decodes to the regex "\."). BusyBox-sed safe.
+          PATTERN=\$(printf '%s' "\$ALIAS" | sed 's/\./\\\\\\\\./g')
+          PAYLOAD="{\"modelName\":\"\$ALIAS\",\"matchPattern\":\"(?i)^\${PATTERN}\$\",\"unit\":\"TOKENS\",\"inputPrice\":\$IN_PRICE,\"outputPrice\":\$OUT_PRICE}"
+          echo "PAYLOAD=\$PAYLOAD"
+          CODE=\$(curl -s -o /tmp/out -w "%{http_code}" -u "\$LF_PK:\$LF_SK" \
+            -X POST "http://langfuse-web:3000/api/public/models" \
+            -H "Content-Type: application/json" -d "\$PAYLOAD")
+          BODY=\$(cat /tmp/out)
+          if echo "\$CODE" | grep -q "^2"; then echo "created"; \
+          elif echo "\$BODY" | grep -qi "already exists"; then echo "exists"; \
+          else echo "failed code=\$CODE body=\$BODY"; fi
+EOP
+kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/langfuse-model-price -n observability --timeout=90s >/dev/null 2>&1 || true
+MP_RESULT=$(kubectl logs langfuse-model-price -n observability 2>/dev/null | tail -1)
+case "$MP_RESULT" in
+  created) echo "  ✓ Model price registered (input=$MODEL_INPUT_PRICE_PER_TOKEN output=$MODEL_OUTPUT_PRICE_PER_TOKEN per token)" ;;
+  exists)  echo "  ✓ Model price already configured — skipped" ;;
+  *)       echo "  ⚠ Model price registration result: ${MP_RESULT:-unknown} (cost may show \$0 until configured; add via Langfuse → Settings → Models)" ;;
+esac
+kubectl delete pod langfuse-model-price -n observability --ignore-not-found >/dev/null 2>&1
 
 echo "  Waiting for agent pods..."
 kubectl wait --for=condition=available deployment -l app.kubernetes.io/component=agent \

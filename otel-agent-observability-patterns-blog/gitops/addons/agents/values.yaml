@@ -5,6 +5,11 @@ region: us-west-2
 imageTag: "latest"
 ecrRepo: ""
 
+# Model alias the agents send to Bifrost (and that Langfuse records on the
+# generation spans). Threaded from config.env (BIFROST_MODEL_ALIAS) via the
+# root app so it stays in sync with the Langfuse model-price entry.
+modelAlias: "bedrock/us.anthropic.claude-sonnet-5"
+
 # Each agent demonstrates a different observability pattern:
 #   research-agent → Pattern 1 (Decentralized): direct to Langfuse
 #   data-agent     → Pattern 2 (Centralized): via OTEL Collector to Langfuse
