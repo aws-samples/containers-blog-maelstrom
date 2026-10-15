@@ -5,6 +5,9 @@
 # Runs the full PR flow the LTFC metric needs, end to end:
 #   branch -> commit -> open PR -> merge -> ship the PR's MERGE commit -> promote
 #
+# Shipping goes through ship.sh, so the deploy is a git commit on main that
+# Argo CD syncs (its commit-sha annotation is the PR's merge commit).
+#
 # Why the merge commit: DevLake links a deployment to a pull request by matching
 # the deployment's commitSha to the PR's merge_commit_sha. Shipping the branch
 # tip instead would never link, and LTFC would stay empty. See the blog's
@@ -31,7 +34,7 @@ ROLLOUT="${ROLLOUT:-dora-demo}"
 CLONE_DIR="${CLONE_DIR:-/tmp/dora-demo}"
 GITEA_BASE="${GITEA_BASE:-http://localhost:3000}"
 GITEA_USER="${GITEA_USER:-gitea_admin}"
-GITEA_PASS="${GITEA_PASS:-gitea_admin_pass}"
+GITEA_PASS="${GITEA_PASS:-$(kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d)}"
 GITEA_REPO="${GITEA_REPO:-dora-demo}"
 BRANCH="${BRANCH:-lead-time-$(date +%Y%m%d%H%M%S)}"
 
@@ -44,8 +47,12 @@ done
 GT="http://${GITEA_USER}:${GITEA_PASS}@${GITEA_BASE#http://}/api/v1/repos/${GITEA_USER}/${GITEA_REPO}"
 
 echo "==> Creating branch '${BRANCH}' and pushing a change..."
+# Branch from the latest main (it carries the deploy commits ship.sh pushes).
+git -C "${CLONE_DIR}" checkout -q main
+git -C "${CLONE_DIR}" pull -q --ff-only origin main
 git -C "${CLONE_DIR}" checkout -b "${BRANCH}"
-echo "// change $(date -u +%FT%TZ)" >> "${CLONE_DIR}/services.yaml"
+# A YAML comment, so the manifest Argo CD syncs from this repo stays valid.
+echo "# change $(date -u +%FT%TZ)" >> "${CLONE_DIR}/services.yaml"
 git -C "${CLONE_DIR}" commit -am "adjust demo service (${BRANCH})"
 git -C "${CLONE_DIR}" push -u origin "${BRANCH}"
 

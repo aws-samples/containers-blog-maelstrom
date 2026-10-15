@@ -6,7 +6,7 @@
 #
 # The numbered setup scripts (52/55/70) manage their OWN short-lived tunnels via
 # scripts/lib/pf.sh, so you only need this for the interactive UIs you open in a
-# browser (Gitea, DevLake config-ui, Grafana). Starting the lake tunnel here too
+# browser (Argo CD, Gitea, DevLake config-ui, Grafana). Starting the lake tunnel here too
 # is handy — the setup scripts will simply reuse it instead of opening their own.
 #
 # Usage:
@@ -21,8 +21,9 @@ PID_FILE="${ROOT_DIR}/.port-forward.pids"
 
 # label | namespace | service | local:remote | browser URL
 TUNNELS=(
-  "Gitea|gitea|gitea-http|3000:3000|http://localhost:3000  (gitea_admin / gitea_admin_pass)"
-  "DevLake config-ui + Grafana|devlake|devlake-ui|4000:4000|http://localhost:4000  (Grafana at /grafana; user admin, pw in secret devlake-grafana)"
+  "Argo CD|argocd|argocd-server|8443:443|https://localhost:8443  (admin; self-signed cert)"
+  "Gitea|gitea|gitea-http|3000:3000|http://localhost:3000  (gitea_admin)"
+  "DevLake config-ui + Grafana|devlake|devlake-ui|4000:4000|http://localhost:4000  (Grafana at /grafana; user admin)"
   "DevLake lake API|devlake|devlake-lake|8080:8080|http://localhost:8080  (used by setup scripts)"
 )
 
@@ -43,6 +44,7 @@ start() {
   done
   echo ""
   echo "All tunnels started. Stop them with: ./scripts/port-forward.sh stop"
+  echo "Passwords for each UI:                 ./scripts/get-credentials.sh"
 }
 
 status() {

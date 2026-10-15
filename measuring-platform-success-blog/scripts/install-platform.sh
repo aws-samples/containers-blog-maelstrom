@@ -4,10 +4,11 @@
 #
 # Runs the numbered install scripts in order and prints a stage banner + timing
 # for each one, so the blog walkthrough can present the whole thing as a single
-# step. Total wall-clock ~25 minutes (dominated by cluster creation).
+# step. Total wall-clock ~27 minutes (dominated by cluster creation).
 #
 # Stages, in order:
 #   00-create-cluster.sh                 # EKS cluster + gp3 default StorageClass  (~15-20 min)
+#   10-install-argocd.sh                 # Argo CD (GitOps for the demo app)        (~2 min)
 #   20-install-argo-workflows-events.sh  # Argo Workflows + Argo Events             (~2 min)
 #   30-install-gitea.sh                  # Self-hosted Gitea (Git server)           (~1 min)
 #   40-install-argo-rollouts.sh          # Argo Rollouts controller                 (~1 min)
@@ -17,6 +18,7 @@
 #   ./scripts/52-setup-devlake-project.sh
 #   ./scripts/55-configure-gitea-webhooks.sh
 #   ./scripts/60-configure-rollout-notifications.sh
+#   ./scripts/65-deploy-demo-app.sh
 #
 set -euo pipefail
 
@@ -24,6 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 STAGES=(
   "00-create-cluster.sh|EKS cluster (EKS Auto Mode)|~15-20 min"
+  "10-install-argocd.sh|Argo CD|~2 min"
   "20-install-argo-workflows-events.sh|Argo Workflows + Argo Events|~2 min"
   "30-install-gitea.sh|Gitea (self-hosted Git)|~1 min"
   "40-install-argo-rollouts.sh|Argo Rollouts controller|~1 min"
@@ -73,6 +76,14 @@ Next steps:
        export DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
        ./scripts/60-configure-rollout-notifications.sh
 
-  4. Ship a version with ./scripts/ship.sh <tag> to start recording
+  4. Deploy the demo app with Argo CD (syncs it from the Gitea repo):
+
+       ./scripts/65-deploy-demo-app.sh
+
+  5. Ship a version with ./scripts/ship.sh <tag> to start recording
      DORA metrics.
+
+Every login/password (Argo CD, Gitea, Grafana, ...) in one place:
+
+       ./scripts/get-credentials.sh
 EOF

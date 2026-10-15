@@ -24,7 +24,8 @@ a `SUCCESS` deployment to DevLake; when it goes **Degraded/aborted** it posts a
 `FAILURE`. You never call the webhook by hand — see README section 9.
 
 The `dora.dev/commit-sha` annotation carries the shipped commit so DevLake can
-compute Lead Time; `scripts/ship.sh` stamps the real value on each deploy.
+compute Lead Time; `scripts/ship.sh` commits the real value (with the new
+image) on each deploy, and Argo CD syncs it.
 
 ## Common commands
 

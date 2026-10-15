@@ -39,7 +39,8 @@ spec:
       labels:
         app: dora-demo
       annotations:
-        # ship.sh overwrites both of these on every deploy. They live in the POD
+        # ship.sh rewrites both of these (and the image) in git on every
+        # deploy; Argo CD syncs the change. They live in the POD
         # TEMPLATE (not the Rollout metadata) so each ship changes the
         # pod-template hash — a real rollout fires and records exactly one
         # deployment, even when reshipping the same image tag. commit-sha feeds

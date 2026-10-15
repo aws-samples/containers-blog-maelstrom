@@ -1,0 +1,34 @@
+# Argo CD Application that deploys the demo app (app/ manifests) from the
+# dora-demo repo in Gitea. Applied by scripts/65-deploy-demo-app.sh, which also
+# registers the repo credentials Argo CD uses to clone it.
+#
+# Git is the only way the app changes: scripts/ship.sh deploys by committing
+# the new image tag (plus dora.dev/commit-sha + dora.dev/deploy-id) to the
+# repo's rollout.yaml, and this Application syncs it. selfHeal reverts any
+# out-of-band `kubectl` edits back to what's in git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dora-demo
+  namespace: argocd
+  finalizers:
+    # Deleting the Application also deletes the app's resources.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/gitea_admin/dora-demo.git
+    targetRevision: main
+    path: .
+    directory:
+      # The repo also holds README-app.md; only sync the manifests.
+      include: "*.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dora-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

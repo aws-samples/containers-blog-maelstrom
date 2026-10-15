@@ -27,9 +27,11 @@ persistence:
 
 gitea:
   admin:
-    # Change these before any non-throwaway use. The demo README assumes them.
-    username: gitea_admin
-    password: gitea_admin_pass
+    # Admin credentials come from a Secret (keys: username, password) that
+    # scripts/30-install-gitea.sh creates with a randomly generated password.
+    # Retrieve it with:
+    #   kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d
+    existingSecret: gitea-admin-secret
     email: admin@example.com
   config:
     database:

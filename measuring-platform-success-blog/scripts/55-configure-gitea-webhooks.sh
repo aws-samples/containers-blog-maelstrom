@@ -25,7 +25,7 @@
 #
 # Config via env vars (all optional; sane fallbacks applied):
 #   GITEA_ADMIN_USER         Gitea user that owns the repo       (default: gitea_admin)
-#   GITEA_ADMIN_PASS         Gitea password/token                (default: gitea_admin_pass)
+#   GITEA_ADMIN_PASS         Gitea password/token                (default: read from gitea-admin-secret)
 #   GITEA_REPO               repo to add the webhook to          (default: dora-demo)
 #
 set -euo pipefail
@@ -37,7 +37,7 @@ WEBHOOK_DIR="${ROOT_DIR}/platform/webhooks"
 source "${ROOT_DIR}/scripts/lib/pf.sh"
 
 GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-gitea_admin}"
-GITEA_ADMIN_PASS="${GITEA_ADMIN_PASS:-gitea_admin_pass}"
+GITEA_ADMIN_PASS="${GITEA_ADMIN_PASS:-$(kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d)}"
 GITEA_REPO="${GITEA_REPO:-dora-demo}"
 
 # Base URL of the Gitea HTTP endpoint (the API lives under /api/v1). Defaults to

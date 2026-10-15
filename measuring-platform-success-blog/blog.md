@@ -140,6 +140,10 @@ The measurement system integrates with existing platform tools:
 - **Argo Workflows** orchestrates measurement data collection and deployment
   event processing. Dedicated workflows track deployments, issues, and pull
   requests.
+- **Argo CD** delivers every deployment through GitOps: a release is a commit
+  to the application's Git repository, and Argo CD syncs it onto the cluster.
+  Because each deployment traces back to a commit, lead time for changes is
+  measured from the same history developers already work in.
 - **Argo Rollouts** validates that deployments are successful using analysis
   runs and metric-driven decisions, reporting success or failure status.
 - **Apache DevLake** serves as the core measurement engine, ingesting,
@@ -211,10 +215,17 @@ and deploy the demo application. From this point on the platform records every
 deployment automatically.
 
 **1a. Create the cluster and install everything on the platform.** The
-`scripts/install-platform.sh` wrapper runs five scripts (cluster,
+`scripts/install-platform.sh` wrapper runs six scripts (cluster, Argo CD,
 Argo Workflows + Argo Events, Gitea, Argo Rollouts, DevLake +
 MySQL + Grafana) in order, prints a banner and duration per stage, and echoes
-the next-steps prompt at the end. The whole thing takes about 25 minutes.
+the next-steps prompt at the end. The whole thing takes about 27 minutes.
+
+> This walkthrough installs Argo CD self-hosted rather than using the EKS
+> Capability for Argo CD. The capability runs outside the cluster and reaches
+> private Git servers through AWS CodeConnections (GitHub Enterprise Server or
+> GitLab self-managed), so it can't reach the in-cluster Gitea used here. With
+> GitHub or GitLab as your source of truth, the capability is the lower-ops
+> choice.
 
 ```bash
 ./scripts/install-platform.sh
@@ -234,37 +245,37 @@ If you'd rather run the stages by hand, each script is self-contained and can
 be re-run safely. See `scripts/` for the individual pieces.
 
 Before the interactive steps, open the browser-facing tunnels once with the
-helper script — it starts port-forwards for Gitea, the DevLake config UI, and
-Grafana in the background and prints the URL for each. (The setup scripts in
+helper script — it starts port-forwards for Argo CD, Gitea, the DevLake config
+UI, and Grafana in the background and prints the URL for each. A second helper
+prints every login and generated password, so you never have to decode a
+Kubernetes Secret by hand. (The setup scripts in
 1c–1e manage their own short-lived tunnels, so this is only for the UIs you
 open in a browser.)
 
 ```bash
 ./scripts/port-forward.sh          # start; ./scripts/port-forward.sh stop when done
+./scripts/get-credentials.sh       # every UI login/password
 ```
 
 ```text
 Starting port-forwards...
-  Gitea                          -> http://localhost:3000  (gitea_admin / gitea_admin_pass)
-  DevLake config-ui + Grafana    -> http://localhost:4000  (Grafana at /grafana)
+  Argo CD                        -> https://localhost:8443  (admin; self-signed cert)
+  Gitea                          -> http://localhost:3000  (gitea_admin)
+  DevLake config-ui + Grafana    -> http://localhost:4000  (Grafana at /grafana; user admin)
   DevLake lake API               -> http://localhost:8080  (used by setup scripts)
 ```
 
 > The DevLake config UI at `:4000` also serves Grafana under `/grafana`, so the
 > DORA dashboards live at **http://localhost:4000/grafana/**. Don't port-forward
 > Grafana on its own — it's pinned to serve at `/grafana` and redirects to
-> `localhost:3000`, which collides with the Gitea tunnel. Log in as `admin`; the
-> password is generated at install time — retrieve it with:
->
-> ```bash
-> kubectl -n devlake get secret devlake-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
-> ```
+> `localhost:3000`, which collides with the Gitea tunnel. Log in as `admin`
+> with the password `./scripts/get-credentials.sh` prints.
 
 **1b. Seed Gitea with the demo repo.** DevLake computes *Lead Time for
 Changes* by joining deployment records to Git commits, so it needs a Git
 history to work from. Open the Gitea UI at http://localhost:3000 (sign in as
-`gitea_admin` / `gitea_admin_pass`, set in `platform/gitea/values.yaml` —
-change them for anything real) and create an empty repository called
+`gitea_admin` with the password `./scripts/get-credentials.sh` prints) and
+create an empty repository called
 `dora-demo` under the `gitea_admin` user.
 
 ![Creating the dora-demo repository in Gitea](images/gitea-new-repo.png)
@@ -279,7 +290,8 @@ mkdir -p /tmp/dora-demo && cp -r app/* /tmp/dora-demo/
 cd /tmp/dora-demo
 git init -b main
 git add . && git commit -m "initial demo app"
-git remote add origin http://gitea_admin:gitea_admin_pass@localhost:3000/gitea_admin/dora-demo.git
+GITEA_PASS=$(kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d)
+git remote add origin "http://gitea_admin:${GITEA_PASS}@localhost:3000/gitea_admin/dora-demo.git"
 git push -u origin main
 cd -   # back to measuring-platform-success-blog
 ```
@@ -335,22 +347,29 @@ From this point on, whenever a Rollout reaches **Healthy** the controller
 posts a `SUCCESS` deployment; whenever a Rollout goes **Degraded** or is
 aborted, it posts a `FAILURE`. You never call the webhook by hand.
 
-**1f. Deploy the demo app.**
+**1f. Deploy the demo app with Argo CD.** Rather than applying the manifests
+with `kubectl`, register the `dora-demo` Gitea repository with Argo CD and
+create an Argo CD Application that syncs it onto the cluster. Script 65 mints
+a read-only Gitea token for Argo CD, applies the Application
+(`platform/argocd/dora-demo-app.yaml`), and waits for it to report healthy:
 
 ```bash
-kubectl apply -f app/namespace.yaml
-kubectl apply -f app/services.yaml
-kubectl apply -f app/rollout.yaml
+./scripts/65-deploy-demo-app.sh
 ```
 
-Expected output:
+Expected tail of the output:
 
 ```text
-namespace/dora-demo created
-service/dora-demo created
-service/dora-demo-canary created
-rollout.argoproj.io/dora-demo created
+==> Applying the dora-demo Argo CD Application...
+application.argoproj.io/dora-demo created
+==> Waiting for Argo CD to sync the app (up to 300s)...
+
+Demo app deployed by Argo CD (Synced/Healthy).
 ```
+
+From now on, any manifest change merged to the repository's `main` branch is
+synced by Argo CD — including deploys: `ship.sh` commits the new image tag
+and commit SHA to the repository, and Argo CD rolls it out.
 
 You now have a cluster where every deploy and every Gitea issue/PR is
 captured by DevLake. Throughout the exercises below, refresh the metrics on
@@ -379,9 +398,10 @@ through the canary until it reaches `Healthy`. When the Rollout goes healthy,
 Argo Rollouts posts a `SUCCESS` deployment to DevLake automatically, and the
 next metrics computation counts it in Deployment Frequency.
 
-Kick off a new version. The `ship.sh` script sets the Rollout's image and
-stamps the current commit SHA so the record carries enough context for both
-Deployment Frequency and Lead Time. Any image tag works
+Kick off a new version. The `ship.sh` script commits the new image tag and
+the current commit SHA to the Rollout manifest in Gitea, then has Argo CD sync
+it, so the record carries enough context for both Deployment Frequency and
+Lead Time. Any image tag works
 (`blue`, `green`, `red`, `orange`, `purple`, `yellow`).
 
 ```bash
@@ -562,7 +582,8 @@ measures for Time to Restore. Use the issue number that
 `ship-with-incident.sh` printed (substitute it for `<N>`):
 
 ```bash
-GT="http://gitea_admin:gitea_admin_pass@localhost:3000/api/v1/repos/gitea_admin/dora-demo"
+GITEA_PASS=$(kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d)
+GT="http://gitea_admin:${GITEA_PASS}@localhost:3000/api/v1/repos/gitea_admin/dora-demo"
 curl -sS -X PATCH "$GT/issues/<N>" -H 'Content-Type: application/json' -d '{"state":"closed"}'
 ```
 
@@ -588,14 +609,14 @@ can plot.
 
 When you're done, tear the environment down so it stops accruing charges.
 Because the demo app provisions an Elastic Load Balancer via its Kubernetes
-Service, delete the app manifests *before* the cluster so the load balancer
-is released cleanly.
+Service, delete the app *before* the cluster so the load balancer is released
+cleanly. Argo CD owns the app, so delete its Application (whose finalizer
+removes the app's resources) — deleting the manifests directly would just be
+re-synced.
 
 ```bash
 # 1. Remove the demo app so its load balancer is deleted first.
-kubectl delete -f app/rollout.yaml   --ignore-not-found
-kubectl delete -f app/services.yaml  --ignore-not-found
-kubectl delete -f app/namespace.yaml --ignore-not-found
+kubectl -n argocd delete application dora-demo --ignore-not-found --wait
 
 # 2. (Optional) Uninstall the Helm releases. Deleting the cluster in step 4
 #    removes these anyway, but running these first speeds cluster deletion.
