@@ -1,7 +1,7 @@
-# OTEL Agent Observability Patterns on Amazon EKS
+# Observability patterns for AI agents on Amazon EKS
 
 Companion code for the AWS Containers blog post:
-**"Decentralized vs. Centralized: Observability Patterns for AI Agents on Amazon EKS with Bifrost and Langfuse"**
+**"Observability patterns for AI agents on Amazon EKS"**
 
 ## Quick Start
 
@@ -24,9 +24,14 @@ vi config.env
 
 ## Prerequisites
 
-- AWS account with Bedrock model access (Claude Sonnet 5 in `us-west-2`)
-- Terraform >= 1.5, kubectl, helm 3.x, AWS CLI v2
-- Docker or Finch for image builds
+- AWS account with Amazon Bedrock model access (Claude Sonnet 5 and Claude Haiku 4.5 in `us-west-2`). FM availability varies by Region.
+- AWS CLI v2 (or AWS CloudShell)
+- kubectl
+- Terraform >= 1.5
+- helm
+- Git
+- Container runtime (Docker, Podman, or Finch) for image builds
+
 
 ## Structure
 
