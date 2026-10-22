@@ -41,14 +41,21 @@ spec:
               name: devlake-webhook-secret
           - configMapRef:
               name: devlake-webhook-id
+        # Parameters are passed as env vars, never interpolated into the script
+        # source: the body is attacker-controllable webhook JSON, and templating
+        # it into shell would allow command injection.
+        env:
+          - name: BODY
+            value: "{{inputs.parameters.body}}"
+          - name: DEVLAKE_URL
+            value: "{{inputs.parameters.url}}"
         source: |
           apk add --no-cache jq curl
-          webhook_url="{{inputs.parameters.url}}"/api/rest/plugins/webhook/connections/$DEVLAKE_HOOK_ID/issues
-          echo '{{inputs.parameters.body}}'
+          webhook_url="${DEVLAKE_URL}/api/rest/plugins/webhook/connections/${DEVLAKE_HOOK_ID}/issues"
           # Gitea issue payload: { action, issue: { id, number, title, body,
           # state ("open"|"closed"), html_url, user, created_at, updated_at,
           # closed_at }, repository: { name } }
-          PAYLOAD=$(echo '{{inputs.parameters.body}}' | jq '
+          PAYLOAD=$(printf '%s' "$BODY" | jq '
           {
             issueKey: (.repository.name + "-" + (.issue.number | tostring)),
             title: .issue.title,
@@ -69,7 +76,7 @@ spec:
           }')
           echo "====Transformed Payload===="
           echo "$PAYLOAD" | jq '.'
-          curl -X POST -H "Authorization: Bearer $DEVLAKE_TOKEN" -H "Content-Type: application/json" -d "$PAYLOAD" $webhook_url
+          curl -X POST -H "Authorization: Bearer $DEVLAKE_TOKEN" -H "Content-Type: application/json" -d "$PAYLOAD" "$webhook_url"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
@@ -100,15 +107,22 @@ spec:
               name: devlake-webhook-secret
           - configMapRef:
               name: devlake-webhook-id
+        # Parameters are passed as env vars, never interpolated into the script
+        # source: the body is attacker-controllable webhook JSON, and templating
+        # it into shell would allow command injection.
+        env:
+          - name: BODY
+            value: "{{inputs.parameters.body}}"
+          - name: DEVLAKE_URL
+            value: "{{inputs.parameters.url}}"
         source: |
           apk add --no-cache jq curl
-          webhook_url="{{inputs.parameters.url}}"/api/rest/plugins/webhook/connections/$DEVLAKE_HOOK_ID/pull_requests
-          echo '{{inputs.parameters.body}}'
+          webhook_url="${DEVLAKE_URL}/api/rest/plugins/webhook/connections/${DEVLAKE_HOOK_ID}/pull_requests"
           # Gitea pull_request payload: { action, number, pull_request: { id,
           # number, title, body, state ("open"|"closed"), merged (bool),
           # merged_at, merge_commit_sha, html_url, user, created_at, updated_at,
           # closed_at, base: {ref}, head: {ref} }, repository: { name, id } }
-          PAYLOAD=$(echo '{{inputs.parameters.body}}' | jq '
+          PAYLOAD=$(printf '%s' "$BODY" | jq '
           {
             id: (.repository.name + "-" + (.pull_request.number | tostring)),
             pullRequestKey: (.pull_request.number | tostring),
@@ -140,4 +154,4 @@ spec:
           }')
           echo "====Transformed Payload===="
           echo "$PAYLOAD" | jq '.'
-          curl -X POST -H "Authorization: Bearer $DEVLAKE_TOKEN" -H "Content-Type: application/json" -d "$PAYLOAD" $webhook_url
+          curl -X POST -H "Authorization: Bearer $DEVLAKE_TOKEN" -H "Content-Type: application/json" -d "$PAYLOAD" "$webhook_url"

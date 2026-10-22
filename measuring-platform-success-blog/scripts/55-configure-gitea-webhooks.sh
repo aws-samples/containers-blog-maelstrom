@@ -25,7 +25,7 @@
 #
 # Config via env vars (all optional; sane fallbacks applied):
 #   GITEA_ADMIN_USER         Gitea user that owns the repo       (default: gitea_admin)
-#   GITEA_ADMIN_PASS         Gitea password/token                (default: gitea_admin_pass)
+#   GITEA_ADMIN_PASS         Gitea password/token                (default: read from gitea-admin-secret)
 #   GITEA_REPO               repo to add the webhook to          (default: dora-demo)
 #
 set -euo pipefail
@@ -37,7 +37,7 @@ WEBHOOK_DIR="${ROOT_DIR}/platform/webhooks"
 source "${ROOT_DIR}/scripts/lib/pf.sh"
 
 GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-gitea_admin}"
-GITEA_ADMIN_PASS="${GITEA_ADMIN_PASS:-gitea_admin_pass}"
+GITEA_ADMIN_PASS="${GITEA_ADMIN_PASS:-$(kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d)}"
 GITEA_REPO="${GITEA_REPO:-dora-demo}"
 
 # Base URL of the Gitea HTTP endpoint (the API lives under /api/v1). Defaults to
@@ -100,7 +100,13 @@ HOOK_PAYLOAD=$(cat <<JSON
 JSON
 )
 
-if curl -sS -f -X POST "${GITEA_API}/repos/${GITEA_ADMIN_USER}/${GITEA_REPO}/hooks" \
+# Re-runs must not register a second hook (every event would be recorded twice).
+existing_hooks="$(curl -sS -f "${GITEA_API}/repos/${GITEA_ADMIN_USER}/${GITEA_REPO}/hooks" \
+  -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" 2>/dev/null || true)"
+if echo "${existing_hooks}" | jq -e --arg url "${EVENTSOURCE_URL}" \
+     'any(.[]?; .config.url == $url)' >/dev/null 2>&1; then
+  echo "    Webhook already registered."
+elif curl -sS -f -X POST "${GITEA_API}/repos/${GITEA_ADMIN_USER}/${GITEA_REPO}/hooks" \
      -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
      -H 'Content-Type: application/json' \
      -d "${HOOK_PAYLOAD}" >/dev/null; then

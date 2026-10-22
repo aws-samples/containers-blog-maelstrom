@@ -11,6 +11,7 @@ real application that deploys via **Argo Rollouts**.
 By the end you will have:
 
 - An **EKS cluster** created with `eksctl` (EKS Auto Mode).
+- **Argo CD** deploying the demo app from Gitea (GitOps).
 - **Argo Workflows** and **Argo Events** installed.
 - **Gitea** as a self-hosted Git server (the source of commit/PR data).
 - **Apache DevLake** with **Grafana** and **MySQL** enabled (the DORA engine).
@@ -45,25 +46,30 @@ By the end you will have:
 ## 1. Architecture
 
 ```
-                          ┌──────────────────────────────────────────────┐
-                          │                  EKS cluster                   │
-                          │                                                │
-   git push / PR   ┌──────┴──────┐    collect        ┌───────────────┐     │
-   ───────────────▶│    Gitea    │◀──────────────────│    DevLake     │     │
-                   │ (git server)│                    │  lake + MySQL  │     │
-                   └──────┬──────┘                    │  + config-ui   │     │
-                          │                           └───────┬────────┘     │
-                          │ kubectl / ship.sh                 │ render        │
-                          ▼                                   ▼               │
-                   ┌─────────────┐  auto notification  ┌───────────────┐     │
-                   │Argo Rollouts│──── webhook ───────▶│    Grafana     │     │
-                   │  demo app   │ (Healthy=SUCCESS,    │  DORA dashboard│     │
-                   │             │  Degraded=FAILURE)   │                │     │
-                   └─────────────┘         │           └───────────────┘     │
-                          │                └──▶ DevLake webhook (deployments) │
-                          ▲                                                   │
-              Argo Workflows ── Argo Events (Gitea issue/PR events -> DevLake) │
-                          └──────────────────────────────────────────────────┘
+                    ┌──────────────────────────────────────────────────────┐
+                    │                      EKS cluster                     │
+                    │                                                      │
+ git push / PR /    │  ┌──────────────┐  issue/PR    ┌────────────────┐    │
+ issues ────────────┼─▶│    Gitea     │──webhooks───▶│  Argo Events   │    │
+                    │  │ (git server) │              └───────┬────────┘    │
+ ship.sh ───────────┼─▶│  dora-demo   │                      ▼             │
+ (commits deploy)   │  └──────┬───────┘              ┌────────────────┐    │
+                    │         │ sync (GitOps)        │ Argo Workflows │    │
+                    │         ▼                      └───────┬────────┘    │
+                    │  ┌──────────────┐                      │ PRs +       │
+                    │  │   Argo CD    │                      │ incidents   │
+                    │  └──────┬───────┘                      ▼             │
+                    │         │ apply manifests      ┌────────────────┐    │
+                    │         ▼                      │    DevLake     │    │
+ promote / abort ───┼─▶┌──────────────┐  deployment  │  lake + MySQL  │    │
+                    │  │Argo Rollouts │──webhook────▶│  + config-ui   │    │
+                    │  │  (demo app)  │  SUCCESS /   └───────┬────────┘    │
+                    │  └──────────────┘  FAILURE             ▼             │
+                    │                                ┌────────────────┐    │
+                    │                                │    Grafana     │    │
+                    │                                │ DORA dashboard │    │
+                    │                                └────────────────┘    │
+                    └──────────────────────────────────────────────────────┘
 ```
 
 **How the data flows into each DORA metric:**
@@ -111,22 +117,28 @@ aws sts get-caller-identity
 ├── cluster/
 │   └── cluster.yaml               # eksctl ClusterConfig (EKS Auto Mode)
 ├── scripts/
-│   ├── install-platform.sh        # ONE-SHOT wrapper: runs 00-50 in order with timing
+│   ├── install-platform.sh        # ONE-SHOT wrapper: runs 00-65 in order with timing
+│   ├── generate-demo-data.sh      # optional 2nd shot: deploys + PR + incident -> metrics
 │   ├── 00-create-cluster.sh       # eksctl create cluster
+│   ├── 10-install-argocd.sh       # Argo CD (self-hosted)
 │   ├── 20-install-argo-workflows-events.sh
 │   ├── 30-install-gitea.sh
+│   ├── 35-seed-gitea.sh           # create the dora-demo repo + local clone, push app/
 │   ├── 40-install-argo-rollouts.sh
 │   ├── 50-install-devlake.sh      # DevLake + MySQL + Grafana
 │   ├── 52-setup-devlake-project.sh  # project + webhook connection + blueprint
 │   ├── 55-configure-gitea-webhooks.sh  # Gitea issue/PR webhooks -> DevLake
 │   ├── 60-configure-rollout-notifications.sh  # auto-record deploys to DevLake
+│   ├── 65-deploy-demo-app.sh      # register the Gitea repo + Argo CD Application
 │   ├── 70-calculate-metrics.sh    # trigger the blueprint -> compute DORA metrics
 │   ├── port-forward.sh            # start/stop all browser-facing tunnels at once
+│   ├── get-credentials.sh         # print every UI login/password in one place
 │   ├── lib/pf.sh                  # sourced helper: scripts auto-manage their own tunnel
-│   ├── ship.sh                    # THE deploy command (stamps sha + sets image)
+│   ├── ship.sh                    # THE deploy command (commits image + sha; Argo CD syncs)
 │   ├── 99-cleanup-orphaned-volumes.sh # post-teardown sweep of leaked EBS volumes
 │   └── record-deployment.sh       # manual fallback: post a deploy event by hand
 ├── platform/
+│   ├── argocd/dora-demo-app.yaml  # Argo CD Application that deploys app/ from Gitea
 │   ├── argo-events/eventbus.yaml  # JetStream EventBus (Sensors need it)
 │   ├── argo-rollouts/notifications-configmap.yaml # triggers + webhook payloads
 │   ├── argo-rollouts/notifications-secret.yaml    # DevLake webhook URL
@@ -160,48 +172,32 @@ aws sts get-caller-identity
 git clone https://github.com/aws-samples/containers-blog-maelstrom.git
 cd containers-blog-maelstrom/measuring-platform-success-blog
 
-# 1. Stand up everything (single wrapper — runs 00→50 with per-stage banners & timing).
+# 1. Stand up everything in one shot (~30 min): cluster, Argo CD, Argo
+#    Workflows/Events, Gitea (seeded with the demo repo), Argo Rollouts, DevLake
+#    (wired to Gitea + Rollouts), and the demo app deployed by Argo CD. It ends
+#    with the browser tunnels open and every login printed.
 ./scripts/install-platform.sh
 
-# 2. Deploy the demo app
-kubectl apply -f app/namespace.yaml
-kubectl apply -f app/services.yaml
-kubectl apply -f app/rollout.yaml
-
-# 3. (Optional) open the browser UIs (Gitea, DevLake config-ui, Grafana):
-./scripts/port-forward.sh          # stop later with: ./scripts/port-forward.sh stop
-
-#    Seed Gitea with the demo repo (section 6), then set up DevLake.
-#    Scripts 52/55/70 auto-open a temporary tunnel if one isn't already up,
-#    so no manual `kubectl port-forward` is required.
-#    Project + webhook connection + blueprint (creates the shared creds):
-./scripts/52-setup-devlake-project.sh
-
-#    Gitea issue/PR webhooks -> DevLake (uses the creds from 52):
-./scripts/55-configure-gitea-webhooks.sh
-
-#    Automatic deployment recording (connection id printed by script 52):
-export DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
-./scripts/60-configure-rollout-notifications.sh
-
-# 4. Ship changes — deployments record themselves:
-./scripts/ship.sh green      # ...then promote or abort; DevLake logs it automatically
-
-# 5. Compute the DORA metrics so Grafana shows them:
-./scripts/70-calculate-metrics.sh
+# 2. (Optional) populate the DORA dashboards: a deploy, a PR -> deploy, and a
+#    deploy + incident, then compute the metrics (~5-10 min).
+./scripts/generate-demo-data.sh
 ```
 
-Then jump to the [DORA walkthrough](#10-the-dora-walkthrough--drive-every-metric).
+Then open Grafana at http://localhost:4000/grafana/ (logins:
+`./scripts/get-credentials.sh`), or drive each metric yourself in the
+[DORA walkthrough](#10-the-dora-walkthrough--drive-every-metric). Sections 5–8
+explain what the installer does, step by step.
 
 ---
 
 ## 5. Step-by-step install
 
-**TL;DR:** `./scripts/install-platform.sh` runs 5.1 → 5.5 in order with a
+**TL;DR:** `./scripts/install-platform.sh` runs everything in sections 5–8 in order with a
 per-stage banner and timing. Read on if you'd rather drive each step yourself.
 
-Run the scripts in order. Each one prints the port-forward command and
-credentials for the component it installs.
+Run the scripts in order. Each one prints the port-forward command for the
+component it installs; `./scripts/get-credentials.sh` prints every login and
+generated password at any point.
 
 ### 5.1 Create the cluster
 
@@ -215,28 +211,45 @@ and networking, and the EKS Pod Identity Agent is preinstalled for granting
 workloads scoped IAM. The script also creates a gp3 default StorageClass (Auto
 Mode ships none) so MySQL/Grafana PVCs can bind. Takes ~15–20 minutes.
 
-### 5.2 Install Argo Workflows + Argo Events
+### 5.2 Install Argo CD
+
+```bash
+./scripts/10-install-argocd.sh
+```
+
+Installs Argo CD into the `argocd` namespace. Log in at `https://localhost:8443`
+(via `./scripts/port-forward.sh`) as `admin`; the generated password is in
+`argocd-initial-admin-secret` and printed by `./scripts/get-credentials.sh`.
+
+> **Why not the EKS Argo CD capability?** The managed capability runs outside
+> the cluster and reaches private Git servers only through CodeConnections
+> (GitHub Enterprise Server / GitLab self-managed). It can't reach this
+> walkthrough's in-cluster Gitea, and it requires AWS IAM Identity Center. If
+> your source of truth is GitHub/GitLab, the capability is the lower-ops choice.
+
+### 5.3 Install Argo Workflows + Argo Events
 
 ```bash
 ./scripts/20-install-argo-workflows-events.sh
 ```
 
-### 5.3 Install Gitea
+### 5.4 Install Gitea
 
 ```bash
 ./scripts/30-install-gitea.sh
 ```
 
-Default creds: `gitea_admin` / `gitea_admin_pass` (set in
-`platform/gitea/values.yaml` — change them for anything real).
+Login: `gitea_admin`. The script generates a random password into the
+`gitea-admin-secret` Secret (set `GITEA_ADMIN_PASS` before running to choose
+your own); `./scripts/get-credentials.sh` prints it.
 
-### 5.4 Install Argo Rollouts
+### 5.5 Install Argo Rollouts
 
 ```bash
 ./scripts/40-install-argo-rollouts.sh
 ```
 
-### 5.5 Install DevLake (MySQL + Grafana)
+### 5.6 Install DevLake (MySQL + Grafana)
 
 ```bash
 ./scripts/50-install-devlake.sh
@@ -247,10 +260,10 @@ Exposes:
   proxies **Grafana** under `/grafana`, so the DORA dashboards are at
   `http://localhost:4000/grafana/`. Don't port-forward Grafana directly — it's
   pinned to serve at `/grafana` and redirects to `localhost:3000`, colliding
-  with Gitea. Log in as `admin`; the password is generated — fetch it with
-  `kubectl -n devlake get secret devlake-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo`.
+  with Gitea. Log in as `admin`; the password is generated —
+  `./scripts/get-credentials.sh` prints it.
 
-### 5.6 Set up the DevLake project + webhooks + deployment recording
+### 5.7 Set up the DevLake project + webhooks + deployment recording
 
 These depend on data flowing into a DevLake project, so they come after you've
 seeded Gitea (section 6). In order:
@@ -258,6 +271,7 @@ seeded Gitea (section 6). In order:
 1. **Project + webhook connection + blueprint** — section 7.1 / `52-setup-devlake-project.sh`
 2. **Gitea issue + PR webhooks** — section 7.2 / `55-configure-gitea-webhooks.sh`
 3. **Automatic deployment recording** — section 7.3 / `60-configure-rollout-notifications.sh`
+4. **Deploy the demo app via Argo CD** — section 8 / `65-deploy-demo-app.sh`
 
 Then compute the metrics with `70-calculate-metrics.sh` (section 11).
 
@@ -266,13 +280,14 @@ Then compute the metrics with `70-calculate-metrics.sh` (section 11).
 ## 6. Seed Gitea with the demo repo
 
 DevLake needs commits to compute Lead Time. Create a repo in Gitea and push the
-`app/` manifests to it.
+`app/` manifests to it. `./scripts/35-seed-gitea.sh` (run by
+`install-platform.sh`) does all of this for you; the manual steps are:
 
 ```bash
 # Port-forward Gitea in one terminal:
 kubectl -n gitea port-forward svc/gitea-http 3000:3000
 
-# In the Gitea UI (http://localhost:3000, gitea_admin / gitea_admin_pass):
+# In the Gitea UI (http://localhost:3000, gitea_admin / password from gitea-admin-secret):
 #   - Create a new repository named "dora-demo" under gitea_admin.
 
 # Then push this blog folder's app/ manifests to it (using a scratch clone so
@@ -281,7 +296,8 @@ mkdir -p /tmp/dora-demo && cp -r app/* /tmp/dora-demo/
 cd /tmp/dora-demo
 git init -b main
 git add . && git commit -m "initial demo app"
-git remote add origin http://gitea_admin:gitea_admin_pass@localhost:3000/gitea_admin/dora-demo.git
+GITEA_PASS=$(kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d)
+git remote add origin "http://gitea_admin:${GITEA_PASS}@localhost:3000/gitea_admin/dora-demo.git"
 git push -u origin main
 cd -   # back to measuring-platform-success-blog
 ```
@@ -369,11 +385,22 @@ for how it works.
 
 ## 8. Deploy the demo app (Argo Rollout)
 
+Argo CD deploys the app from the `dora-demo` repo you seeded in Gitea — no
+`kubectl apply`:
+
 ```bash
-kubectl apply -f app/namespace.yaml
-kubectl apply -f app/services.yaml
-kubectl apply -f app/rollout.yaml
+./scripts/65-deploy-demo-app.sh
 ```
+
+The script mints a read-only Gitea token, registers the repo with Argo CD as a
+repository Secret, applies `platform/argocd/dora-demo-app.yaml`, and waits for
+the Application to report `Synced/Healthy`. From then on, any manifest change
+pushed to the repo's `main` branch is synced automatically.
+
+Deploys go through git too: `ship.sh` commits the new image tag and the
+shipped commit SHA to `rollout.yaml` in your local clone (`/tmp/dora-demo`, set
+`CLONE_DIR` to override), pushes it to Gitea, and has Argo CD sync it right away.
+Argo CD's self-heal reverts any manual `kubectl` edits to the app.
 
 Watch it:
 
@@ -384,7 +411,7 @@ kubectl argo rollouts get rollout dora-demo -n dora-demo --watch
 The app uses a **canary** strategy (20% → 50% → 100%) with a **manual pause**
 at 50% — that pause is your promote/abort decision point. The Rollout is also
 annotated to **subscribe to the DevLake notification triggers**, so once
-section 5.6 is done, deployments record themselves.
+section 5.7 is done, deployments record themselves.
 
 ---
 
@@ -407,7 +434,7 @@ The wiring lives in:
   DevLake JSON payload templates.
 - `platform/argo-rollouts/notifications-secret.yaml` — the DevLake webhook URL.
 - `app/rollout.yaml` — the `notifications.argoproj.io/subscribe.*` annotations
-  and a `dora.dev/commit-sha` annotation that `ship.sh` stamps so DevLake can
+  and a `dora.dev/commit-sha` annotation that `ship.sh` commits so DevLake can
   compute Lead Time.
 
 Confirm notifications are firing:
@@ -432,10 +459,10 @@ or abort. The controller records the deployment for you.
 
 ```bash
 # 1. Commit a change in the Gitea repo (this timestamps "when work was ready"),
-#    e.g. edit a file in ./dora-demo, commit, and push to Gitea.
+#    e.g. edit a file in /tmp/dora-demo, commit, and push to Gitea.
 
-# 2. Ship it. ship.sh stamps the current commit sha onto the rollout and sets
-#    the new image, starting the canary:
+# 2. Ship it. ship.sh commits the new image + that commit's sha to rollout.yaml,
+#    pushes, and Argo CD syncs it, starting the canary:
 ./scripts/ship.sh green
 
 # 3. The rollout pauses at 50%. Inspect in T1, then promote:
@@ -476,7 +503,7 @@ kubectl argo rollouts promote dora-demo -n dora-demo
 
 | Action                         | Command                                                | Recorded automatically as → metric              |
 |--------------------------------|--------------------------------------------------------|--------------------------------------------------|
-| Ship a new version             | `./scripts/ship.sh <tag>`                              | (starts a rollout; stamps commit sha)            |
+| Ship a new version             | `./scripts/ship.sh <tag>`                              | (commits the deploy; Argo CD starts the rollout) |
 | Promote a good rollout         | `kubectl argo rollouts promote dora-demo -n dora-demo` | `SUCCESS` → Deployment Frequency, Lead Time      |
 | Abort a bad rollout            | `kubectl argo rollouts abort dora-demo -n dora-demo`   | `FAILURE` → Change Failure Rate                  |
 | Promote after a failure        | `kubectl argo rollouts promote dora-demo -n dora-demo` | `SUCCESS` → Time to Restore Service              |
@@ -496,7 +523,7 @@ Grafana is served by the config UI under `/grafana`, so it rides the same
 with the generated password:
 
 ```bash
-kubectl -n devlake get secret devlake-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
+./scripts/get-credentials.sh
 ```
 
 Open the **DORA** dashboard (provisioned by the DevLake chart). DevLake only
@@ -530,8 +557,10 @@ finish. Then the dashboard shows:
 ## 12. Teardown
 
 ```bash
-# App first, so its load balancer is released:
-kubectl delete -f app/ --ignore-not-found
+# App first, so its load balancer is released. Delete the Argo CD Application
+# (its finalizer removes the app's resources) — a plain `kubectl delete -f app/`
+# would just be re-synced by Argo CD:
+kubectl -n argocd delete application dora-demo --ignore-not-found --wait
 
 # PVCs next, while the cluster's EBS driver can still delete their volumes
 # (deleting the cluster first leaves them behind as "available"):

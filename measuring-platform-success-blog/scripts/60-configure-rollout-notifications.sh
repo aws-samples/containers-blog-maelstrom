@@ -11,8 +11,10 @@
 # triggers, so once this runs, every promote/abort records a deployment on its
 # own.
 #
-# Set DEVLAKE_WEBHOOK_URL to the *in-cluster* DevLake webhook deployments URL
-# before running. The /api/rest prefix is served by the config-ui proxy (:4000):
+# DEVLAKE_WEBHOOK_URL is the *in-cluster* DevLake webhook deployments URL. If
+# unset, it's built from the connection id script 52 stored in the
+# devlake-webhook-id ConfigMap. The /api/rest prefix is served by the config-ui
+# proxy (:4000), e.g.:
 #   export DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
 #
 set -euo pipefail
@@ -36,6 +38,15 @@ if [[ -z "${DEVLAKE_WEBHOOK_TOKEN}" ]]; then
   echo "    WARNING: no DevLake webhook token found (devlake-webhook-secret in" >&2
   echo "    the ${WORKFLOW_NS} namespace). Run scripts/52-setup-devlake-project.sh" >&2
   echo "    first, or export DEVLAKE_WEBHOOK_TOKEN. Deploy POSTs will 401 without it." >&2
+fi
+
+if [[ -z "${DEVLAKE_WEBHOOK_URL:-}" ]]; then
+  hook_id="$(kubectl -n "${WORKFLOW_NS}" get configmap devlake-webhook-id \
+    -o jsonpath='{.data.DEVLAKE_HOOK_ID}' 2>/dev/null || true)"
+  if [[ -n "${hook_id}" ]]; then
+    DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/${hook_id}/deployments"
+    echo "==> Using DevLake webhook connection ${hook_id} (from devlake-webhook-id)."
+  fi
 fi
 
 if [[ -n "${DEVLAKE_WEBHOOK_URL:-}" ]]; then

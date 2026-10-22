@@ -2,21 +2,27 @@
 #
 # install-platform.sh — One-shot installer for the entire DORA-on-EKS platform.
 #
-# Runs the numbered install scripts in order and prints a stage banner + timing
-# for each one, so the blog walkthrough can present the whole thing as a single
-# step. Total wall-clock ~25 minutes (dominated by cluster creation).
+# Runs every setup script in order — cluster, tools, Gitea seed, DevLake wiring,
+# and the Argo CD deploy of the demo app — printing a stage banner + timing for
+# each. When it finishes, the browser tunnels are open and every login is
+# printed, so you can go straight to looking around (or run
+# ./scripts/generate-demo-data.sh to populate the DORA dashboards).
+# Total wall-clock ~30 minutes (dominated by cluster creation).
+#
+# Every stage is safe to re-run, so after a mid-way failure just run this again.
 #
 # Stages, in order:
-#   00-create-cluster.sh                 # EKS cluster + gp3 default StorageClass  (~15-20 min)
-#   20-install-argo-workflows-events.sh  # Argo Workflows + Argo Events             (~2 min)
-#   30-install-gitea.sh                  # Self-hosted Gitea (Git server)           (~1 min)
-#   40-install-argo-rollouts.sh          # Argo Rollouts controller                 (~1 min)
-#   50-install-devlake.sh                # Apache DevLake + MySQL + Grafana         (~3-4 min)
-#
-# After this finishes, seed Gitea (blog Section "Seed Gitea"), then run:
-#   ./scripts/52-setup-devlake-project.sh
-#   ./scripts/55-configure-gitea-webhooks.sh
-#   ./scripts/60-configure-rollout-notifications.sh
+#   00-create-cluster.sh                     # EKS cluster + gp3 default StorageClass  (~15-20 min)
+#   10-install-argocd.sh                     # Argo CD (GitOps for the demo app)        (~2 min)
+#   20-install-argo-workflows-events.sh      # Argo Workflows + Argo Events             (~2 min)
+#   30-install-gitea.sh                      # Self-hosted Gitea (Git server)           (~1 min)
+#   35-seed-gitea.sh                         # dora-demo repo + local clone             (<1 min)
+#   40-install-argo-rollouts.sh              # Argo Rollouts controller                 (~1 min)
+#   50-install-devlake.sh                    # Apache DevLake + MySQL + Grafana         (~3-4 min)
+#   52-setup-devlake-project.sh              # DevLake project + webhook connection     (~1 min)
+#   55-configure-gitea-webhooks.sh           # Gitea issue/PR webhooks -> DevLake       (~1 min)
+#   60-configure-rollout-notifications.sh    # auto-record deployments to DevLake       (<1 min)
+#   65-deploy-demo-app.sh                    # Argo CD Application for the demo app     (~1 min)
 #
 set -euo pipefail
 
@@ -24,10 +30,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 STAGES=(
   "00-create-cluster.sh|EKS cluster (EKS Auto Mode)|~15-20 min"
+  "10-install-argocd.sh|Argo CD|~2 min"
   "20-install-argo-workflows-events.sh|Argo Workflows + Argo Events|~2 min"
   "30-install-gitea.sh|Gitea (self-hosted Git)|~1 min"
+  "35-seed-gitea.sh|Seed Gitea with the demo repo|<1 min"
   "40-install-argo-rollouts.sh|Argo Rollouts controller|~1 min"
   "50-install-devlake.sh|Apache DevLake + MySQL + Grafana|~3-4 min"
+  "52-setup-devlake-project.sh|DevLake project + webhook connection|~1 min"
+  "55-configure-gitea-webhooks.sh|Gitea issue/PR webhooks -> DevLake|~1 min"
+  "60-configure-rollout-notifications.sh|Automatic deployment recording|<1 min"
+  "65-deploy-demo-app.sh|Deploy the demo app with Argo CD|~1 min"
 )
 
 banner() {
@@ -53,26 +65,22 @@ printf '\n============================================================\n'
 printf '  Platform install complete in %dm %ds\n' "$((total / 60))" "$((total % 60))"
 printf '============================================================\n\n'
 
+# Open the browser tunnels (they keep running after this script exits) and print
+# every login so the UIs are ready to explore.
+"${SCRIPT_DIR}/port-forward.sh" start
+echo ""
+"${SCRIPT_DIR}/get-credentials.sh"
+
 cat <<'EOF'
+
 Next steps:
 
-  1. (Optional) open the browser UIs (Gitea / DevLake config-ui / Grafana):
+  Populate the DORA dashboards (deploys, a PR, an incident, metrics):
 
-       ./scripts/port-forward.sh          # ...port-forward.sh stop when done
+       ./scripts/generate-demo-data.sh
 
-  2. Seed Gitea with the demo repo (blog Section "Seed Gitea with the
-     demo repo") so DevLake has commits to compute Lead Time from.
+  Or drive each metric by hand: ./scripts/ship.sh <tag>, ship-pr.sh,
+  ship-with-incident.sh, then ./scripts/70-calculate-metrics.sh.
 
-  3. Wire DevLake up to the platform. Scripts 52/55 auto-open a temporary
-     port-forward if one isn't already running, so no manual port-forwards
-     are required:
-
-       ./scripts/52-setup-devlake-project.sh
-       ./scripts/55-configure-gitea-webhooks.sh
-
-       export DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
-       ./scripts/60-configure-rollout-notifications.sh
-
-  4. Ship a version with ./scripts/ship.sh <tag> to start recording
-     DORA metrics.
+  Stop the tunnels when done: ./scripts/port-forward.sh stop
 EOF

@@ -21,6 +21,7 @@ roles.
 ```bash
 # 1. Create the EKS cluster (EKS Auto Mode, ~15-20 min) and install the platform.
 ./scripts/00-create-cluster.sh
+./scripts/10-install-argocd.sh                 # Argo CD (deploys the demo app)
 ./scripts/20-install-argo-workflows-events.sh  # Argo Workflows + Argo Events
 ./scripts/30-install-gitea.sh                  # self-hosted Git server
 ./scripts/40-install-argo-rollouts.sh
@@ -31,12 +32,13 @@ roles.
 
 ```bash
 kubectl -n gitea port-forward svc/gitea-http 3000:3000 &
-# In the UI (http://localhost:3000, gitea_admin / gitea_admin_pass) create a
+# In the UI (http://localhost:3000, gitea_admin / password from gitea-admin-secret) create a
 # repo named "dora-demo" under gitea_admin, then push this repo's app/ folder:
 git init dora-demo && cd dora-demo
 cp -r ../app/* .
 git add . && git commit -m "initial demo app"
-git remote add origin http://gitea_admin:gitea_admin_pass@localhost:3000/gitea_admin/dora-demo.git
+GITEA_PASS=$(kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d)
+git remote add origin "http://gitea_admin:${GITEA_PASS}@localhost:3000/gitea_admin/dora-demo.git"
 git branch -M main && git push -u origin main
 cd ..
 ```
@@ -57,12 +59,10 @@ export DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api
 ./scripts/60-configure-rollout-notifications.sh
 ```
 
-**Deploy the demo app:**
+**Deploy the demo app** with Argo CD (syncs it from the seeded Gitea repo):
 
 ```bash
-kubectl apply -f app/namespace.yaml
-kubectl apply -f app/services.yaml
-kubectl apply -f app/rollout.yaml
+./scripts/65-deploy-demo-app.sh
 ```
 
 You now have a cluster where every deploy and every Gitea issue/PR is captured
@@ -78,12 +78,11 @@ kubectl -n devlake port-forward svc/devlake-lake 8080:8080 &   # if not already
 ```bash
 kubectl -n devlake port-forward svc/devlake-ui 4000:4000 &
 # http://localhost:4000/grafana/ -> the DORA dashboard
-# Login: user 'admin'; password is generated — fetch it with:
-#   kubectl -n devlake get secret devlake-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
+# Login: user 'admin'; password is printed by ./scripts/get-credentials.sh
 ```
 
-> **How a deploy is recorded:** `ship.sh` sets the Rollout's image and stamps the
-> commit SHA. When the rollout reaches **Healthy**, the Argo Rollouts controller
+> **How a deploy is recorded:** `ship.sh` commits the Rollout's new image and the
+> commit SHA to the Gitea repo, and Argo CD syncs it. When the rollout reaches **Healthy**, the Argo Rollouts controller
 > auto-posts a `SUCCESS` deployment to DevLake; if you **abort**, it posts a
 > `FAILURE`. No manual curl anywhere.
 
@@ -161,7 +160,8 @@ git push -u origin lead-time-demo
 cd ..
 
 # Open a PR and merge it (fires the webhook that records the PR).
-GT="http://gitea_admin:gitea_admin_pass@localhost:3000/api/v1/repos/gitea_admin/dora-demo"
+GITEA_PASS=$(kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d)
+GT="http://gitea_admin:${GITEA_PASS}@localhost:3000/api/v1/repos/gitea_admin/dora-demo"
 PR=$(curl -sS -X POST "$GT/pulls" -H 'Content-Type: application/json' \
   -d '{"head":"lead-time-demo","base":"main","title":"Adjust demo service"}' | jq -r '.number')
 curl -sS -X POST "$GT/pulls/$PR/merge" -H 'Content-Type: application/json' -d '{"Do":"merge"}'
@@ -206,7 +206,8 @@ kubectl argo rollouts promote dora-demo -n dora-demo --full
 
 # 2. Open a Gitea issue AFTER the deploy — its timestamp links it to that
 #    deployment, marking it a change failure. (Gitea must be reachable.)
-GT="http://gitea_admin:gitea_admin_pass@localhost:3000/api/v1/repos/gitea_admin/dora-demo"
+GITEA_PASS=$(kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d)
+GT="http://gitea_admin:${GITEA_PASS}@localhost:3000/api/v1/repos/gitea_admin/dora-demo"
 ISSUE=$(curl -sS -X POST "$GT/issues" -H 'Content-Type: application/json' \
   -d '{"title":"Checkout returns 500 after deploy","body":"Elevated 5xx in production"}' | jq -r '.number')
 echo "opened incident issue #$ISSUE"   # section 5 closes this

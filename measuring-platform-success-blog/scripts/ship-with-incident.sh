@@ -21,7 +21,9 @@
 #   - Gitea reachable at ${GITEA_BASE} (default http://localhost:3000 — run
 #     ./scripts/port-forward.sh first) and the issue webhook wired up
 #     (scripts/55-configure-gitea-webhooks.sh).
-#   - kubectl-argo-rollouts, curl, jq.
+#   - A clone of the Gitea dora-demo repo at /tmp/dora-demo (or set CLONE_DIR),
+#     which ship.sh commits the deploy to.
+#   - kubectl-argo-rollouts, git, curl, jq.
 #
 # Usage:
 #   ./scripts/ship-with-incident.sh [image-tag]   # default tag: red
@@ -35,12 +37,18 @@ NS="${NS:-dora-demo}"
 ROLLOUT="${ROLLOUT:-dora-demo}"
 GITEA_BASE="${GITEA_BASE:-http://localhost:3000}"
 GITEA_USER="${GITEA_USER:-gitea_admin}"
-GITEA_PASS="${GITEA_PASS:-gitea_admin_pass}"
+GITEA_PASS="${GITEA_PASS:-$(kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d)}"
 GITEA_REPO="${GITEA_REPO:-dora-demo}"
 
-for bin in kubectl curl jq; do
+for bin in kubectl git curl jq; do
   command -v "$bin" >/dev/null || { echo "$bin is required" >&2; exit 1; }
 done
+
+# shellcheck source=lib/pf.sh
+source "${SCRIPT_DIR}/lib/pf.sh"
+if [[ "${GITEA_BASE}" == http://localhost:3000* ]]; then
+  ensure_pf "${GITEA_BASE}/api/healthz" gitea gitea-http 3000:3000
+fi
 
 GT="http://${GITEA_USER}:${GITEA_PASS}@${GITEA_BASE#http://}/api/v1/repos/${GITEA_USER}/${GITEA_REPO}"
 
@@ -69,4 +77,4 @@ echo "DevLake will mark that deployment a change failure (linked by timestamp)."
 echo "Update the metrics:        ./scripts/70-calculate-metrics.sh"
 echo "Restore (Time to Restore): close the issue, then recompute:"
 echo "  curl -sS -X PATCH \"${GITEA_BASE}/api/v1/repos/${GITEA_USER}/${GITEA_REPO}/issues/${issue_num}\" \\"
-echo "    -H 'Content-Type: application/json' -u ${GITEA_USER}:${GITEA_PASS} -d '{\"state\":\"closed\"}'"
+echo "    -H 'Content-Type: application/json' -u \${GITEA_USER}:\${GITEA_PASS} -d '{\"state\":\"closed\"}'"

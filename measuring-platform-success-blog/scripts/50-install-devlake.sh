@@ -15,6 +15,22 @@ helm repo update devlake >/dev/null
 
 echo "==> Installing DevLake (MySQL + Grafana + config-ui)..."
 kubectl create namespace devlake --dry-run=client -o yaml | kubectl apply -f -
+
+# Credentials live in Secrets rather than values.yaml. Generate them on first
+# install only; re-runs keep the existing values (MySQL's data volume and the
+# lake's stored connection credentials depend on them staying stable).
+if ! kubectl -n devlake get secret devlake-mysql-auth >/dev/null 2>&1; then
+  echo "==> Creating devlake-mysql-auth with generated MySQL passwords..."
+  kubectl -n devlake create secret generic devlake-mysql-auth \
+    --from-literal=MYSQL_PASSWORD="$(openssl rand -hex 16)" \
+    --from-literal=MYSQL_ROOT_PASSWORD="$(openssl rand -hex 16)"
+fi
+if ! kubectl -n devlake get secret devlake-encryption-secret >/dev/null 2>&1; then
+  echo "==> Creating devlake-encryption-secret with a generated encryption key..."
+  kubectl -n devlake create secret generic devlake-encryption-secret \
+    --from-literal=ENCRYPTION_SECRET="$(openssl rand -base64 2000 | tr -dc 'A-Z' | head -c 128)"
+fi
+
 helm upgrade --install devlake devlake/devlake \
   -n devlake \
   -f "${ROOT_DIR}/platform/devlake/values.yaml"

@@ -140,6 +140,10 @@ The measurement system integrates with existing platform tools:
 - **Argo Workflows** orchestrates measurement data collection and deployment
   event processing. Dedicated workflows track deployments, issues, and pull
   requests.
+- **Argo CD** delivers every deployment through GitOps: a release is a commit
+  to the application's Git repository, and Argo CD syncs it onto the cluster.
+  Because each deployment traces back to a commit, lead time for changes is
+  measured from the same history developers already work in.
 - **Argo Rollouts** validates that deployments are successful using analysis
   runs and metric-driven decisions, reporting success or failure status.
 - **Apache DevLake** serves as the core measurement engine, ingesting,
@@ -205,16 +209,25 @@ through the platform so DevLake has real data to compute against.
      screenshots), C0.3 (each command now has an intro + expected output). -->
 ### 1. Deploy the cluster and platform
 
-You'll bring up an EKS Auto Mode cluster, install all the platform components,
-seed Gitea with the demo repository, wire DevLake and Argo Rollouts together,
-and deploy the demo application. From this point on the platform records every
-deployment automatically.
+One command brings up the whole environment: an EKS Auto Mode cluster, the
+platform components, a Gitea repository seeded with the demo application,
+DevLake wired to Gitea and Argo Rollouts, and the demo application deployed by
+Argo CD. From the moment it finishes, the platform records every deployment
+automatically.
 
-**1a. Create the cluster and install everything on the platform.** The
-`scripts/install-platform.sh` wrapper runs five scripts (cluster,
-Argo Workflows + Argo Events, Gitea, Argo Rollouts, DevLake +
-MySQL + Grafana) in order, prints a banner and duration per stage, and echoes
-the next-steps prompt at the end. The whole thing takes about 25 minutes.
+**1a. Run the installer.** The `scripts/install-platform.sh` wrapper runs the
+numbered scripts in `scripts/` in order, prints a banner and duration per
+stage, and finishes by opening the browser tunnels and printing every login.
+The whole thing takes about 30 minutes, most of it cluster creation. Every
+stage is safe to re-run, so if one fails midway, fix the cause and run the
+wrapper again.
+
+> This walkthrough installs Argo CD self-hosted rather than using the EKS
+> Capability for Argo CD. The capability runs outside the cluster and reaches
+> private Git servers through AWS CodeConnections (GitHub Enterprise Server or
+> GitLab self-managed), so it can't reach the in-cluster Gitea used here. With
+> GitHub or GitLab as your source of truth, the capability is the lower-ops
+> choice.
 
 ```bash
 ./scripts/install-platform.sh
@@ -223,150 +236,105 @@ the next-steps prompt at the end. The whole thing takes about 25 minutes.
 Expected tail of the output:
 
 ```text
-<< Apache DevLake + MySQL + Grafana complete in 214s
+<< Deploy the demo app with Argo CD complete in 41s
 
 ============================================================
-  Platform install complete in 24m 51s
+  Platform install complete in 29m 37s
 ============================================================
-```
 
-If you'd rather run the stages by hand, each script is self-contained and can
-be re-run safely. See `scripts/` for the individual pieces.
-
-Before the interactive steps, open the browser-facing tunnels once with the
-helper script — it starts port-forwards for Gitea, the DevLake config UI, and
-Grafana in the background and prints the URL for each. (The setup scripts in
-1c–1e manage their own short-lived tunnels, so this is only for the UIs you
-open in a browser.)
-
-```bash
-./scripts/port-forward.sh          # start; ./scripts/port-forward.sh stop when done
-```
-
-```text
 Starting port-forwards...
-  Gitea                          -> http://localhost:3000  (gitea_admin / gitea_admin_pass)
-  DevLake config-ui + Grafana    -> http://localhost:4000  (Grafana at /grafana)
-  DevLake lake API               -> http://localhost:8080  (used by setup scripts)
+  Argo CD                      -> https://localhost:8443  (admin; self-signed cert)
+  Gitea                        -> http://localhost:3000  (gitea_admin)
+  DevLake config-ui + Grafana  -> http://localhost:4000  (Grafana at /grafana; user admin)
+  DevLake lake API             -> http://localhost:8080  (used by setup scripts)
+
+Argo CD          https://localhost:8443   (./scripts/port-forward.sh)
+  username         admin
+  password         <generated>
+...
 ```
+
+The tunnels keep running in the background after the installer exits; stop
+them with `./scripts/port-forward.sh stop`, and reprint the logins at any time
+with `./scripts/get-credentials.sh`.
 
 > The DevLake config UI at `:4000` also serves Grafana under `/grafana`, so the
 > DORA dashboards live at **http://localhost:4000/grafana/**. Don't port-forward
 > Grafana on its own — it's pinned to serve at `/grafana` and redirects to
-> `localhost:3000`, which collides with the Gitea tunnel. Log in as `admin`; the
-> password is generated at install time — retrieve it with:
->
-> ```bash
-> kubectl -n devlake get secret devlake-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
-> ```
+> `localhost:3000`, which collides with the Gitea tunnel.
 
-**1b. Seed Gitea with the demo repo.** DevLake computes *Lead Time for
+The rest of this step is a short tour of what the installer set up, so you
+know where each piece of DORA data comes from.
+
+**1b. The demo repository in Gitea.** DevLake computes *Lead Time for
 Changes* by joining deployment records to Git commits, so it needs a Git
-history to work from. Open the Gitea UI at http://localhost:3000 (sign in as
-`gitea_admin` / `gitea_admin_pass`, set in `platform/gitea/values.yaml` —
-change them for anything real) and create an empty repository called
-`dora-demo` under the `gitea_admin` user.
-
-![Creating the dora-demo repository in Gitea](images/gitea-new-repo.png)
-*Figure 2 — Create an empty `dora-demo` repository in Gitea.*
-
-Now push the `app/` folder from this blog's directory into that repository so
-DevLake has commits to analyze:
-
-```bash
-# From the measuring-platform-success-blog directory:
-mkdir -p /tmp/dora-demo && cp -r app/* /tmp/dora-demo/
-cd /tmp/dora-demo
-git init -b main
-git add . && git commit -m "initial demo app"
-git remote add origin http://gitea_admin:gitea_admin_pass@localhost:3000/gitea_admin/dora-demo.git
-git push -u origin main
-cd -   # back to measuring-platform-success-blog
-```
+history to work from. Script 35 created a `dora-demo` repository under the
+`gitea_admin` user and pushed this blog's `app/` manifests (a namespace, two
+Services, and the Argo Rollout) to it from a local clone at `/tmp/dora-demo`.
+That clone is where the ship scripts in the exercises below commit their
+changes. Open http://localhost:3000 and sign in as `gitea_admin` to browse it.
 
 ![The dora-demo repository seeded with the app manifests](images/gitea-repo-seeded.png)
-*Figure 3 — `dora-demo` after the initial push.*
+*Figure 2 — The `dora-demo` repository the installer seeded.*
 
-**1c. Wire up DevLake.** DevLake groups everything (Gitea data + deployment
-records + metric definitions) under a *project*. Script 52 creates that
-project, provisions an Incoming Webhook connection, attaches it to the
-project's blueprint, and stores the shared credentials in a Kubernetes secret
-so the Gitea webhook workflows can reuse them. The script reaches the DevLake
-lake backend on its own — if no tunnel is up it opens a temporary one for the
-duration of the run — so just run it:
+**1c. The demo app, deployed by Argo CD.** Script 65 registered the
+`dora-demo` repository with Argo CD (using a read-only Gitea token) and
+created an Argo CD Application (`platform/argocd/dora-demo-app.yaml`) that
+syncs the repository onto the cluster. Every change merged to `main` is
+synced automatically — including deploys: `ship.sh` commits the new image tag
+and commit SHA to the repository, and Argo CD rolls it out. Open
+https://localhost:8443 and sign in as `admin` to see the Application.
 
-```bash
-./scripts/52-setup-devlake-project.sh
-```
+![The dora-demo Application synced and healthy in Argo CD](images/argocd-dora-demo-app.png)
+*Figure 3 — The `dora-demo` Application in Argo CD, synced from Gitea.*
 
-Note the **connection id** the script prints (usually `1` on a fresh install);
-you'll need it for the deployment-recording step below.
+**1d. The DevLake project.** DevLake groups everything (Gitea data,
+deployment records, and metric definitions) under a *project*. Script 52
+created the `dora-demo` project with the DORA metrics enabled, provisioned an
+Incoming Webhook connection, attached it to the project's blueprint, and
+stored the connection's credentials in a Kubernetes Secret that the rest of
+the wiring reuses. Find it under **Projects** at http://localhost:4000.
 
 ![The dora-demo project in the DevLake config UI](images/devlake-config-ui-project.png)
 *Figure 4 — The `dora-demo` project in DevLake's config UI, with the webhook
 connection attached to its blueprint.*
 
-**1d. Register Gitea webhooks.** Script 55 applies the Argo Events
-EventSource, Sensor, RBAC, and WorkflowTemplates that transform Gitea
-issue/PR events into DevLake webhook records, then registers a `gitea`-type
-webhook (Issues + Pull Request events) on the `dora-demo` repository. Like
-script 52, it reaches Gitea on its own, opening a temporary tunnel if one
-isn't already up:
+**1e. How events reach DevLake.** Two paths feed that webhook connection:
 
-```bash
-./scripts/55-configure-gitea-webhooks.sh
-```
+- *Issues and pull requests.* Script 55 registered a webhook on the
+  `dora-demo` repository (Issues and Pull Request events) that posts to an
+  Argo Events EventSource. A Sensor routes each event to an Argo Workflows
+  template that transforms the Gitea payload into a DevLake record. You can
+  see the webhook under the repository's **Settings → Webhooks** in Gitea.
+- *Deployments.* Script 60 configured the Argo Rollouts notification engine
+  to call DevLake whenever the Rollout changes state: reaching **Healthy**
+  posts a `SUCCESS` deployment, and going **Degraded** or being aborted posts
+  a `FAILURE`. You never call the webhook by hand.
 
-![The webhook script 55 registered on the dora-demo repo](images/gitea-webhook-configured.png)
-*Figure 5 — The Gitea webhook script 55 registered.*
+![The webhook on the dora-demo repo in Gitea](images/gitea-webhook-configured.png)
+*Figure 5 — The Gitea webhook that sends issue and pull request events to Argo
+Events.*
 
-**1e. Turn on automatic deployment recording.** Point the Argo Rollouts
-controller at the same webhook connection. The poster is the controller
-*inside the cluster*, so the URL uses the in-cluster config-ui DNS name — not
-`localhost`. Substitute the `<connection id>` printed by script 52 (usually
-`1`):
-
-```bash
-export DEVLAKE_WEBHOOK_URL="http://devlake-ui.devlake.svc.cluster.local:4000/api/rest/plugins/webhook/connections/1/deployments"
-./scripts/60-configure-rollout-notifications.sh
-```
-
-From this point on, whenever a Rollout reaches **Healthy** the controller
-posts a `SUCCESS` deployment; whenever a Rollout goes **Degraded** or is
-aborted, it posts a `FAILURE`. You never call the webhook by hand.
-
-**1f. Deploy the demo app.**
-
-```bash
-kubectl apply -f app/namespace.yaml
-kubectl apply -f app/services.yaml
-kubectl apply -f app/rollout.yaml
-```
-
-Expected output:
-
-```text
-namespace/dora-demo created
-service/dora-demo created
-service/dora-demo-canary created
-rollout.argoproj.io/dora-demo created
-```
-
-You now have a cluster where every deploy and every Gitea issue/PR is
-captured by DevLake. Throughout the exercises below, refresh the metrics on
-demand with:
+You now have a cluster where every deploy and every Gitea issue and pull
+request is captured by DevLake. DevLake computes the metrics when its
+blueprint runs; throughout the exercises below, recompute them on demand with:
 
 ```bash
 ./scripts/70-calculate-metrics.sh
 ```
 
-and view them in Grafana via the config UI tunnel from step 1a
-(http://localhost:4000/grafana/, sign in as `admin` with the generated password
-from the `devlake-grafana` secret, then open the DORA dashboard).
+and view them in Grafana at http://localhost:4000/grafana/ (sign in as
+`admin`), then open the DORA dashboard.
 
 ![Grafana DORA dashboard on first open, before any deploys](images/grafana-dora-overview.png)
 *Figure 6 — Grafana DORA dashboard before you generate any data — every panel
 is empty. That's your starting point.*
+
+> **In a hurry?** `./scripts/generate-demo-data.sh` runs the first three
+> exercises below back to back (a deploy, a pull request through to deploy,
+> and a deploy followed by an incident) and computes the metrics, in about
+> 5–10 minutes. Close the incident it opens to see Time to Restore Service.
+> The exercises explain what each step does and why.
 
 <!-- REWRITTEN — addresses C8 (prose explanation instead of "What it measures /
      Generate it" bullets), C9 (each command narrated separately), C11 (added
@@ -379,9 +347,10 @@ through the canary until it reaches `Healthy`. When the Rollout goes healthy,
 Argo Rollouts posts a `SUCCESS` deployment to DevLake automatically, and the
 next metrics computation counts it in Deployment Frequency.
 
-Kick off a new version. The `ship.sh` script sets the Rollout's image and
-stamps the current commit SHA so the record carries enough context for both
-Deployment Frequency and Lead Time. Any image tag works
+Kick off a new version. The `ship.sh` script commits the new image tag and
+the current commit SHA to the Rollout manifest in Gitea, then has Argo CD sync
+it, so the record carries enough context for both Deployment Frequency and
+Lead Time. Any image tag works
 (`blue`, `green`, `red`, `orange`, `purple`, `yellow`).
 
 ```bash
@@ -458,7 +427,7 @@ therefore to **deploy the PR's merge commit**, not the branch tip — otherwise
 the deployment and the PR never link and the panel stays empty.
 
 So the flow is: branch → commit → open a PR → merge it → ship that merge
-commit. Make sure the Gitea tunnel from step 1a is up (`http://localhost:3000`).
+commit.
 
 `scripts/ship-pr.sh` runs the whole flow in one command:
 
@@ -506,8 +475,7 @@ records each issue as an `INCIDENT`). So `CFR = deployments followed by an
 incident ÷ total deployments`, and aborting a rollout on its own doesn't move
 CFR — **opening an issue after the deploy is what does.**
 
-`scripts/ship-with-incident.sh` runs the whole pattern in one command (make
-sure the Gitea tunnel from step 1a is up):
+`scripts/ship-with-incident.sh` runs the whole pattern in one command:
 
 ```bash
 ./scripts/ship-with-incident.sh red      # image tag is optional; defaults to red
@@ -562,7 +530,8 @@ measures for Time to Restore. Use the issue number that
 `ship-with-incident.sh` printed (substitute it for `<N>`):
 
 ```bash
-GT="http://gitea_admin:gitea_admin_pass@localhost:3000/api/v1/repos/gitea_admin/dora-demo"
+GITEA_PASS=$(kubectl -n gitea get secret gitea-admin-secret -o jsonpath='{.data.password}' | base64 -d)
+GT="http://gitea_admin:${GITEA_PASS}@localhost:3000/api/v1/repos/gitea_admin/dora-demo"
 curl -sS -X PATCH "$GT/issues/<N>" -H 'Content-Type: application/json' -d '{"state":"closed"}'
 ```
 
@@ -588,14 +557,14 @@ can plot.
 
 When you're done, tear the environment down so it stops accruing charges.
 Because the demo app provisions an Elastic Load Balancer via its Kubernetes
-Service, delete the app manifests *before* the cluster so the load balancer
-is released cleanly.
+Service, delete the app *before* the cluster so the load balancer is released
+cleanly. Argo CD owns the app, so delete its Application (whose finalizer
+removes the app's resources) — deleting the manifests directly would just be
+re-synced.
 
 ```bash
 # 1. Remove the demo app so its load balancer is deleted first.
-kubectl delete -f app/rollout.yaml   --ignore-not-found
-kubectl delete -f app/services.yaml  --ignore-not-found
-kubectl delete -f app/namespace.yaml --ignore-not-found
+kubectl -n argocd delete application dora-demo --ignore-not-found --wait
 
 # 2. (Optional) Uninstall the Helm releases. Deleting the cluster in step 4
 #    removes these anyway, but running these first speeds cluster deletion.

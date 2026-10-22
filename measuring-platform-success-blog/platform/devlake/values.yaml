@@ -24,9 +24,10 @@ mysql:
   enabled: true          # run the bundled MySQL rather than an external DB
   storage:
     size: 10Gi
-  rootPassword: admin     # demo only — change for anything real
+  # Passwords are NOT set here: they live in the devlake-mysql-auth Secret
+  # (keys MYSQL_PASSWORD, MYSQL_ROOT_PASSWORD), which
+  # scripts/50-install-devlake.sh generates before `helm install`.
   username: merico
-  password: merico
   database: lake
   # MySQL is the critical path for first-boot migrations. Left with no requests
   # it stays pinned to the small, memory+IO-thrashing c6a.large (node PSI full
@@ -76,7 +77,19 @@ grafana:
             maxIdleConns: 100
             maxOpenConns: 100
           secureJsonData:
-            password: merico
+            # Grafana expands env vars in provisioning files; MYSQL_PASSWORD is
+            # injected from the devlake-mysql-auth Secret via envFromSecrets.
+            password: ${MYSQL_PASSWORD}
+  # The DevLake Grafana image's entrypoint, when MYSQL_URL is unset, falls back
+  # to defaults and `export MYSQL_PASSWORD="merico"` — clobbering the Secret's
+  # value before Grafana starts, so the datasource above gets the wrong password
+  # ("Access denied for user 'merico'"). Setting MYSQL_URL skips that fallback
+  # and leaves MYSQL_PASSWORD from the Secret intact. (Merged onto the chart's
+  # default env, so TZ is preserved.)
+  env:
+    MYSQL_URL: devlake-mysql:3306
+    MYSQL_DATABASE: lake
+    MYSQL_USER: merico
   # Grafana was being OOM-killed (exit 137) — with no limit set, that's the NODE
   # running out of memory and the kernel picking Grafana. A request gives it
   # guaranteed headroom (and lets Auto Mode place it on the roomy node), and the
@@ -108,13 +121,13 @@ lake:
   # (Merged onto the chart's default envs.)
   envs:
     FORCE_MIGRATION: "true"
-  # ENCODE_KEY used to encrypt stored connection credentials at rest. The chart
-  # requires a non-empty value or the lake pod won't start and `helm install`
-  # fails. This is a demo placeholder — generate a real 128-char key for
-  # anything beyond this showcase:
-  #   openssl rand -base64 2000 | tr -dc 'A-Z' | head -c 128
+  # ENCRYPTION_SECRET used to encrypt stored connection credentials at rest.
+  # scripts/50-install-devlake.sh generates a 128-char key into the
+  # devlake-encryption-secret Secret on first install. Keep that Secret: losing
+  # or rotating it makes previously stored connection credentials unreadable.
   encryptionSecret:
-    secret: testencryptionkey
+    secretName: devlake-encryption-secret
+    autoCreateSecret: false
   # First boot loads all plugins + runs DB migrations before the lake binds
   # :8080. The chart's default liveness window (initialDelay 30s + 5 failures x
   # 5s ~= 55s) is far too short for that, so the probe kills the pod mid-startup
@@ -147,3 +160,9 @@ config-ui:
 
 service:
   type: ClusterIP
+
+# Use the pre-created devlake-mysql-auth Secret instead of having the chart
+# render one from plaintext values.
+option:
+  connectionSecretName: devlake-mysql-auth
+  autoCreateSecret: false
