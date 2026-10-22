@@ -44,6 +44,12 @@ for bin in kubectl git curl jq; do
   command -v "$bin" >/dev/null || { echo "$bin is required" >&2; exit 1; }
 done
 
+# shellcheck source=lib/pf.sh
+source "${SCRIPT_DIR}/lib/pf.sh"
+if [[ "${GITEA_BASE}" == http://localhost:3000* ]]; then
+  ensure_pf "${GITEA_BASE}/api/healthz" gitea gitea-http 3000:3000
+fi
+
 GT="http://${GITEA_USER}:${GITEA_PASS}@${GITEA_BASE#http://}/api/v1/repos/${GITEA_USER}/${GITEA_REPO}"
 
 echo "==> Shipping tag=${TAG}..."

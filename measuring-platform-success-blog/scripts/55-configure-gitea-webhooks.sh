@@ -100,7 +100,13 @@ HOOK_PAYLOAD=$(cat <<JSON
 JSON
 )
 
-if curl -sS -f -X POST "${GITEA_API}/repos/${GITEA_ADMIN_USER}/${GITEA_REPO}/hooks" \
+# Re-runs must not register a second hook (every event would be recorded twice).
+existing_hooks="$(curl -sS -f "${GITEA_API}/repos/${GITEA_ADMIN_USER}/${GITEA_REPO}/hooks" \
+  -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" 2>/dev/null || true)"
+if echo "${existing_hooks}" | jq -e --arg url "${EVENTSOURCE_URL}" \
+     'any(.[]?; .config.url == $url)' >/dev/null 2>&1; then
+  echo "    Webhook already registered."
+elif curl -sS -f -X POST "${GITEA_API}/repos/${GITEA_ADMIN_USER}/${GITEA_REPO}/hooks" \
      -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
      -H 'Content-Type: application/json' \
      -d "${HOOK_PAYLOAD}" >/dev/null; then

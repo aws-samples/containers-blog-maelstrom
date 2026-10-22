@@ -43,6 +43,12 @@ for bin in git curl jq kubectl; do
 done
 [[ -d "${CLONE_DIR}/.git" ]] || { echo "No git clone at ${CLONE_DIR} (set CLONE_DIR)" >&2; exit 1; }
 
+# shellcheck source=lib/pf.sh
+source "${SCRIPT_DIR}/lib/pf.sh"
+if [[ "${GITEA_BASE}" == http://localhost:3000* ]]; then
+  ensure_pf "${GITEA_BASE}/api/healthz" gitea gitea-http 3000:3000
+fi
+
 # Gitea API base with embedded creds (strip scheme off GITEA_BASE for the userinfo form).
 GT="http://${GITEA_USER}:${GITEA_PASS}@${GITEA_BASE#http://}/api/v1/repos/${GITEA_USER}/${GITEA_REPO}"
 

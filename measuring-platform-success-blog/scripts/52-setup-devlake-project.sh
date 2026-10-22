@@ -87,6 +87,14 @@ while :; do
   sleep 5
 done
 
+# Idempotent re-runs: if the project exists and its webhook credentials were
+# already written, there's nothing to do (creating it again would fail).
+if curl -sS -f "${DEVLAKE_API}/projects/${PROJECT_NAME}" >/dev/null 2>&1 \
+   && kubectl -n "${WORKFLOW_NS}" get configmap devlake-webhook-id >/dev/null 2>&1; then
+  echo "==> Project '${PROJECT_NAME}' and its webhook credentials already exist — skipping."
+  exit 0
+fi
+
 echo "==> Creating project '${PROJECT_NAME}' (dora + issue_trace metrics)..."
 project_req=$(jq -n --arg name "${PROJECT_NAME}" '{
   name: $name,
